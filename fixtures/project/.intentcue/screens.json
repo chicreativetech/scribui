@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "app": {
+    "name": "Grove (sample)",
+    "platform": "web",
+    "baseUrl": "http://127.0.0.1:5178"
+  },
+  "screens": [
+    {
+      "id": "cart",
+      "title": "Cart",
+      "group": "Purchase flow",
+      "url": "/cart",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 2
+      }
+    },
+    {
+      "id": "checkout-default",
+      "title": "Checkout",
+      "group": "Purchase flow",
+      "url": "/checkout",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 2
+      }
+    }
+  ]
+}

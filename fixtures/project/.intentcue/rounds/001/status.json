@@ -1,0 +1,16 @@
+{
+  "round": 1,
+  "status": "open",
+  "createdAt": "2026-09-30T12:00:00.000Z",
+  "updatedAt": "2026-09-30T12:00:00.000Z",
+  "screens": [
+    {
+      "screenId": "cart",
+      "ok": true
+    },
+    {
+      "screenId": "checkout-default",
+      "ok": true
+    }
+  ]
+}

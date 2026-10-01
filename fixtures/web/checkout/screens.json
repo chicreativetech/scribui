@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "app": { "name": "Grove (sample)", "platform": "web", "baseUrl": "http://127.0.0.1:5178" },
+  "screens": [
+    { "id": "shop", "title": "Shop", "group": "Browse", "url": "/", "viewport": { "width": 390, "height": 844, "deviceScaleFactor": 2 } },
+    { "id": "cart", "title": "Cart", "group": "Purchase flow", "url": "/cart", "viewport": { "width": 390, "height": 844, "deviceScaleFactor": 2 } },
+    { "id": "checkout-default", "title": "Checkout", "group": "Purchase flow", "url": "/checkout", "viewport": { "width": 390, "height": 844, "deviceScaleFactor": 2 } },
+    { "id": "checkout-card-error", "title": "Checkout, card declined", "group": "Purchase flow", "url": "/checkout?error=card", "viewport": { "width": 390, "height": 844, "deviceScaleFactor": 2 } },
+    { "id": "done", "title": "Order placed", "group": "Purchase flow", "url": "/done", "viewport": { "width": 390, "height": 844, "deviceScaleFactor": 2 } }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "name": "intentcue-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm --filter @intentcue/canvas build && pnpm --filter intentcue build",
+    "dev:canvas": "pnpm --filter @intentcue/canvas dev",
+    "test": "vitest run",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "schemas": "tsx packages/core/scripts/gen-json-schema.ts",
+    "test:update": "UPDATE_GOLDEN=1 vitest run",
+    "intentcue": "tsx packages/cli/src/cli.ts",
+    "test:e2e": "pnpm build && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "playwright": "^1.63.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

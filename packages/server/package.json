@@ -1,0 +1,24 @@
+{
+  "name": "@intentcue/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.3",
+    "@intentcue/core": "workspace:*",
+    "@resvg/resvg-js": "^2.6.2",
+    "hono": "^4.13.12",
+    "qrcode-terminal": "^0.12.0",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2"
+  }
+}

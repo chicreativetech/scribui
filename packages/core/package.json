@@ -1,0 +1,16 @@
+{
+  "name": "@intentcue/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "perfect-freehand": "^1.2.3",
+    "zod": "^4.6.5"
+  }
+}

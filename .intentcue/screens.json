@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "app": {
+    "name": "intentcue",
+    "platform": "web",
+    "baseUrl": "http://localhost:3000"
+  },
+  "screens": [
+    {
+      "id": "home",
+      "title": "Home",
+      "group": "Main",
+      "url": "/",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 2
+      }
+    },
+    {
+      "id": "settings",
+      "title": "Settings",
+      "group": "Main",
+      "url": "/settings",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 2
+      }
+    }
+  ]
+}

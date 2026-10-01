@@ -1,0 +1,91 @@
+{
+  "$id": "https://intentcue.dev/schemas/UIElement.schema.json",
+  "title": "UIElement",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "idSource": {
+      "type": "string",
+      "enum": [
+        "accessibility",
+        "testId",
+        "dom",
+        "generated"
+      ]
+    },
+    "type": {
+      "type": "string"
+    },
+    "nativeType": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    },
+    "bounds": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "additionalProperties": false
+    },
+    "visible": {
+      "type": "boolean"
+    },
+    "children": {
+      "type": "array",
+      "items": {
+        "$ref": "#"
+      }
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "component": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "idSource",
+    "type",
+    "bounds",
+    "visible",
+    "children"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,25 @@
+* { box-sizing: border-box; margin: 0; }
+body { font: 16px/1.4 -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif; background: #f6f5f2; color: #1b1b1b; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #fff; border-bottom: 1px solid #e6e3dc; }
+header h1 { font-size: 17px; font-weight: 600; }
+header a { color: #1b1b1b; text-decoration: none; font-size: 22px; }
+main { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.card { background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #ebe8e1; }
+.hero { background: #1f3b2d; color: #f1efe6; border-radius: 16px; padding: 22px; }
+.hero h2 { font-size: 26px; line-height: 1.1; margin-bottom: 6px; }
+.hero p { opacity: .8; font-size: 14px; }
+.row { display: flex; gap: 12px; align-items: center; }
+.thumb { width: 64px; height: 64px; border-radius: 10px; background: linear-gradient(135deg,#c9b99a,#8a7a5c); flex: none; }
+.price { margin-left: auto; font-weight: 600; }
+.muted { color: #7a766c; font-size: 13px; }
+button { font: inherit; border: 0; border-radius: 12px; padding: 14px 18px; background: #1f3b2d; color: #fff; font-weight: 600; width: 100%; }
+button.secondary { background: #ebe8e1; color: #1b1b1b; }
+.banner { background: #ffe8a3; border-radius: 12px; padding: 12px 14px; font-size: 14px; display: flex; justify-content: space-between; }
+.error { background: #fde2e1; color: #9b1c1c; border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+label { display: block; font-size: 13px; color: #7a766c; margin-bottom: 4px; }
+input { font: inherit; width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #dcd8cf; background: #fff; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.total { display: flex; justify-content: space-between; font-weight: 600; font-size: 18px; }
+nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-around; background: #fff; border-top: 1px solid #e6e3dc; padding: 10px 0 24px; }
+nav.tabs a { color: #7a766c; text-decoration: none; font-size: 12px; }
+nav.tabs a.active { color: #1f3b2d; font-weight: 600; }

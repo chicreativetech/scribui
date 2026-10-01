@@ -1,0 +1,275 @@
+[
+ {
+  "AXFrame": "{{0, 0}, {393, 852}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 0,
+   "x": 0,
+   "width": 393,
+   "height": 852
+  },
+  "role_description": "application",
+  "AXLabel": "Settings",
+  "content_required": false,
+  "type": "Application",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{0, 59}, {393, 96}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 59,
+   "x": 0,
+   "width": 393,
+   "height": 96
+  },
+  "role_description": "navigationbar",
+  "AXLabel": "Settings",
+  "content_required": false,
+  "type": "NavigationBar",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{16, 100}, {150, 41}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 100,
+   "x": 16,
+   "width": 150,
+   "height": 41
+  },
+  "role_description": "statictext",
+  "AXLabel": "Settings",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{0, 155}, {393, 697}}",
+  "AXUniqueId": "settingsList",
+  "frame": {
+   "y": 155,
+   "x": 0,
+   "width": 393,
+   "height": 697
+  },
+  "role_description": "table",
+  "AXLabel": null,
+  "content_required": false,
+  "type": "Table",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{0, 180}, {393, 44}}",
+  "AXUniqueId": "settingsRow",
+  "frame": {
+   "y": 180,
+   "x": 0,
+   "width": 393,
+   "height": 44
+  },
+  "role_description": "cell",
+  "AXLabel": "Wi-Fi",
+  "content_required": false,
+  "type": "Cell",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{60, 191}, {60, 22}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 191,
+   "x": 60,
+   "width": 60,
+   "height": 22
+  },
+  "role_description": "statictext",
+  "AXLabel": "Wi-Fi",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{326, 186}, {51, 31}}",
+  "AXUniqueId": "wifiSwitch",
+  "frame": {
+   "y": 186,
+   "x": 326,
+   "width": 51,
+   "height": 31
+  },
+  "role_description": "switch",
+  "AXLabel": "Wi-Fi",
+  "content_required": false,
+  "type": "Switch",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": "1",
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{0, 224}, {393, 44}}",
+  "AXUniqueId": "settingsRow",
+  "frame": {
+   "y": 224,
+   "x": 0,
+   "width": 393,
+   "height": 44
+  },
+  "role_description": "cell",
+  "AXLabel": "Bluetooth",
+  "content_required": false,
+  "type": "Cell",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{60, 235}, {90, 22}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 235,
+   "x": 60,
+   "width": 90,
+   "height": 22
+  },
+  "role_description": "statictext",
+  "AXLabel": "Bluetooth",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{0, 268}, {393, 44}}",
+  "AXUniqueId": "settingsRow",
+  "frame": {
+   "y": 268,
+   "x": 0,
+   "width": 393,
+   "height": 44
+  },
+  "role_description": "cell",
+  "AXLabel": "Notifications",
+  "content_required": false,
+  "type": "Cell",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{60, 279}, {120, 22}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 279,
+   "x": 60,
+   "width": 120,
+   "height": 22
+  },
+  "role_description": "statictext",
+  "AXLabel": "Notifications",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{20, 280}, {0, 0}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 280,
+   "x": 20,
+   "width": 0,
+   "height": 0
+  },
+  "role_description": "image",
+  "AXLabel": "hidden icon",
+  "content_required": false,
+  "type": "Image",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{0, 852}, {393, 0}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 852,
+   "x": 0,
+   "width": 393,
+   "height": 0
+  },
+  "role_description": "keyboard",
+  "AXLabel": null,
+  "content_required": false,
+  "type": "Keyboard",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ }
+]

@@ -1,0 +1,99 @@
+{
+  "$id": "https://intentcue.dev/schemas/ScreenManifest.schema.json",
+  "title": "ScreenManifest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 1
+    },
+    "app": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "ios",
+            "android",
+            "web"
+          ]
+        },
+        "bundleId": {
+          "type": "string"
+        },
+        "baseUrl": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "platform"
+      ],
+      "additionalProperties": false
+    },
+    "screens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9._-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "flow": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "viewport": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "deviceScaleFactor": {
+                "type": "number"
+              },
+              "fullPage": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "additionalProperties": false
+          },
+          "setup": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "version",
+    "app",
+    "screens"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "round": 2,
+  "annotations": [
+    {
+      "id": "d1",
+      "screenId": "cart",
+      "kind": "arrow",
+      "geometry": {
+        "type": "arrow",
+        "from": [
+          390,
+          1040
+        ],
+        "to": [
+          390,
+          60
+        ],
+        "toScreenId": "checkout-default"
+      },
+      "text": "Tapping checkout should open the checkout sheet"
+    },
+    {
+      "id": "d2",
+      "screenId": "checkout-default",
+      "kind": "arrow",
+      "geometry": {
+        "type": "arrow",
+        "from": [
+          390,
+          1130
+        ],
+        "to": [
+          390,
+          1520
+        ]
+      },
+      "text": "Pin it to the bottom"
+    },
+    {
+      "id": "d3",
+      "screenId": "cart",
+      "kind": "freehand",
+      "geometry": {
+        "type": "path",
+        "points": [
+          [
+            60,
+            190
+          ],
+          [
+            160,
+            220
+          ],
+          [
+            260,
+            190
+          ],
+          [
+            360,
+            220
+          ],
+          [
+            460,
+            190
+          ],
+          [
+            560,
+            220
+          ],
+          [
+            680,
+            200
+          ]
+        ]
+      },
+      "text": "Too yellow"
+    },
+    {
+      "id": "d4",
+      "screenId": "cart",
+      "kind": "arrow",
+      "geometry": {
+        "type": "arrow",
+        "from": [
+          10,
+          1600
+        ],
+        "to": [
+          300,
+          1600
+        ]
+      },
+      "text": "Something should slide in from here"
+    },
+    {
+      "id": "d5",
+      "screenId": "checkout-default",
+      "kind": "arrow",
+      "geometry": {
+        "type": "arrow",
+        "from": [
+          390,
+          720
+        ],
+        "to": [
+          390,
+          250
+        ]
+      }
+    }
+  ]
+}

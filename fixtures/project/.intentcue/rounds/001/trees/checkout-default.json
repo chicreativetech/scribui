@@ -1,0 +1,447 @@
+{
+  "screenId": "checkout-default",
+  "platform": "web",
+  "device": {
+    "name": "Chromium 390×844",
+    "width": 390,
+    "height": 844,
+    "scale": 2
+  },
+  "screenshot": "screens/checkout-default.png",
+  "root": {
+    "id": "screen.0",
+    "idSource": "generated",
+    "type": "screen",
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "w": 780,
+      "h": 1688
+    },
+    "visible": true,
+    "children": [
+      {
+        "id": "screen.0/container.0",
+        "idSource": "generated",
+        "type": "container",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 780,
+          "h": 1353
+        },
+        "visible": true,
+        "children": [
+          {
+            "id": "screen.0/container.0/container.0",
+            "idSource": "generated",
+            "type": "container",
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 780,
+              "h": 120
+            },
+            "visible": true,
+            "children": [
+              {
+                "id": "backButton",
+                "idSource": "testId",
+                "type": "link",
+                "bounds": {
+                  "x": 40,
+                  "y": 28,
+                  "w": 11,
+                  "h": 62
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "a",
+                "label": "Back"
+              },
+              {
+                "id": "screen.0/container.0/container.0/text.0~checkout",
+                "idSource": "generated",
+                "type": "text",
+                "bounds": {
+                  "x": 317,
+                  "y": 35,
+                  "w": 157,
+                  "h": 48
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "h1",
+                "label": "Checkout"
+              }
+            ],
+            "nativeType": "header"
+          },
+          {
+            "id": "screen.0/container.0/container.1",
+            "idSource": "generated",
+            "type": "container",
+            "bounds": {
+              "x": 0,
+              "y": 120,
+              "w": 780,
+              "h": 1233
+            },
+            "visible": true,
+            "children": [
+              {
+                "id": "shippingForm",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 160,
+                  "w": 700,
+                  "h": 435
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.0/text.0~shipping",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 74,
+                      "y": 194,
+                      "w": 632,
+                      "h": 45
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div",
+                    "label": "Shipping"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.0/text.1~full-name",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 74,
+                      "y": 258,
+                      "w": 632,
+                      "h": 36
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "label",
+                    "label": "Full name"
+                  },
+                  {
+                    "id": "nameInput",
+                    "idSource": "testId",
+                    "type": "input",
+                    "bounds": {
+                      "x": 74,
+                      "y": 303,
+                      "w": 632,
+                      "h": 97
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "input",
+                    "label": "Ada Lovelace"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.0/container.0",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 74,
+                      "y": 420,
+                      "w": 632,
+                      "h": 141
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.0/container.0/container.0",
+                        "idSource": "generated",
+                        "type": "container",
+                        "bounds": {
+                          "x": 74,
+                          "y": 420,
+                          "w": 304,
+                          "h": 141
+                        },
+                        "visible": true,
+                        "children": [
+                          {
+                            "id": "screen.0/container.0/container.1/container.0/container.0/container.0/text.0~postcode",
+                            "idSource": "generated",
+                            "type": "text",
+                            "bounds": {
+                              "x": 74,
+                              "y": 420,
+                              "w": 304,
+                              "h": 36
+                            },
+                            "visible": true,
+                            "children": [],
+                            "nativeType": "label",
+                            "label": "Postcode"
+                          },
+                          {
+                            "id": "postcodeInput",
+                            "idSource": "testId",
+                            "type": "input",
+                            "bounds": {
+                              "x": 74,
+                              "y": 464,
+                              "w": 304,
+                              "h": 97
+                            },
+                            "visible": true,
+                            "children": [],
+                            "nativeType": "input",
+                            "label": "11122"
+                          }
+                        ],
+                        "nativeType": "div"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.0/container.0/container.1",
+                        "idSource": "generated",
+                        "type": "container",
+                        "bounds": {
+                          "x": 402,
+                          "y": 420,
+                          "w": 304,
+                          "h": 141
+                        },
+                        "visible": true,
+                        "children": [
+                          {
+                            "id": "screen.0/container.0/container.1/container.0/container.0/container.1/text.0~city",
+                            "idSource": "generated",
+                            "type": "text",
+                            "bounds": {
+                              "x": 402,
+                              "y": 420,
+                              "w": 304,
+                              "h": 36
+                            },
+                            "visible": true,
+                            "children": [],
+                            "nativeType": "label",
+                            "label": "City"
+                          },
+                          {
+                            "id": "cityInput",
+                            "idSource": "testId",
+                            "type": "input",
+                            "bounds": {
+                              "x": 402,
+                              "y": 464,
+                              "w": 304,
+                              "h": 97
+                            },
+                            "visible": true,
+                            "children": [],
+                            "nativeType": "input",
+                            "label": "Stockholm"
+                          }
+                        ],
+                        "nativeType": "div"
+                      }
+                    ],
+                    "nativeType": "div"
+                  }
+                ],
+                "nativeType": "div"
+              },
+              {
+                "id": "orderSummary",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 627,
+                  "w": 700,
+                  "h": 179
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.1/container.0",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 74,
+                      "y": 661,
+                      "w": 632,
+                      "h": 45
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.1/container.0/text.0~2-items",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 74,
+                          "y": 665,
+                          "w": 85,
+                          "h": 36
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "span",
+                        "label": "2 items"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.1/container.0/text.1~87",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 653,
+                          "y": 661,
+                          "w": 53,
+                          "h": 45
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "span",
+                        "label": "€87"
+                      }
+                    ],
+                    "nativeType": "div"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.1/container.1",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 74,
+                      "y": 721,
+                      "w": 632,
+                      "h": 50
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.1/container.1/text.0~total",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 74,
+                          "y": 721,
+                          "w": 83,
+                          "h": 50
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "span",
+                        "label": "Total"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.1/container.1/text.1~87",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 646,
+                          "y": 721,
+                          "w": 60,
+                          "h": 50
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "span",
+                        "label": "€87"
+                      }
+                    ],
+                    "nativeType": "div"
+                  }
+                ],
+                "nativeType": "div"
+              },
+              {
+                "id": "paymentCard",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 838,
+                  "w": 700,
+                  "h": 209
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.2/text.0~card-number",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 74,
+                      "y": 872,
+                      "w": 632,
+                      "h": 36
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "label",
+                    "label": "Card number"
+                  },
+                  {
+                    "id": "cardInput",
+                    "idSource": "testId",
+                    "type": "input",
+                    "bounds": {
+                      "x": 74,
+                      "y": 916,
+                      "w": 632,
+                      "h": 97
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "input",
+                    "label": "4242 4242 4242 4242"
+                  }
+                ],
+                "nativeType": "div"
+              },
+              {
+                "id": "payButton",
+                "idSource": "testId",
+                "type": "button",
+                "bounds": {
+                  "x": 40,
+                  "y": 1079,
+                  "w": 700,
+                  "h": 101
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "button",
+                "label": "Pay now"
+              },
+              {
+                "id": "applePayButton",
+                "idSource": "testId",
+                "type": "button",
+                "bounds": {
+                  "x": 40,
+                  "y": 1212,
+                  "w": 700,
+                  "h": 101
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "button",
+                "label": "Pay with Apple Pay"
+              }
+            ],
+            "nativeType": "main"
+          }
+        ],
+        "nativeType": "body"
+      }
+    ],
+    "nativeType": "document"
+  },
+  "capturedAt": "2026-09-30T22:30:37.190Z"
+}

@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "round": 2,
+  "app": "Grove (sample)",
+  "instructions": [
+    {
+      "id": "R2-1",
+      "screenId": "checkout-default",
+      "targets": [
+        {
+          "elementId": "cardInput",
+          "type": "input",
+          "bounds": {
+            "x": 74,
+            "y": 916,
+            "w": 632,
+            "h": 97
+          },
+          "label": "4242 4242 4242 4242"
+        }
+      ],
+      "text": "Show the card brand icon inside the field",
+      "annotationIds": [
+        "c2"
+      ],
+      "marker": 1,
+      "action": "change",
+      "instruction": "\"4242 4242 4242 4242\" input (id: cardInput): Show the card brand icon inside the field.",
+      "status": "resolved"
+    }
+  ],
+  "rules": [
+    {
+      "id": "R2-U1",
+      "text": "Primary buttons use the brand green and are 48pt tall",
+      "examples": [
+        {
+          "screenId": "cart",
+          "target": {
+            "elementId": "checkoutButton",
+            "type": "button",
+            "bounds": {
+              "x": 40,
+              "y": 991,
+              "w": 700,
+              "h": 101
+            },
+            "label": "Go to checkout"
+          }
+        },
+        {
+          "screenId": "checkout-default",
+          "target": {
+            "elementId": "payButton",
+            "type": "button",
+            "bounds": {
+              "x": 40,
+              "y": 1079,
+              "w": 700,
+              "h": 101
+            },
+            "label": "Pay now"
+          }
+        }
+      ],
+      "annotationId": "c1"
+    },
+    {
+      "id": "R2-U2",
+      "text": "Inputs always have a visible label above them",
+      "examples": [
+        {
+          "screenId": "checkout-default",
+          "target": {
+            "elementId": "nameInput",
+            "type": "input",
+            "bounds": {
+              "x": 74,
+              "y": 303,
+              "w": 632,
+              "h": 97
+            },
+            "label": "Ada Lovelace"
+          }
+        },
+        {
+          "screenId": "checkout-default",
+          "target": {
+            "elementId": "cardInput",
+            "type": "input",
+            "bounds": {
+              "x": 74,
+              "y": 916,
+              "w": 632,
+              "h": 97
+            },
+            "label": "4242 4242 4242 4242"
+          }
+        }
+      ],
+      "annotationId": "c3"
+    }
+  ],
+  "counts": {
+    "instructions": 1,
+    "unresolved": 0,
+    "needsText": 0,
+    "rules": 2
+  }
+}

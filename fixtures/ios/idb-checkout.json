@@ -1,0 +1,380 @@
+[
+ {
+  "AXFrame": "{{0, 0}, {393, 852}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 0,
+   "x": 0,
+   "width": 393,
+   "height": 852
+  },
+  "role_description": "application",
+  "AXLabel": "Checkout demo",
+  "content_required": false,
+  "type": "Application",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{0, 59}, {393, 44}}",
+  "AXUniqueId": "checkoutNav",
+  "frame": {
+   "y": 59,
+   "x": 0,
+   "width": 393,
+   "height": 44
+  },
+  "role_description": "navigationbar",
+  "AXLabel": "Checkout",
+  "content_required": false,
+  "type": "NavigationBar",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{8, 64}, {44, 34}}",
+  "AXUniqueId": "backButton",
+  "frame": {
+   "y": 64,
+   "x": 8,
+   "width": 44,
+   "height": 34
+  },
+  "role_description": "button",
+  "AXLabel": "Back",
+  "content_required": false,
+  "type": "Button",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXButton",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{150, 70}, {93, 22}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 70,
+   "x": 150,
+   "width": 93,
+   "height": 22
+  },
+  "role_description": "statictext",
+  "AXLabel": "Checkout",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{16, 120}, {361, 88}}",
+  "AXUniqueId": "promoBanner",
+  "frame": {
+   "y": 120,
+   "x": 16,
+   "width": 361,
+   "height": 88
+  },
+  "role_description": "other",
+  "AXLabel": null,
+  "content_required": false,
+  "type": "Other",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{32, 150}, {180, 20}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 150,
+   "x": 32,
+   "width": 180,
+   "height": 20
+  },
+  "role_description": "statictext",
+  "AXLabel": "Apply promo code",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{16, 224}, {361, 180}}",
+  "AXUniqueId": "shippingForm",
+  "frame": {
+   "y": 224,
+   "x": 16,
+   "width": 361,
+   "height": 180
+  },
+  "role_description": "other",
+  "AXLabel": null,
+  "content_required": false,
+  "type": "Other",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{32, 236}, {100, 20}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 236,
+   "x": 32,
+   "width": 100,
+   "height": 20
+  },
+  "role_description": "statictext",
+  "AXLabel": "Shipping",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{32, 264}, {329, 44}}",
+  "AXUniqueId": "nameField",
+  "frame": {
+   "y": 264,
+   "x": 32,
+   "width": 329,
+   "height": 44
+  },
+  "role_description": "textfield",
+  "AXLabel": "Full name",
+  "content_required": false,
+  "type": "TextField",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": "Ada Lovelace",
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{32, 316}, {160, 44}}",
+  "AXUniqueId": "postcodeField",
+  "frame": {
+   "y": 316,
+   "x": 32,
+   "width": 160,
+   "height": 44
+  },
+  "role_description": "textfield",
+  "AXLabel": "Postcode",
+  "content_required": false,
+  "type": "TextField",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{201, 316}, {160, 44}}",
+  "AXUniqueId": "cityField",
+  "frame": {
+   "y": 316,
+   "x": 201,
+   "width": 160,
+   "height": 44
+  },
+  "role_description": "textfield",
+  "AXLabel": "City",
+  "content_required": false,
+  "type": "TextField",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{16, 420}, {361, 120}}",
+  "AXUniqueId": "orderSummary",
+  "frame": {
+   "y": 420,
+   "x": 16,
+   "width": 361,
+   "height": 120
+  },
+  "role_description": "other",
+  "AXLabel": null,
+  "content_required": false,
+  "type": "Other",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{32, 436}, {100, 20}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 436,
+   "x": 32,
+   "width": 100,
+   "height": 20
+  },
+  "role_description": "statictext",
+  "AXLabel": "Subtotal",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{300, 436}, {61, 20}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 436,
+   "x": 300,
+   "width": 61,
+   "height": 20
+  },
+  "role_description": "statictext",
+  "AXLabel": "\u20ac87",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{32, 500}, {100, 24}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 500,
+   "x": 32,
+   "width": 100,
+   "height": 24
+  },
+  "role_description": "statictext",
+  "AXLabel": "Total",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{300, 500}, {61, 24}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 500,
+   "x": 300,
+   "width": 61,
+   "height": 24
+  },
+  "role_description": "statictext",
+  "AXLabel": "\u20ac87",
+  "content_required": false,
+  "type": "StaticText",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{16, 700}, {361, 50}}",
+  "AXUniqueId": "payButton",
+  "frame": {
+   "y": 700,
+   "x": 16,
+   "width": 361,
+   "height": 50
+  },
+  "role_description": "button",
+  "AXLabel": "Pay now",
+  "content_required": false,
+  "type": "Button",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXButton",
+  "subrole": null
+ },
+ {
+  "AXFrame": "{{16, 760}, {361, 50}}",
+  "AXUniqueId": "applePayButton",
+  "frame": {
+   "y": 760,
+   "x": 16,
+   "width": 361,
+   "height": 50
+  },
+  "role_description": "button",
+  "AXLabel": "Pay with Apple Pay",
+  "content_required": false,
+  "type": "Button",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXButton",
+  "subrole": null
+ }
+]

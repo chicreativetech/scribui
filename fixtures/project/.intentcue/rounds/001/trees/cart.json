@@ -1,0 +1,490 @@
+{
+  "screenId": "cart",
+  "platform": "web",
+  "device": {
+    "name": "Chromium 390×844",
+    "width": 390,
+    "height": 844,
+    "scale": 2
+  },
+  "screenshot": "screens/cart.png",
+  "root": {
+    "id": "screen.0",
+    "idSource": "generated",
+    "type": "screen",
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "w": 780,
+      "h": 1688
+    },
+    "visible": true,
+    "children": [
+      {
+        "id": "screen.0/container.0",
+        "idSource": "generated",
+        "type": "container",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 780,
+          "h": 1132
+        },
+        "visible": true,
+        "children": [
+          {
+            "id": "screen.0/container.0/container.0",
+            "idSource": "generated",
+            "type": "container",
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 780,
+              "h": 120
+            },
+            "visible": true,
+            "children": [
+              {
+                "id": "backButton",
+                "idSource": "testId",
+                "type": "link",
+                "bounds": {
+                  "x": 40,
+                  "y": 28,
+                  "w": 11,
+                  "h": 62
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "a",
+                "label": "Back"
+              },
+              {
+                "id": "screen.0/container.0/container.0/text.0~cart",
+                "idSource": "generated",
+                "type": "text",
+                "bounds": {
+                  "x": 361,
+                  "y": 35,
+                  "w": 70,
+                  "h": 48
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "h1",
+                "label": "Cart"
+              }
+            ],
+            "nativeType": "header"
+          },
+          {
+            "id": "screen.0/container.0/container.1",
+            "idSource": "generated",
+            "type": "container",
+            "bounds": {
+              "x": 0,
+              "y": 120,
+              "w": 780,
+              "h": 1012
+            },
+            "visible": true,
+            "children": [
+              {
+                "id": "promoBanner",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 160,
+                  "w": 700,
+                  "h": 87
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.0/text.0~apply-promo-code",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 68,
+                      "y": 184,
+                      "w": 231,
+                      "h": 39
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "span",
+                    "label": "Apply promo code"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.0/text.1~",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 705,
+                      "y": 184,
+                      "w": 7,
+                      "h": 39
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "span",
+                    "label": "›"
+                  }
+                ],
+                "nativeType": "div"
+              },
+              {
+                "id": "cartItem-monstera",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 279,
+                  "w": 700,
+                  "h": 196
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.1/container.0",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 74,
+                      "y": 313,
+                      "w": 128,
+                      "h": 128
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.1/container.1",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 226,
+                      "y": 336,
+                      "w": 274,
+                      "h": 81
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.1/container.1/text.0~monstera-deliciosa",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 226,
+                          "y": 336,
+                          "w": 274,
+                          "h": 45
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "div",
+                        "label": "Monstera Deliciosa"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.1/container.1/text.1~qty-1",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 226,
+                          "y": 381,
+                          "w": 274,
+                          "h": 36
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "div",
+                        "label": "Qty 1"
+                      }
+                    ],
+                    "nativeType": "div"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.1/text.0~49",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 653,
+                      "y": 354,
+                      "w": 53,
+                      "h": 45
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div",
+                    "label": "€49"
+                  }
+                ],
+                "nativeType": "div"
+              },
+              {
+                "id": "cartItem-fern",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 507,
+                  "w": 700,
+                  "h": 196
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.2/container.0",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 74,
+                      "y": 541,
+                      "w": 128,
+                      "h": 128
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.2/container.1",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 226,
+                      "y": 564,
+                      "w": 176,
+                      "h": 81
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.2/container.1/text.0~boston-fern",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 226,
+                          "y": 564,
+                          "w": 176,
+                          "h": 45
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "div",
+                        "label": "Boston Fern"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.2/container.1/text.1~qty-2",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 226,
+                          "y": 609,
+                          "w": 176,
+                          "h": 36
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "div",
+                        "label": "Qty 2"
+                      }
+                    ],
+                    "nativeType": "div"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.2/text.0~38",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 653,
+                      "y": 582,
+                      "w": 53,
+                      "h": 45
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div",
+                    "label": "€38"
+                  }
+                ],
+                "nativeType": "div"
+              },
+              {
+                "id": "orderSummary",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 735,
+                  "w": 700,
+                  "h": 224
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.3/container.0",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 74,
+                      "y": 769,
+                      "w": 632,
+                      "h": 45
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.3/container.0/text.0~subtotal",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 74,
+                          "y": 773,
+                          "w": 98,
+                          "h": 36
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "span",
+                        "label": "Subtotal"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.3/container.0/text.1~87",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 653,
+                          "y": 769,
+                          "w": 53,
+                          "h": 45
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "span",
+                        "label": "€87"
+                      }
+                    ],
+                    "nativeType": "div"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.3/container.1",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 74,
+                      "y": 814,
+                      "w": 632,
+                      "h": 45
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.3/container.1/text.0~delivery",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 74,
+                          "y": 818,
+                          "w": 92,
+                          "h": 36
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "span",
+                        "label": "Delivery"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.3/container.1/text.1~free",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 638,
+                          "y": 814,
+                          "w": 68,
+                          "h": 45
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "span",
+                        "label": "Free"
+                      }
+                    ],
+                    "nativeType": "div"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.3/container.2",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 74,
+                      "y": 874,
+                      "w": 632,
+                      "h": 50
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.3/container.2/text.0~total",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 74,
+                          "y": 874,
+                          "w": 83,
+                          "h": 50
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "span",
+                        "label": "Total"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.3/container.2/text.1~87",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 646,
+                          "y": 874,
+                          "w": 60,
+                          "h": 50
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "span",
+                        "label": "€87"
+                      }
+                    ],
+                    "nativeType": "div"
+                  }
+                ],
+                "nativeType": "div"
+              },
+              {
+                "id": "checkoutButton",
+                "idSource": "testId",
+                "type": "button",
+                "bounds": {
+                  "x": 40,
+                  "y": 991,
+                  "w": 700,
+                  "h": 101
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "button",
+                "label": "Go to checkout"
+              }
+            ],
+            "nativeType": "main"
+          }
+        ],
+        "nativeType": "body"
+      }
+    ],
+    "nativeType": "document"
+  },
+  "capturedAt": "2026-09-30T22:30:36.398Z"
+}

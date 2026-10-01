@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Checkout</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<header><a href="/cart" aria-label="Back" data-testid="backButton">‹</a><h1>Checkout</h1><span></span></header>
+<main>
+  <div class="error" data-testid="cardError" hidden>Your card was declined. Try another card.</div>
+  <div class="card" data-testid="shippingForm">
+    <div style="font-weight:600;margin-bottom:10px">Shipping</div>
+    <label for="name">Full name</label><input id="name" data-testid="nameInput" placeholder="Ada Lovelace">
+    <div class="grid" style="margin-top:10px"><div><label>Postcode</label><input data-testid="postcodeInput" placeholder="11122"></div><div><label>City</label><input data-testid="cityInput" placeholder="Stockholm"></div></div>
+  </div>
+  <div class="card" data-testid="orderSummary"><div class="row"><span class="muted">2 items</span><span class="price">€87</span></div><div class="total" style="margin-top:8px"><span>Total</span><span>€87</span></div></div>
+  <div class="card" data-testid="paymentCard"><label>Card number</label><input data-testid="cardInput" placeholder="4242 4242 4242 4242"></div>
+  <button data-testid="payButton">Pay now</button>
+  <button class="secondary" data-testid="applePayButton">Pay with Apple Pay</button>
+</main>
+<script>if (location.search.includes("error=card")) document.querySelector('[data-testid=cardError]').hidden = false;</script>
+</body></html>

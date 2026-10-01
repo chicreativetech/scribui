@@ -1,0 +1,482 @@
+{
+  "screenId": "shop",
+  "platform": "web",
+  "device": {
+    "name": "Chromium 390×844",
+    "width": 390,
+    "height": 844,
+    "scale": 2
+  },
+  "screenshot": "screens/shop.png",
+  "root": {
+    "id": "screen.0",
+    "idSource": "generated",
+    "type": "screen",
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "w": 780,
+      "h": 1688
+    },
+    "visible": true,
+    "children": [
+      {
+        "id": "screen.0/container.0",
+        "idSource": "generated",
+        "type": "container",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 780,
+          "h": 1080
+        },
+        "visible": true,
+        "children": [
+          {
+            "id": "appHeader",
+            "idSource": "testId",
+            "type": "container",
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 780,
+              "h": 120
+            },
+            "visible": true,
+            "children": [
+              {
+                "id": "screen.0/container.0/container.0/text.0~grove",
+                "idSource": "generated",
+                "type": "text",
+                "bounds": {
+                  "x": 40,
+                  "y": 35,
+                  "w": 96,
+                  "h": 48
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "h1",
+                "label": "Grove"
+              },
+              {
+                "id": "cartButton",
+                "idSource": "testId",
+                "type": "link",
+                "bounds": {
+                  "x": 694,
+                  "y": 28,
+                  "w": 46,
+                  "h": 62
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "a",
+                "label": "Cart"
+              }
+            ],
+            "nativeType": "header"
+          },
+          {
+            "id": "screen.0/container.0/container.1",
+            "idSource": "generated",
+            "type": "container",
+            "bounds": {
+              "x": 0,
+              "y": 120,
+              "w": 780,
+              "h": 960
+            },
+            "visible": true,
+            "children": [
+              {
+                "id": "heroBanner",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 160,
+                  "w": 700,
+                  "h": 196
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.0/text.0~autumn-plants-are-in",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 84,
+                      "y": 204,
+                      "w": 612,
+                      "h": 57
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "h2",
+                    "label": "Autumn plants are in"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.0/text.1~free-delivery-on-orders-",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 84,
+                      "y": 273,
+                      "w": 612,
+                      "h": 39
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "p",
+                    "label": "Free delivery on orders over €40"
+                  }
+                ],
+                "nativeType": "section",
+                "source": {
+                  "file": "src/Hero.tsx",
+                  "line": 12,
+                  "component": "Hero"
+                }
+              },
+              {
+                "id": "product-monstera",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 388,
+                  "w": 700,
+                  "h": 196
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.1/image.0~monstera-photo",
+                    "idSource": "generated",
+                    "type": "image",
+                    "bounds": {
+                      "x": 74,
+                      "y": 422,
+                      "w": 128,
+                      "h": 128
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div",
+                    "label": "Monstera photo"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.1/container.0",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 226,
+                      "y": 445,
+                      "w": 274,
+                      "h": 81
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.1/container.0/text.0~monstera-deliciosa",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 226,
+                          "y": 445,
+                          "w": 274,
+                          "h": 45
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "div",
+                        "label": "Monstera Deliciosa"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.1/container.0/text.1~large-120-cm",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 226,
+                          "y": 490,
+                          "w": 274,
+                          "h": 36
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "div",
+                        "label": "Large · 120 cm"
+                      }
+                    ],
+                    "nativeType": "div"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.1/text.0~49",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 653,
+                      "y": 464,
+                      "w": 53,
+                      "h": 45
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div",
+                    "label": "€49"
+                  }
+                ],
+                "nativeType": "div"
+              },
+              {
+                "id": "product-fern",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 616,
+                  "w": 700,
+                  "h": 196
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.2/image.0~fern-photo",
+                    "idSource": "generated",
+                    "type": "image",
+                    "bounds": {
+                      "x": 74,
+                      "y": 650,
+                      "w": 128,
+                      "h": 128
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div",
+                    "label": "Fern photo"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.2/container.0",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 226,
+                      "y": 673,
+                      "w": 188,
+                      "h": 81
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.2/container.0/text.0~boston-fern",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 226,
+                          "y": 673,
+                          "w": 188,
+                          "h": 45
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "div",
+                        "label": "Boston Fern"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.2/container.0/text.1~medium-40-cm",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 226,
+                          "y": 718,
+                          "w": 188,
+                          "h": 36
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "div",
+                        "label": "Medium · 40 cm"
+                      }
+                    ],
+                    "nativeType": "div"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.2/text.0~19",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 653,
+                      "y": 692,
+                      "w": 53,
+                      "h": 45
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div",
+                    "label": "€19"
+                  }
+                ],
+                "nativeType": "div"
+              },
+              {
+                "id": "product-olive",
+                "idSource": "testId",
+                "type": "container",
+                "bounds": {
+                  "x": 40,
+                  "y": 844,
+                  "w": 700,
+                  "h": 196
+                },
+                "visible": true,
+                "children": [
+                  {
+                    "id": "screen.0/container.0/container.1/container.3/image.0~olive-tree-photo",
+                    "idSource": "generated",
+                    "type": "image",
+                    "bounds": {
+                      "x": 74,
+                      "y": 878,
+                      "w": 128,
+                      "h": 128
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div",
+                    "label": "Olive tree photo"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.3/container.0",
+                    "idSource": "generated",
+                    "type": "container",
+                    "bounds": {
+                      "x": 226,
+                      "y": 901,
+                      "w": 174,
+                      "h": 81
+                    },
+                    "visible": true,
+                    "children": [
+                      {
+                        "id": "screen.0/container.0/container.1/container.3/container.0/text.0~olive-tree",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 226,
+                          "y": 901,
+                          "w": 174,
+                          "h": 45
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "div",
+                        "label": "Olive Tree"
+                      },
+                      {
+                        "id": "screen.0/container.0/container.1/container.3/container.0/text.1~large-150-cm",
+                        "idSource": "generated",
+                        "type": "text",
+                        "bounds": {
+                          "x": 226,
+                          "y": 946,
+                          "w": 174,
+                          "h": 36
+                        },
+                        "visible": true,
+                        "children": [],
+                        "nativeType": "div",
+                        "label": "Large · 150 cm"
+                      }
+                    ],
+                    "nativeType": "div"
+                  },
+                  {
+                    "id": "screen.0/container.0/container.1/container.3/text.0~89",
+                    "idSource": "generated",
+                    "type": "text",
+                    "bounds": {
+                      "x": 653,
+                      "y": 920,
+                      "w": 53,
+                      "h": 45
+                    },
+                    "visible": true,
+                    "children": [],
+                    "nativeType": "div",
+                    "label": "€89"
+                  }
+                ],
+                "nativeType": "div"
+              }
+            ],
+            "nativeType": "main"
+          },
+          {
+            "id": "tabBar",
+            "idSource": "testId",
+            "type": "navbar",
+            "bounds": {
+              "x": 0,
+              "y": 1584,
+              "w": 780,
+              "h": 104
+            },
+            "visible": true,
+            "children": [
+              {
+                "id": "screen.0/container.0/navbar.0/link.0~shop",
+                "idSource": "generated",
+                "type": "link",
+                "bounds": {
+                  "x": 98,
+                  "y": 1606,
+                  "w": 59,
+                  "h": 34
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "a",
+                "label": "Shop"
+              },
+              {
+                "id": "screen.0/container.0/navbar.0/link.1~cart",
+                "idSource": "generated",
+                "type": "link",
+                "bounds": {
+                  "x": 352,
+                  "y": 1606,
+                  "w": 46,
+                  "h": 34
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "a",
+                "label": "Cart"
+              },
+              {
+                "id": "screen.0/container.0/navbar.0/link.2~account",
+                "idSource": "generated",
+                "type": "link",
+                "bounds": {
+                  "x": 593,
+                  "y": 1606,
+                  "w": 89,
+                  "h": 34
+                },
+                "visible": true,
+                "children": [],
+                "nativeType": "a",
+                "label": "Account"
+              }
+            ],
+            "nativeType": "nav"
+          }
+        ],
+        "nativeType": "body"
+      }
+    ],
+    "nativeType": "document"
+  },
+  "capturedAt": "2026-09-30T22:30:35.621Z"
+}

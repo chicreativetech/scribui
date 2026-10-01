@@ -1,0 +1,226 @@
+[
+ {
+  "AXFrame": "{{0, 0}, {393, 852}}",
+  "AXUniqueId": null,
+  "frame": {
+   "y": 0,
+   "x": 0,
+   "width": 393,
+   "height": 852
+  },
+  "role_description": "application",
+  "AXLabel": "Login",
+  "content_required": false,
+  "type": "Application",
+  "title": null,
+  "help": null,
+  "custom_actions": [],
+  "AXValue": null,
+  "enabled": true,
+  "role": "AXGroup",
+  "subrole": null,
+  "children": [
+   {
+    "AXFrame": "{{0, 0}, {393, 852}}",
+    "AXUniqueId": null,
+    "frame": {
+     "y": 0,
+     "x": 0,
+     "width": 393,
+     "height": 852
+    },
+    "role_description": "window",
+    "AXLabel": null,
+    "content_required": false,
+    "type": "Window",
+    "title": null,
+    "help": null,
+    "custom_actions": [],
+    "AXValue": null,
+    "enabled": true,
+    "role": "AXGroup",
+    "subrole": null,
+    "children": [
+     {
+      "AXFrame": "{{0, 0}, {393, 852}}",
+      "AXUniqueId": null,
+      "frame": {
+       "y": 0,
+       "x": 0,
+       "width": 393,
+       "height": 852
+      },
+      "role_description": "other",
+      "AXLabel": null,
+      "content_required": false,
+      "type": "Other",
+      "title": null,
+      "help": null,
+      "custom_actions": [],
+      "AXValue": null,
+      "enabled": true,
+      "role": "AXGroup",
+      "subrole": null,
+      "children": [
+       {
+        "AXFrame": "{{146, 120}, {100, 100}}",
+        "AXUniqueId": "logo",
+        "frame": {
+         "y": 120,
+         "x": 146,
+         "width": 100,
+         "height": 100
+        },
+        "role_description": "image",
+        "AXLabel": "App logo",
+        "content_required": false,
+        "type": "Image",
+        "title": null,
+        "help": null,
+        "custom_actions": [],
+        "AXValue": null,
+        "enabled": true,
+        "role": "AXGroup",
+        "subrole": null,
+        "children": []
+       },
+       {
+        "AXFrame": "{{40, 240}, {313, 34}}",
+        "AXUniqueId": null,
+        "frame": {
+         "y": 240,
+         "x": 40,
+         "width": 313,
+         "height": 34
+        },
+        "role_description": "statictext",
+        "AXLabel": "Welcome back",
+        "content_required": false,
+        "type": "StaticText",
+        "title": null,
+        "help": null,
+        "custom_actions": [],
+        "AXValue": null,
+        "enabled": true,
+        "role": "AXGroup",
+        "subrole": null,
+        "children": []
+       },
+       {
+        "AXFrame": "{{24, 320}, {345, 48}}",
+        "AXUniqueId": "emailField",
+        "frame": {
+         "y": 320,
+         "x": 24,
+         "width": 345,
+         "height": 48
+        },
+        "role_description": "textfield",
+        "AXLabel": "Email",
+        "content_required": false,
+        "type": "TextField",
+        "title": null,
+        "help": null,
+        "custom_actions": [],
+        "AXValue": null,
+        "enabled": true,
+        "role": "AXGroup",
+        "subrole": null,
+        "children": []
+       },
+       {
+        "AXFrame": "{{24, 380}, {345, 48}}",
+        "AXUniqueId": "passwordField",
+        "frame": {
+         "y": 380,
+         "x": 24,
+         "width": 345,
+         "height": 48
+        },
+        "role_description": "securetextfield",
+        "AXLabel": "Password",
+        "content_required": false,
+        "type": "SecureTextField",
+        "title": null,
+        "help": null,
+        "custom_actions": [],
+        "AXValue": null,
+        "enabled": true,
+        "role": "AXGroup",
+        "subrole": null,
+        "children": []
+       },
+       {
+        "AXFrame": "{{24, 460}, {345, 52}}",
+        "AXUniqueId": "loginButton",
+        "frame": {
+         "y": 460,
+         "x": 24,
+         "width": 345,
+         "height": 52
+        },
+        "role_description": "button",
+        "AXLabel": "Log in",
+        "content_required": false,
+        "type": "Button",
+        "title": null,
+        "help": null,
+        "custom_actions": [],
+        "AXValue": null,
+        "enabled": true,
+        "role": "AXButton",
+        "subrole": null,
+        "children": [
+         {
+          "AXFrame": "{{170, 475}, {53, 22}}",
+          "AXUniqueId": null,
+          "frame": {
+           "y": 475,
+           "x": 170,
+           "width": 53,
+           "height": 22
+          },
+          "role_description": "statictext",
+          "AXLabel": "Log in",
+          "content_required": false,
+          "type": "StaticText",
+          "title": null,
+          "help": null,
+          "custom_actions": [],
+          "AXValue": null,
+          "enabled": true,
+          "role": "AXGroup",
+          "subrole": null,
+          "children": []
+         }
+        ]
+       },
+       {
+        "AXFrame": "{{120, 540}, {153, 22}}",
+        "AXUniqueId": "forgotLink",
+        "frame": {
+         "y": 540,
+         "x": 120,
+         "width": 153,
+         "height": 22
+        },
+        "role_description": "link",
+        "AXLabel": "Forgot password?",
+        "content_required": false,
+        "type": "Link",
+        "title": null,
+        "help": null,
+        "custom_actions": [],
+        "AXValue": null,
+        "enabled": true,
+        "role": "AXGroup",
+        "subrole": null,
+        "children": []
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+]

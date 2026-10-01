@@ -1,0 +1,11 @@
+node_modules
+dist
+.DS_Store
+*.tsbuildinfo
+coverage
+test-results
+playwright-report
+.intentcue-tmp
+# generated review rounds in the examples
+examples/*/.intentcue/rounds
+examples/*/.intentcue/latest

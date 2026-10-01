@@ -1,0 +1,63 @@
+{
+  "$id": "https://intentcue.dev/schemas/StatusFile.schema.json",
+  "title": "StatusFile",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "round": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "capturing",
+        "open",
+        "sent",
+        "applied"
+      ]
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    },
+    "sentAt": {
+      "type": "string"
+    },
+    "appliedAt": {
+      "type": "string"
+    },
+    "screens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "screenId": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "screenId",
+          "ok"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "round",
+    "status",
+    "createdAt",
+    "updatedAt"
+  ],
+  "additionalProperties": false
+}

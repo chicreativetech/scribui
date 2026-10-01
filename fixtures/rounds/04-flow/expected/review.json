@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "round": 2,
+  "app": "Grove (sample)",
+  "instructions": [
+    {
+      "id": "R2-1",
+      "screenId": "cart",
+      "targets": [
+        {
+          "elementId": "checkoutButton",
+          "type": "button",
+          "bounds": {
+            "x": 40,
+            "y": 991,
+            "w": 700,
+            "h": 101
+          },
+          "label": "Go to checkout"
+        }
+      ],
+      "text": "Tapping checkout should open the checkout sheet",
+      "annotationIds": [
+        "d1"
+      ],
+      "marker": 1,
+      "action": "relate",
+      "instruction": "Flow: Cart (cart) leads to Checkout (checkout-default) via the \"Go to checkout\" button (id: checkoutButton). Tapping checkout should open the checkout sheet.",
+      "status": "resolved",
+      "destinationScreenId": "checkout-default",
+      "destination": {
+        "elementId": "screen.0/container.0/container.0/text.0~checkout",
+        "type": "text",
+        "bounds": {
+          "x": 317,
+          "y": 35,
+          "w": 157,
+          "h": 48
+        },
+        "label": "Checkout"
+      }
+    },
+    {
+      "id": "R2-2",
+      "screenId": "cart",
+      "targets": [
+        {
+          "elementId": "promoBanner",
+          "type": "container",
+          "bounds": {
+            "x": 40,
+            "y": 160,
+            "w": 700,
+            "h": 87
+          }
+        }
+      ],
+      "text": "Too yellow",
+      "annotationIds": [
+        "d3"
+      ],
+      "marker": 2,
+      "action": "note",
+      "instruction": "Note on the container (id: promoBanner): Too yellow.",
+      "status": "resolved"
+    },
+    {
+      "id": "R2-3",
+      "screenId": "cart",
+      "targets": [],
+      "text": "Something should slide in from here",
+      "annotationIds": [
+        "d4"
+      ],
+      "marker": 3,
+      "action": "move",
+      "instruction": "[UNRESOLVED] Something should slide in from here (see annotated screenshot, marker 3); ask the user.",
+      "status": "unresolved"
+    },
+    {
+      "id": "R2-4",
+      "screenId": "checkout-default",
+      "targets": [
+        {
+          "elementId": "payButton",
+          "type": "button",
+          "bounds": {
+            "x": 40,
+            "y": 1079,
+            "w": 700,
+            "h": 101
+          },
+          "label": "Pay now"
+        }
+      ],
+      "text": "Pin it to the bottom",
+      "annotationIds": [
+        "d2"
+      ],
+      "marker": 4,
+      "action": "move",
+      "instruction": "Move the \"Pay now\" button (id: payButton) to the area at (x 390, y 1520). Pin it to the bottom.",
+      "status": "resolved",
+      "destination": {
+        "region": {
+          "x": 390,
+          "y": 1520,
+          "w": 0,
+          "h": 0
+        }
+      }
+    },
+    {
+      "id": "R2-5",
+      "screenId": "checkout-default",
+      "targets": [
+        {
+          "elementId": "orderSummary",
+          "type": "container",
+          "bounds": {
+            "x": 40,
+            "y": 627,
+            "w": 700,
+            "h": 179
+          }
+        }
+      ],
+      "text": "",
+      "annotationIds": [
+        "d5"
+      ],
+      "marker": 5,
+      "action": "move",
+      "instruction": "Move the container (id: orderSummary) next to the container (id: shippingForm).",
+      "status": "resolved",
+      "destination": {
+        "elementId": "shippingForm",
+        "type": "container",
+        "bounds": {
+          "x": 40,
+          "y": 160,
+          "w": 700,
+          "h": 435
+        }
+      }
+    }
+  ],
+  "rules": [],
+  "counts": {
+    "instructions": 5,
+    "unresolved": 1,
+    "needsText": 0,
+    "rules": 0
+  }
+}

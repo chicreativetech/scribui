@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "round": 2,
+  "app": "Grove (sample)",
+  "instructions": [
+    {
+      "id": "R2-1",
+      "screenId": "cart",
+      "targets": [
+        {
+          "elementId": "checkoutButton",
+          "type": "button",
+          "bounds": {
+            "x": 40,
+            "y": 991,
+            "w": 700,
+            "h": 101
+          },
+          "label": "Go to checkout"
+        }
+      ],
+      "text": "",
+      "annotationIds": [
+        "b1"
+      ],
+      "marker": 1,
+      "action": "change",
+      "instruction": "Review the \"Go to checkout\" button (id: checkoutButton); see marker 1.",
+      "status": "resolved",
+      "needsText": true
+    },
+    {
+      "id": "R2-2",
+      "screenId": "cart",
+      "targets": [],
+      "text": "",
+      "annotationIds": [
+        "b2"
+      ],
+      "marker": 2,
+      "action": "add",
+      "instruction": "Add the element sketched at marker 2 in the empty area at (x 40, y 1140, 700 × 120), below the \"Go to checkout\" button (id: checkoutButton).",
+      "status": "resolved",
+      "destination": {
+        "region": {
+          "x": 40,
+          "y": 1140,
+          "w": 700,
+          "h": 120
+        }
+      },
+      "needsText": true
+    },
+    {
+      "id": "R2-3",
+      "screenId": "cart",
+      "targets": [],
+      "text": "",
+      "annotationIds": [
+        "b3"
+      ],
+      "marker": 3,
+      "action": "remove",
+      "instruction": "[UNRESOLVED] No comment given (see annotated screenshot, marker 3); ask the user.",
+      "status": "unresolved"
+    },
+    {
+      "id": "R2-4",
+      "screenId": "cart",
+      "targets": [],
+      "text": "Add a recommended-products carousel here",
+      "annotationIds": [
+        "b4"
+      ],
+      "marker": 4,
+      "action": "note",
+      "instruction": "In the empty area at (x 390, y 1500): Add a recommended-products carousel here.",
+      "status": "resolved",
+      "destination": {
+        "region": {
+          "x": 390,
+          "y": 1500,
+          "w": 0,
+          "h": 0
+        }
+      }
+    },
+    {
+      "id": "R2-5",
+      "screenId": "cart",
+      "targets": [
+        {
+          "elementId": "promoBanner",
+          "type": "container",
+          "bounds": {
+            "x": 40,
+            "y": 160,
+            "w": 700,
+            "h": 87
+          }
+        }
+      ],
+      "text": "Make this much quieter",
+      "annotationIds": [
+        "b5",
+        "b6"
+      ],
+      "marker": 5,
+      "action": "change",
+      "instruction": "Container (id: promoBanner): Make this much quieter.",
+      "status": "resolved"
+    }
+  ],
+  "rules": [],
+  "counts": {
+    "instructions": 5,
+    "unresolved": 1,
+    "needsText": 2,
+    "rules": 0
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "intentcue",
+  "version": "0.1.0",
+  "description": "Visual review layer between you and your coding agent: annotate app screens, get precise file-based instructions.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "intentcue": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup && node scripts/copy-canvas.mjs",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.3",
+    "@resvg/resvg-js": "^2.6.2",
+    "cac": "^7.0.0",
+    "hono": "^4.13.12",
+    "perfect-freehand": "^1.2.3",
+    "qrcode-terminal": "^0.12.0",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "playwright": ">=1.40"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@intentcue/capture": "workspace:*",
+    "@intentcue/core": "workspace:*",
+    "@intentcue/server": "workspace:*",
+    "tsup": "^8.5.1"
+  }
+}

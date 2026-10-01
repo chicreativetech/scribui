@@ -1,0 +1,18 @@
+Running on iPhone 16 Pro - iOS 18.2
+{
+  "attributes": { "bounds": "[0,0][393,852]" },
+  "children": [
+    {
+      "attributes": { "accessibilityText": "", "title": "", "value": "", "text": "", "hintText": "", "resource-id": "", "bounds": "[0,0][393,852]", "enabled": "true", "elementType": "1" },
+      "children": [
+        { "attributes": { "accessibilityText": "Back", "resource-id": "backButton", "text": "", "bounds": "[8,64][52,98]", "enabled": "true", "elementType": "9" }, "children": [] },
+        { "attributes": { "accessibilityText": "", "text": "Checkout", "resource-id": "", "bounds": "[150,70][243,92]", "elementType": "48" }, "children": [] },
+        { "attributes": { "accessibilityText": "", "resource-id": "orderSummary", "bounds": "[16,420][377,540]", "elementType": "56" }, "children": [
+          { "attributes": { "text": "Total", "bounds": "[32,500][132,524]", "elementType": "48" }, "children": [] },
+          { "attributes": { "text": "€87", "resource-id": "totalValue", "bounds": "[300,500][361,524]", "elementType": "48" }, "children": [] }
+        ] },
+        { "attributes": { "accessibilityText": "Pay now", "resource-id": "payButton", "bounds": "[16,700][377,750]", "enabled": "true", "elementType": "9" }, "children": [] }
+      ]
+    }
+  ]
+}

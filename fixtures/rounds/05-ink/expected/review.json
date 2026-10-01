@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "round": 2,
+  "app": "Grove (sample)",
+  "instructions": [
+    {
+      "id": "R2-1",
+      "screenId": "checkout-default",
+      "targets": [
+        {
+          "elementId": "payButton",
+          "type": "button",
+          "bounds": {
+            "x": 40,
+            "y": 1079,
+            "w": 700,
+            "h": 101
+          },
+          "label": "Pay now"
+        }
+      ],
+      "text": "",
+      "annotationIds": [
+        "e1",
+        "e2"
+      ],
+      "marker": 1,
+      "action": "change",
+      "instruction": "Handwritten note on the \"Pay now\" button (id: payButton), see ink/e2.png.",
+      "status": "resolved",
+      "ink": [
+        "ink/e2.png"
+      ]
+    },
+    {
+      "id": "R2-2",
+      "screenId": "checkout-default",
+      "targets": [
+        {
+          "elementId": "applePayButton",
+          "type": "button",
+          "bounds": {
+            "x": 40,
+            "y": 1212,
+            "w": 700,
+            "h": 101
+          },
+          "label": "Pay with Apple Pay"
+        }
+      ],
+      "text": "Duplicate of Pay now",
+      "annotationIds": [
+        "e3",
+        "e4"
+      ],
+      "marker": 2,
+      "action": "remove",
+      "instruction": "Remove the \"Pay with Apple Pay\" button (id: applePayButton). Duplicate of Pay now.",
+      "status": "resolved"
+    },
+    {
+      "id": "R2-3",
+      "screenId": "checkout-default",
+      "targets": [
+        {
+          "elementId": "orderSummary",
+          "type": "container",
+          "bounds": {
+            "x": 40,
+            "y": 627,
+            "w": 700,
+            "h": 179
+          }
+        }
+      ],
+      "text": "Needs more breathing room",
+      "annotationIds": [
+        "e5"
+      ],
+      "marker": 3,
+      "action": "change",
+      "instruction": "Container (id: orderSummary): Needs more breathing room.",
+      "status": "resolved"
+    }
+  ],
+  "rules": [],
+  "counts": {
+    "instructions": 3,
+    "unresolved": 0,
+    "needsText": 0,
+    "rules": 0
+  }
+}

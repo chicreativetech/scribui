@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "round": 1,
+  "app": "Grove (sample)",
+  "instructions": [
+    {
+      "id": "R1-1",
+      "screenId": "checkout-default",
+      "targets": [
+        {
+          "elementId": "payButton",
+          "type": "button",
+          "bounds": {
+            "x": 40,
+            "y": 1079,
+            "w": 700,
+            "h": 101
+          },
+          "label": "Pay now"
+        }
+      ],
+      "text": "Too dominant, make it secondary to the order summary",
+      "annotationIds": [
+        "a63aiio"
+      ],
+      "marker": 1,
+      "action": "change",
+      "instruction": "\"Pay now\" button (id: payButton): Too dominant, make it secondary to the order summary.",
+      "status": "resolved"
+    },
+    {
+      "id": "R1-2",
+      "screenId": "checkout-default",
+      "targets": [
+        {
+          "elementId": "applePayButton",
+          "type": "button",
+          "bounds": {
+            "x": 40,
+            "y": 1212,
+            "w": 700,
+            "h": 101
+          },
+          "label": "Pay with Apple Pay"
+        }
+      ],
+      "text": "",
+      "annotationIds": [
+        "aujwqlr"
+      ],
+      "marker": 2,
+      "action": "remove",
+      "instruction": "Remove the \"Pay with Apple Pay\" button (id: applePayButton).",
+      "status": "resolved"
+    },
+    {
+      "id": "R1-3",
+      "screenId": "checkout-default",
+      "targets": [
+        {
+          "elementId": "screen.0/container.0/container.1/container.0/text.0~shipping",
+          "type": "text",
+          "bounds": {
+            "x": 74,
+            "y": 194,
+            "w": 632,
+            "h": 45
+          },
+          "label": "Shipping"
+        }
+      ],
+      "text": "Use sentence case and a larger heading",
+      "annotationIds": [
+        "ajpuqvc"
+      ],
+      "marker": 3,
+      "action": "change",
+      "instruction": "\"Shipping\" text at (x 74, y 194, 632 × 45): Use sentence case and a larger heading.",
+      "status": "resolved"
+    },
+    {
+      "id": "R1-4",
+      "screenId": "checkout-default",
+      "targets": [
+        {
+          "elementId": "orderSummary",
+          "type": "container",
+          "bounds": {
+            "x": 40,
+            "y": 627,
+            "w": 700,
+            "h": 179
+          }
+        }
+      ],
+      "text": "Summary first, then the form",
+      "annotationIds": [
+        "av7yay4"
+      ],
+      "marker": 4,
+      "action": "move",
+      "instruction": "Move the container (id: orderSummary) next to the container (id: shippingForm). Summary first, then the form.",
+      "status": "resolved",
+      "destination": {
+        "elementId": "shippingForm",
+        "type": "container",
+        "bounds": {
+          "x": 40,
+          "y": 160,
+          "w": 700,
+          "h": 435
+        }
+      }
+    },
+    {
+      "id": "R1-5",
+      "screenId": "checkout-default",
+      "targets": [],
+      "text": "a secure-payment badge",
+      "annotationIds": [
+        "a19cgjf"
+      ],
+      "marker": 5,
+      "action": "add",
+      "instruction": "Add a secure-payment badge in the empty area at (x 40, y 1360, 700 × 80), below the \"Pay with Apple Pay\" button (id: applePayButton).",
+      "status": "resolved",
+      "destination": {
+        "region": {
+          "x": 40,
+          "y": 1360,
+          "w": 700,
+          "h": 80
+        }
+      }
+    }
+  ],
+  "rules": [],
+  "counts": {
+    "instructions": 5,
+    "unresolved": 0,
+    "needsText": 0,
+    "rules": 0
+  }
+}

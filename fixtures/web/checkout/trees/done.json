@@ -1,0 +1,102 @@
+{
+  "screenId": "done",
+  "platform": "web",
+  "device": {
+    "name": "Chromium 390×844",
+    "width": 390,
+    "height": 844,
+    "scale": 2
+  },
+  "screenshot": "screens/done.png",
+  "root": {
+    "id": "screen.0",
+    "idSource": "generated",
+    "type": "screen",
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "w": 780,
+      "h": 1688
+    },
+    "visible": true,
+    "children": [
+      {
+        "id": "screen.0/container.0",
+        "idSource": "generated",
+        "type": "container",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 780,
+          "h": 796
+        },
+        "visible": true,
+        "children": [
+          {
+            "id": "successIcon",
+            "idSource": "testId",
+            "type": "image",
+            "bounds": {
+              "x": 347,
+              "y": 240,
+              "w": 86,
+              "h": 157
+            },
+            "visible": true,
+            "children": [],
+            "nativeType": "div",
+            "label": "Checkmark"
+          },
+          {
+            "id": "successTitle",
+            "idSource": "testId",
+            "type": "text",
+            "bounds": {
+              "x": 216,
+              "y": 429,
+              "w": 347,
+              "h": 78
+            },
+            "visible": true,
+            "children": [],
+            "nativeType": "h2",
+            "label": "Order placed"
+          },
+          {
+            "id": "successBody",
+            "idSource": "testId",
+            "type": "text",
+            "bounds": {
+              "x": 168,
+              "y": 539,
+              "w": 443,
+              "h": 36
+            },
+            "visible": true,
+            "children": [],
+            "nativeType": "p",
+            "label": "We'll email you when your plants ship."
+          },
+          {
+            "id": "continueButton",
+            "idSource": "testId",
+            "type": "button",
+            "bounds": {
+              "x": 40,
+              "y": 656,
+              "w": 700,
+              "h": 101
+            },
+            "visible": true,
+            "children": [],
+            "nativeType": "button",
+            "label": "Continue shopping"
+          }
+        ],
+        "nativeType": "main"
+      }
+    ],
+    "nativeType": "document"
+  },
+  "capturedAt": "2026-09-30T22:30:38.754Z"
+}
