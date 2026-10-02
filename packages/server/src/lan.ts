@@ -26,6 +26,13 @@ export class LanAuth {
     return s;
   }
 
+  /** Forget every paired device and any unused pairing link. */
+  revokeAll(): void {
+    this.sessions.clear();
+    this.token = null;
+    this.tokenExpires = 0;
+  }
+
   get paired(): number {
     return this.sessions.size;
   }

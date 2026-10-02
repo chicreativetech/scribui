@@ -149,9 +149,13 @@ For the most precise results, tell intentcue which code draws which screen:
 }
 ```
 
-### Review on an iPad
+### Review on a tablet
 
-Click **▣ iPad** in the canvas's top bar. It shows a QR code with a one-time pairing link (valid for 10 minutes); scan it with the iPad's camera on the same Wi-Fi. Only the computer running intentcue can create pairing codes. With an Apple Pencil you don't need to pick tools: loops become circles, hooked strokes become arrows, crossings become removals, and short strokes become a handwritten note. Tap the chip to change what a stroke became. Fingers pan and zoom.
+Click **▣ tablet** in the canvas's top bar. It shows a QR code with a one-time pairing link (valid for 10 minutes); scan it with the tablet's camera on the same Wi-Fi, or open the link in its browser. Any device with a modern browser works: iPad, Android tablet, Surface. Only the computer running intentcue can create pairing codes.
+
+Devices stay paired until you click **unpair all** in the same dialog or quit intentcue. An unpaired device is locked out at once and has to scan a new code.
+
+With a stylus (Apple Pencil, S Pen, Surface Pen) you don't need to pick tools: loops become circles, hooked strokes become arrows, crossings become removals, and short strokes become a handwritten note. Tap the chip to change what a stroke became. Fingers pan and zoom.
 
 ### Let the agent drive (MCP)
 
@@ -193,7 +197,7 @@ A developer tool with a terminal soul: a keyboard-first, monospace interface wit
 - **Element layer.** Hover shows the element under the cursor, `alt` walks from child to parent, and `E` shows every outline so you can check capture quality.
 - **Resolution chips.** Each mark shows what it resolved to (`button#payButton "Pay now"`). Click a chip to pick the parent, a child or "empty area" instead. Your choice is never overwritten.
 - **Inspector.** `notes`, a live `review.md` preview, the element `tree`, and `rules.md`.
-- **Pen.** An Apple Pencil or drawing tablet turns on pen mode. Loops become circles, hooked lines become arrows, crossings become removals and short strokes become handwriting, and a chip lets you change the result with one tap. Handwriting stays ink: the agent gets a cropped PNG.
+- **Pen.** A stylus (Apple Pencil, S Pen, Surface Pen) or drawing tablet turns on pen mode. Loops become circles, hooked lines become arrows, crossings become removals and short strokes become handwriting, and a chip lets you change the result with one tap. Handwriting stays ink: the agent gets a cropped PNG.
 - **Live.** The canvas updates when the agent captures a new round or marks one applied.
 - **Also:** `⌘Z`/`⌘⇧Z` undo and redo, autosave, `F` fits the board, a double-click focuses a screen, `:theme light` switches theme, `?` lists all keys.
 

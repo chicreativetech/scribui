@@ -100,6 +100,7 @@ export const api = {
     ),
   lan: () => fetch("/api/lan").then((r) => json<LanState>(r)),
   startLan: () => fetch("/api/lan", { method: "POST" }).then((r) => json<LanState>(r)),
+  unpairAll: () => fetch("/api/lan", { method: "DELETE" }).then((r) => json<LanState>(r)),
   review: (n: number) => fetch(`/api/rounds/${n}/review`).then((r) => (r.ok ? r.text() : null)),
   rules: () => fetch("/api/rules").then((r) => r.text()),
 };
@@ -138,7 +139,9 @@ export function connectEvents(onEvent: (e: ServerEvent) => void, onState: (conne
         /* ignore */
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (e) => {
+      // this device was unpaired: reload to show the server's "Not paired" page
+      if (e.code === 4001) return location.reload();
       onState(false);
       if (!closed) setTimeout(open, (retry = Math.min(retry * 2, 8000)));
     };

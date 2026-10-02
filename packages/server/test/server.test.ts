@@ -142,6 +142,12 @@ describe("http api", () => {
     expect((await open.app.request("/api/rounds", { headers: { cookie } }, remote)).status).toBe(200);
     // one-time token
     expect((await open.app.request(`/pair?token=${token}`, undefined, remote)).status).toBe(403);
+
+    // only the computer running intentcue can unpair, and unpairing locks the device out
+    expect((await open.app.request("/api/lan", { method: "DELETE", headers: { cookie } }, remote)).status).toBe(403);
+    expect((await open.app.request("/api/lan", { method: "DELETE" }, { incoming: { socket: { remoteAddress: "127.0.0.1" } } })).status).toBe(200);
+    expect(open.lan.paired).toBe(0);
+    expect((await open.app.request("/api/rounds", { headers: { cookie } }, remote)).status).toBe(403);
   });
 
   it("pairing tokens expire", () => {

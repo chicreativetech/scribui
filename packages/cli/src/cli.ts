@@ -5,8 +5,9 @@ import { fileURLToPath } from "node:url";
 import { cac } from "cac";
 import { createAdapter } from "@intentcue/capture";
 import { Platform, PRODUCT, ReviewJson } from "@intentcue/core";
-import { lanAddress, ReviewStore, startServer } from "@intentcue/server";
+import { lanAddress, ReviewStore } from "@intentcue/server";
 import { captureRound, describePlan, type CaptureEvent } from "./capture.js";
+import { findRunning, portRange, startOnFreePort } from "./instances.js";
 import { runMcp } from "./mcp.js";
 import { makeRunner } from "./runner.js";
 import { detectProject } from "./setup.js";
@@ -183,21 +184,21 @@ async function cmdOpen(f: Flags) {
   requireInit(store);
   const dir = canvasDir();
   if (!dir) warnLine("canvas build not found; run `pnpm build` in the intentcue repo");
-  let srv;
-  try {
-    srv = await startServer({
-      projectDir: store.root,
-      canvasDir: dir,
-      port: f.port,
-      lan: f.lan,
-      runner: makeRunner(store, { platform: platformFlag(f), device: f.device }, printEvent),
-    });
-  } catch (e) {
-    const err = e as NodeJS.ErrnoException;
-    if (err.code === "EADDRINUSE")
-      fail(`Port ${f.port ?? PRODUCT.defaultPort} is in use.`, "Is intentcue already open? Otherwise pass --port <n>.");
-    throw e;
+  const port = f.port ?? PRODUCT.defaultPort;
+  const running = await findRunning(store.root, port);
+  if (running) {
+    okLine(`intentcue is already running for this project: ${c.accent(running)}`);
+    if (f.open !== false) openBrowser(running);
+    return;
   }
+  const srv = await startOnFreePort({
+    projectDir: store.root,
+    canvasDir: dir,
+    port,
+    lan: f.lan,
+    runner: makeRunner(store, { platform: platformFlag(f), device: f.device }, printEvent),
+  });
+  if (!srv) fail(`Ports ${portRange(port)} are all in use.`, "Pass --port <n>.");
   const url = `http://127.0.0.1:${srv.port}/`;
   const latest = await store.latestRound();
   banner("open");

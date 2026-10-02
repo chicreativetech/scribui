@@ -99,6 +99,8 @@ export function createApp(opts: ServerOptions) {
   const lanState = { enabled: !!opts.lan, url: null as string | null };
   const controls: Controls = {};
   const sockets = new Set<WebSocket>();
+  /** Sockets of paired devices, closed when they are unpaired. */
+  const lanSockets = new Set<WebSocket>();
   const broadcast = (e: ServerEvent) => {
     const msg = JSON.stringify(e);
     for (const s of sockets) if (s.readyState === 1) s.send(msg);
@@ -151,12 +153,12 @@ export function createApp(opts: ServerOptions) {
     if (url.pathname === "/pair") return next();
     const cookies = parseCookies(c.req.header("cookie"));
     if (lan.valid(cookies[lan.cookieName])) return next();
-    return c.text("Not paired. Scan the QR code printed by `intentcue open --lan`.", 403);
+    return c.text("Not paired. On the computer running intentcue, click ▣ tablet and scan the new code.", 403);
   });
 
   app.get("/pair", (c) => {
     const session = lan.redeem(c.req.query("token"));
-    if (!session) return c.text("Pairing link expired or already used. Show a new QR code from the iPad button in intentcue.", 403);
+    if (!session) return c.text("Pairing link expired or already used. Show a new code with the ▣ tablet button in intentcue.", 403);
     c.header("Set-Cookie", `${lan.cookieName}=${session}; Path=/; HttpOnly; SameSite=Strict`);
     broadcast({ type: "lan-changed", enabled: true, paired: lan.paired });
     return c.redirect("/");
@@ -203,7 +205,7 @@ export function createApp(opts: ServerOptions) {
     return c.json(capture, 202);
   });
 
-  /* ─────────── iPad / tablet pairing ─────────── */
+  /* ─────────── tablet pairing ─────────── */
   app.get("/api/lan", (c) => c.json({ enabled: lanState.enabled, paired: lan.paired, url: lanState.url, expiresAt: lan.tokenExpiresAt }));
   app.post("/api/lan", async (c) => {
     if (!controls.enableLan) return c.json({ error: "LAN mode is not available" }, 501);
@@ -214,6 +216,13 @@ export function createApp(opts: ServerOptions) {
     lanState.url = `${base}/pair?token=${token}`;
     broadcast({ type: "lan-changed", enabled: true, paired: lan.paired });
     return c.json({ enabled: true, paired: lan.paired, url: lanState.url, expiresAt: lan.tokenExpiresAt, qr: qrSvg(lanState.url) });
+  });
+  app.delete("/api/lan", (c) => {
+    lan.revokeAll();
+    lanState.url = null;
+    for (const s of lanSockets) s.close(4001, "unpaired");
+    broadcast({ type: "lan-changed", enabled: lanState.enabled, paired: 0 });
+    return c.json({ enabled: lanState.enabled, paired: 0, url: null, expiresAt: 0 });
   });
 
   app.get("/api/rounds", async (c) => {
@@ -327,7 +336,7 @@ export function createApp(opts: ServerOptions) {
     return sendFile(c, join(opts.canvasDir, "index.html"));
   });
 
-  return { app, store, lan, lanState, controls, sockets, broadcast, runCapture, getCapture: () => capture };
+  return { app, store, lan, lanState, controls, sockets, lanSockets, broadcast, runCapture, getCapture: () => capture };
 }
 
 async function sendFile(c: Context, p: string, immutable = false) {
@@ -352,7 +361,7 @@ class HttpError extends Error {
  * Resolves once listening.
  */
 export async function startServer(opts: ServerOptions) {
-  const { app, store, lan, lanState, controls, sockets, broadcast, runCapture, getCapture } = createApp(opts);
+  const { app, store, lan, lanState, controls, sockets, lanSockets, broadcast, runCapture, getCapture } = createApp(opts);
   const port = opts.port ?? PRODUCT.defaultPort;
   const host = opts.host ?? (opts.lan ? "0.0.0.0" : "127.0.0.1");
 
@@ -365,7 +374,11 @@ export async function startServer(opts: ServerOptions) {
     if (!isLoopback(remote) && !(lanState.enabled && lan.valid(cookies[lan.cookieName]))) return socket.destroy();
     wss.handleUpgrade(req, socket, head, (ws) => {
       sockets.add(ws);
-      ws.on("close", () => sockets.delete(ws));
+      if (!isLoopback(remote)) lanSockets.add(ws);
+      ws.on("close", () => {
+        sockets.delete(ws);
+        lanSockets.delete(ws);
+      });
       ws.send(JSON.stringify({ type: "hello" }));
     });
   };

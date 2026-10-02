@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
 import { Platform, PRODUCT, ScreenManifest, screensPrompt } from "@intentcue/core";
-import { ReviewStore, startServer } from "@intentcue/server";
+import type { ReviewStore } from "@intentcue/server";
 import { captureRound, type CaptureEvent } from "./capture.js";
 import { input, interactive, select, waitFor } from "./prompts.js";
+import { findRunning, portRange, startOnFreePort } from "./instances.js";
 import { makeRunner } from "./runner.js";
 import {
   BETA,
@@ -238,16 +239,9 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
   const runner = makeRunner(store, { platform, ...(flags.device ? { device: flags.device } : {}) }, flags.printEvent, (l) =>
     out(c.dim(`    ${l.slice(0, 160)}`)),
   );
-  let srv: Awaited<ReturnType<typeof startServer>> | null = null;
-  for (let p = port; p < port + 10 && !srv; p++) {
-    try {
-      srv = await startServer({ projectDir: store.root, canvasDir: flags.canvasDir, port: p, lan: flags.lan, runner });
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "EADDRINUSE") throw e;
-    }
-  }
+  const srv = await startOnFreePort({ projectDir: store.root, canvasDir: flags.canvasDir, port, lan: flags.lan, runner });
   if (!srv) {
-    errLine(`Ports ${port}–${port + 9} are all in use. Pass --port <n>.`);
+    errLine(`Ports ${portRange(port)} are all in use. Pass --port <n>.`);
     return process.exit(1);
   }
   const url = `http://127.0.0.1:${srv.port}/`;
@@ -267,10 +261,10 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
     if (latest !== null) line("round", `${pad(latest)}  ${c.dim("(latest; recapture from the canvas)")}`);
   }
   out();
-  out(c.dim(`  ${c.bold("r")} recapture   ${c.bold("o")} open canvas   ${c.bold("q")} quit`));
+  out(c.dim(`  ${c.bold("r")} recapture changed   ${c.bold("R")} recapture all   ${c.bold("o")} open canvas   ${c.bold("q")} quit`));
 
   const stop = async () => {
-    await srv!.close();
+    await srv.close();
     process.exit(0);
   };
   process.on("SIGINT", stop);
@@ -281,33 +275,21 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
     emitKeypressEvents(process.stdin);
     process.stdin.setRawMode(true);
     process.stdin.resume();
-    process.stdin.on("keypress", (_s: string, key: { name?: string; ctrl?: boolean }) => {
+    process.stdin.on("keypress", (_s: string, key: { name?: string; ctrl?: boolean; shift?: boolean }) => {
       if (key?.ctrl && key.name === "c") void stop();
       else if (key?.name === "q") void stop();
       else if (key?.name === "o") openBrowser(url);
       else if (key?.name === "r") {
         try {
           out();
-          srv!.runCapture({ trigger: "gui" });
+          // R: every screen, even when nothing looks changed
+          srv.runCapture({ trigger: "gui", ...(key.shift ? { all: true } : {}) });
         } catch (e) {
           warnLine((e as Error).message);
         }
       }
     });
   }
-}
-
-async function findRunning(root: string, port: number): Promise<string | null> {
-  for (let p = port; p < port + 10; p++) {
-    try {
-      const r = await fetch(`http://127.0.0.1:${p}/api/project`, { signal: AbortSignal.timeout(500) });
-      const body = (await r.json()) as { root?: string };
-      if (body.root === root) return `http://127.0.0.1:${p}/`;
-    } catch {
-      /* free or someone else */
-    }
-  }
-  return null;
 }
 
 export function openBrowser(url: string) {

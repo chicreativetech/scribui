@@ -90,9 +90,9 @@ export function TopBar({ onSend }: { onSend: () => void }) {
         <button
           className={`toggle ${lan.paired > 0 ? "on" : ""}`}
           onClick={() => useStore.getState().set({ lanOpen: true })}
-          title="review on an iPad or tablet: show a pairing QR code"
+          title="review on a tablet: show a pairing QR code"
         >
-          ▣ <span className="hide-sm">iPad{lan.paired > 0 ? ` · ${lan.paired}` : ""}</span>
+          ▣ <span className="hide-sm">tablet{lan.paired > 0 ? ` · ${lan.paired}` : ""}</span>
         </button>
         <button
           className={`toggle ${inspectorOpen ? "on" : ""}`}

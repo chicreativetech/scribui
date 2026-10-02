@@ -162,7 +162,7 @@ export function NextStepBanner() {
   );
 }
 
-/** Pair an iPad or tablet: QR code with a one-time link. */
+/** Pair a tablet (any device with a browser): QR code with a one-time link. */
 export function LanDialog() {
   const open = useStore((s) => s.lanOpen);
   const lan = useStore((s) => s.lan);
@@ -173,6 +173,16 @@ export function LanDialog() {
     setError(null);
     try {
       useStore.getState().set({ lan: await api.startLan() });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  const unpair = async () => {
+    setError(null);
+    try {
+      useStore.getState().set({ lan: await api.unpairAll() });
+      useStore.getState().toast({ text: "all devices unpaired", tone: "ok" });
+      await fresh(); // a new code, ready for the next device
     } catch (e) {
       setError((e as Error).message);
     }
@@ -197,7 +207,7 @@ export function LanDialog() {
     <div className="scrim" onClick={() => useStore.getState().set({ lanOpen: false })}>
       <div className="modal lan" onClick={(e) => e.stopPropagation()}>
         <div className="mh">
-          <span>review on an iPad or tablet</span>
+          <span>review on a tablet</span>
           <span>
             <kbd>esc</kbd>
           </span>
@@ -210,8 +220,10 @@ export function LanDialog() {
             </h2>
             <ol className="lan-steps">
               <li>Join the same Wi-Fi as this computer.</li>
-              <li>Scan the code with the iPad camera.</li>
-              <li>Review with your finger or Apple Pencil. Loops, arrows and handwriting are recognised.</li>
+              <li>Scan the code with the tablet's camera, or open the link below in its browser.</li>
+              <li>
+                Review with a finger or a stylus (Apple Pencil, S Pen, Surface Pen). Loops, arrows and handwriting are recognised.
+              </li>
             </ol>
             {error ? (
               <div className="err">✗ {error}</div>
@@ -229,10 +241,19 @@ export function LanDialog() {
                 </div>
               </>
             )}
+            <div className="dim" style={{ fontSize: 11, marginTop: 8 }}>
+              iPad, Android tablet, Surface or any other device with a modern browser. Devices stay paired until you unpair them or quit
+              intentcue.
+            </div>
             <div className="actions" style={{ justifyContent: "flex-start" }}>
               <button className="btn" onClick={() => void fresh()}>
                 new code
               </button>
+              {lan.paired > 0 && (
+                <button className="btn" onClick={() => void unpair()}>
+                  unpair all
+                </button>
+              )}
               <button className="btn primary" onClick={() => useStore.getState().set({ lanOpen: false })}>
                 Done
               </button>

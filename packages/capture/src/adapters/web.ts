@@ -102,6 +102,30 @@ const DOM_WALK = String.raw`(() => {
   return { type: "screen", nativeType: "document", bounds: { x: 0, y: 0, w: vw, h: vh }, children: [body], __scroll: [sx, sy] };
 })()`;
 
+/**
+ * Resolves once the page has finished loading its content: no visible loading
+ * indicator (skeleton, spinner, aria-busy) and no DOM changes for a moment.
+ * Catches data that arrives without network traffic (mocks, timers), which
+ * networkidle misses. Gives up after a few seconds for pages that never settle.
+ */
+const SETTLE = String.raw`new Promise((resolve) => {
+  const QUIET_MS = 300, MAX_MS = 6000, start = performance.now();
+  const LOADING = '[aria-busy="true"], [role="progressbar"], [class*="skeleton" i], [class*="spinner" i], [class*="loading" i]';
+  let last = performance.now();
+  const obs = new MutationObserver(() => { last = performance.now(); });
+  obs.observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
+  const loading = () => [...document.querySelectorAll(LOADING)].some((el) => {
+    const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none";
+  });
+  const tick = () => {
+    const now = performance.now();
+    if ((!loading() && now - last >= QUIET_MS) || now - start >= MAX_MS) { obs.disconnect(); resolve(true); }
+    else setTimeout(tick, 50);
+  };
+  tick();
+})`;
+
 export class WebAdapter implements CaptureAdapter {
   readonly platform = "web" as const;
   private browser: Browser | null = null;
@@ -183,6 +207,8 @@ export class WebAdapter implements CaptureAdapter {
     } catch (e) {
       throw new CaptureError(`could not open ${this.urlFor(screen)}`, String((e as Error).message ?? e));
     }
+    // before the setup script, so a script can still capture a loading state on purpose
+    await this.page.evaluate(SETTLE).catch(() => {});
     if (screen.setup) {
       const path = resolveFlowPath(this.ctx, screen.setup);
       try {
@@ -191,7 +217,8 @@ export class WebAdapter implements CaptureAdapter {
         };
         await mod.default?.(this.page, screen);
       } catch (e) {
-        throw new CaptureError(`setup script failed for "${screen.id}" (${screen.setup})`, String((e as Error).stack ?? e));
+        // the message (with Playwright's call log), not the stack: the log shows the tail of the detail
+        throw new CaptureError(`setup script failed for "${screen.id}" (${screen.setup})`, String((e as Error).message ?? e).trim());
       }
     }
     // settle animations

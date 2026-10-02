@@ -285,7 +285,7 @@ export function HelpDialog() {
             ))}
           </div>
           <div className="dim" style={{ marginTop: 16, fontSize: 11 }}>
-            Pen: the first Apple Pencil stroke turns on pen mode. Loops become circles, hooked lines arrows, crossings removals,
+            Pen: the first stroke with a stylus (Apple Pencil, S Pen, Surface Pen) turns on pen mode. Loops become circles, hooked lines arrows, crossings removals,
             short strokes handwriting. Tap the chip to change it.
           </div>
         </div>
