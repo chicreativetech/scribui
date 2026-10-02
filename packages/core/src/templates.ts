@@ -80,7 +80,7 @@ node adb.mjs tap "Stress & recovery"
 \`\`\`
 
 - \`app.bundleId\` is the application id${opts.appId ? ` (\`${opts.appId}\`)` : ""}.
-- \`app.build\` (optional) is the command that rebuilds and installs the app, e.g. \`./gradlew installDebug\`.
+- \`app.build\` (optional) is the command that rebuilds and installs the app, e.g. \`./gradlew installDebug\` (on Windows: \`gradlew.bat installDebug\`).
 - Maestro flows (\`.yaml\`) work too and are faster for long paths.
 - Compose: \`Modifier.testTag("payButton")\` plus \`testTagsAsResourceId = true\` makes elements show up by id.
 `;

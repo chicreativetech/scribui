@@ -45,46 +45,83 @@ intentcue
 
 That's the whole interface. The first time, it sets the project up and walks you through the rest; after that it opens the canvas on your latest screens.
 
-### Web app
+intentcue looks at the project to decide what it is. A folder without Android or iOS markers is treated as a web app. When it finds a Gradle project, an Xcode project, React Native, Expo or Flutter, it asks which platform to review. To skip the question, pass `--platform web|android|ios`.
 
-1. **Start your app locally,** e.g. `npm run dev`.
-2. **Run `intentcue`.** It sees this is the first time and:
-   - finds your running app (the dev server started from this folder) and asks you to confirm it;
+| | Web | Android App | iOS App |
+| --- | --- | --- | --- |
+| Runs on | macOS, Windows, Linux | macOS, Windows, Linux | **macOS only** |
+| Captures from | your local dev server | emulator or phone over USB | iOS Simulator |
+| intentcue installs for you | Playwright + Chromium | adb (via Homebrew) | Maestro |
+| You install yourself | Node 20+ | Android Studio or the platform tools, if Homebrew isn't available | Xcode |
+| Speed | about 1 s per screen | about 10 s per screen (beta) | about 10 s per screen (beta) |
+
+### Web
+
+**What you need:** Node 20 or newer and your app running locally. Any framework works (Vite, Next.js, Angular, plain HTML), because intentcue only talks to the running page.
+
+1. **Start your app,** e.g. `npm run dev`.
+2. **Run `intentcue`.** The first time, it:
+   - asks *"Which localhost port does your web app use?"*. Dev servers that are running are listed first, the one started from this folder at the top, with page titles. Common ports follow, marked "not running yet", and **Other port…** takes a port number or a full URL. The answer is saved as `app.baseUrl` in `.intentcue/screens.json`;
    - creates `.intentcue/` and adds a short "Visual design review" section to `AGENTS.md`;
-   - if Playwright is missing, asks *"Install Playwright? (Y/n)"* and installs it with your package manager, plus its Chromium (once).
+   - if Playwright is missing, asks *"Install Playwright? (Y/n)"* and adds it as a dev dependency with your package manager (npm, pnpm, yarn or bun). A project without `package.json` gets a shared copy in `~/.intentcue/runtime` instead, so nothing is added to it. Then it downloads Playwright's Chromium (about 150 MB, once);
+   - if nothing answers at the chosen address, waits until your app is up (press Enter to go on anyway).
 3. **Paste one line into your coding agent.** intentcue prints it and copies it to your clipboard:
 
    ```
    List every screen and important state of this app in .intentcue/screens.json, following .intentcue/screens.md. The app runs at http://localhost:5173.
    ```
 
-   intentcue waits and notices when the agent has saved `screens.json` (or press Enter to go on).
-4. **The canvas opens** in your browser and the first round is captured, about a second per screen. Screens appear as they're captured.
+   intentcue waits and notices when the agent has saved `screens.json` (or press Enter to go on). Each screen is a `url`, an optional `viewport`, and for states you can't reach by URL (an open menu, a filled form), a small Playwright setup script in `.intentcue/flows/`.
+4. **The canvas opens** in your browser and the first round is captured. Before each screenshot, intentcue waits until the page has finished loading: no visible skeleton, spinner or `aria-busy` element and no DOM changes for a moment, for up to 6 s. A setup script runs after that wait, so it can still capture a loading state on purpose by reloading the page.
 5. **Annotate** (see below) and press **Send to agent**. Paste the prompt it shows into your agent:
 
    ```
    Implement .intentcue/latest/review.md
    ```
 
-6. **That's it for the loop:** when the agent marks the review applied, intentcue recaptures the changed screens by itself and the canvas shows the next round. You can also press **↻ Recapture** any time.
+6. **That's it for the loop:** when the agent marks the review applied, intentcue recaptures the changed screens by itself (your dev server's hot reload has already updated the app) and the canvas shows the next round. You can also press **↻ Recapture** any time.
 
-Next time, `intentcue` opens straight to the latest round.
+### Android App
 
-### Mobile app (Android or iOS, beta)
+**What you need:** your app's Android build, and an emulator (from Android Studio's Device Manager) or an Android phone with USB debugging on. Works on macOS, Windows and Linux. Android capture is in beta.
 
-1. **Start the emulator or simulator, or connect your phone,** with the app installed. If nothing is running, intentcue offers to start an emulator or boot a simulator.
-2. **Run `intentcue`.** It asks *"Which platform? Android"* (the detected one is preselected), then:
+1. **Start the emulator or connect your phone,** with the app installed. If nothing is connected, intentcue lists your emulators and offers to start one.
+2. **Run `intentcue`** and pick **Android** (preselected when only an Android project is found). The first time, it:
    - creates `.intentcue/`, a navigation helper for flows, and the `AGENTS.md` section;
-   - checks the capture tools and offers to install what's missing: adb for Android (via Homebrew), Xcode and Maestro for iOS;
-   - picks the device (asking when several are connected) and checks the app is installed, offering to build it (`./gradlew installDebug` is detected for Gradle projects).
+   - checks for **adb**. When it's missing, intentcue offers to install the platform tools with Homebrew; without Homebrew, install Android Studio (or the platform tools alone);
+   - recommends **Maestro** for faster navigation flows. It's optional: intentcue's built-in adb helper works without it;
+   - picks the device, asking when several are connected, and remembers the choice in `screens.json`;
+   - reads your app id from `app/build.gradle(.kts)` and checks that the app is installed. If it isn't, it offers to build and install it with the detected command: `./gradlew installDebug`, `npx expo run:android`, `npx react-native run-android` or `flutter run -d android --debug`. When `JAVA_HOME` is missing or older than 17, the build uses Android Studio's bundled JDK.
 3. **Paste the same one line into your agent;** it writes `screens.json` plus a small flow per screen that taps its way there.
-4. **The canvas opens** and the first round is captured. Mobile capture is slower (roughly 10 s per screen), so the canvas shows progress with placeholders that fill in as each screen arrives.
+4. **The canvas opens** and the first round is captured. The canvas shows placeholders that fill in as each screen arrives.
 5. **Annotate and Send,** then paste `Implement .intentcue/latest/review.md` into your agent.
 6. **When the agent is done,** the canvas says *"Rebuild and reinstall the app, then recapture."* Press **Rebuild & recapture** (when intentcue knows your build command) or rebuild yourself and press **↻ Recapture**. Only the changed screens are captured, and the canvas shows the next round.
 
+### iOS App
+
+**What you need:** a Mac with Xcode and at least one iPhone simulator (Xcode → Window → Devices and Simulators). iOS capture is in beta.
+
+> **iOS capture requires a Mac.** intentcue captures from the iOS Simulator, which Apple only ships with Xcode on macOS, so iOS isn't available on Windows or Linux. Real iPhones aren't supported either. For a React Native, Expo or Flutter app, you can review its Android or web build on Windows and Linux. Layout and copy feedback carries over, but iOS-specific rendering such as fonts, safe areas and native controls won't show.
+
+1. **Boot a simulator** with the app installed, or let intentcue boot one for you.
+2. **Run `intentcue`** and pick **iOS** (preselected when only an iOS project is found). The first time, it:
+   - creates `.intentcue/`, a navigation helper for flows, and the `AGENTS.md` section;
+   - checks for the Xcode command line tools (`xcode-select --install` if they're missing);
+   - offers to install **Maestro**, which reads the screens and navigates between them (`idb` works too if you already use it). Maestro needs Java 17 or newer: `brew install openjdk@17`;
+   - uses the booted simulator, asks which one when several are booted, or offers a list of iPhone simulators to boot;
+   - reads your bundle id from `app.json` or the Xcode project and checks that the app is installed on the simulator. If it isn't, it offers to build it with `npx expo run:ios`, `npx react-native run-ios` or `flutter run -d ios --debug`. For a native Xcode project, build and run it on the simulator once with ▶ in Xcode, then run `intentcue` again.
+3. **Paste the same one line into your agent;** it writes `screens.json` plus a Maestro flow per screen.
+4. **The canvas opens** and the first round is captured, with placeholders that fill in as each screen arrives.
+5. **Annotate and Send,** then paste `Implement .intentcue/latest/review.md` into your agent.
+6. **When the agent is done,** rebuild the app (Xcode ▶, or **Rebuild & recapture** when intentcue knows your build command) and press **↻ Recapture**.
+
 ### In the terminal while intentcue runs
 
-`r` recapture · `o` open the canvas again · `q` quit. Everything else happens in the canvas.
+`r` recapture changed screens · `R` recapture all screens · `o` open the canvas again · `q` quit. Everything else happens in the canvas.
+
+### Several projects at once
+
+Run `intentcue` in each project. Each one gets its own canvas on the next free port (4382, 4383, …) in its own browser tab, and its own `.intentcue/` folder. Running `intentcue` or `intentcue open` again in a project that already has a canvas open reopens that canvas instead of starting a second one, also when it was started with `--port`.
 
 ### Annotate
 
@@ -171,13 +208,15 @@ Tools: `request_review` (captures a round), `get_feedback` (returns `waiting` or
 
 | Problem | Fix |
 | --- | --- |
-| The canvas doesn't open | intentcue is already running for this project: `intentcue` reopens it. Another program on port 4382 makes intentcue use the next free port |
+| The canvas doesn't open | intentcue is already running for this project: `intentcue` reopens it. When port 4382 is taken (another program, or intentcue for another project), intentcue uses the next free port |
+| A screenshot still shows a loading state | intentcue waits up to 6 s for loaders to disappear. If your app takes longer, wait in the screen's setup script, e.g. `await page.getByTestId('task-card').first().waitFor()` |
+| Setup says iOS "requires a Mac" | iOS capture runs the iOS Simulator, which needs a Mac with Xcode. On Windows and Linux, setup lists iOS but asks you to pick Android or Web, and `--platform ios` stops before creating any files. Review the Android or web build instead |
 | Android build fails with "requires JVM 17" | intentcue uses Android Studio's bundled JDK when `JAVA_HOME` is older than 17; install Android Studio, or point `JAVA_HOME` at JDK 17+ |
 | Web screens fail with "App not reachable" | start your dev server; check `app.baseUrl` |
 | Marks attach to the wrong element | press `E` to show all element outlines, then fix the target via the chip; add testIDs for the long run |
 | Chips say `container 632×50` instead of a name | the element has no id or label; add an accessibility id or `data-testid` |
 | Mobile capture fails | `intentcue doctor --device "iPhone 16"`; check that the simulator is booted and the flow runs with `maestro test <flow>` |
-| A screen looks out of date | it was reused (`↺` badge): click the badge, or `intentcue capture --all` |
+| A screen looks out of date | it was reused (`↺` badge): click the badge, press `R` in the terminal, or run `intentcue capture --all` |
 
 ## Keyboard reference
 
@@ -221,8 +260,8 @@ Flags: `--dir`, `--platform ios|android|web`, `--device`, `--screens a,b`, `--al
 
 | Platform | Navigation | Screenshot | Element tree | Needs |
 | --- | --- | --- | --- | --- |
-| iOS simulator | Maestro flow | `simctl io screenshot` | Maestro hierarchy or `idb ui describe-all` | Xcode, Maestro or idb |
-| Android emulator | Maestro flow | `adb screencap` | `uiautomator dump` | adb, Maestro for flows |
+| iOS simulator (macOS only) | Maestro flow | `simctl io screenshot` | Maestro hierarchy or `idb ui describe-all` | Xcode, Maestro or idb |
+| Android emulator or phone | Maestro flow or adb helper | `adb screencap` | `uiautomator dump` | adb; Maestro optional |
 | Web | `url` + optional setup script | Playwright | DOM walk | `playwright` + Chromium |
 
 Ids are taken in this order: accessibility identifier, testID (`data-testid` on web), DOM id, then a stable generated id. On web, `data-component` and `data-source="src/File.tsx:12"` attributes flow into the instructions as source locations.

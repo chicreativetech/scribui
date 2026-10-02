@@ -46,6 +46,12 @@ export async function start(store: ReviewStore, flags: StartFlags) {
   if (firstRun) {
     out(`  First time with intentcue in ${c.bold(info.name)}. Setting it up.`);
     out();
+    if (flags.platform === "ios" && !onMac) {
+      errLine(IOS_NEEDS_MAC);
+      out(c.dim("    Review the Android or web build instead: --platform android or --platform web."));
+      out();
+      return process.exit(1);
+    }
     platform = flags.platform ?? (await choosePlatform(info));
     let baseUrl: string | undefined;
     if (platform === "web") baseUrl = await findApp(store.root);
@@ -93,20 +99,30 @@ export async function start(store: ReviewStore, flags: StartFlags) {
   await serve(store, flags, platform, (await store.listRounds()).length === 0);
 }
 
+/** iOS capture runs the iOS Simulator, which only exists in Xcode on macOS. */
+const IOS_NEEDS_MAC = "iOS capture needs a Mac with Xcode (it runs the iOS Simulator).";
+const onMac = process.platform === "darwin";
+
 async function choosePlatform(info: ProjectInfo): Promise<Platform> {
   if (info.kind === "web") {
     okLine("web app detected");
     return "web";
   }
-  return select(
-    "Which platform do you want to review?",
-    [
-      { value: "android", label: "Android", hint: info.android ? "emulator or phone" : undefined },
-      { value: "ios", label: "iOS", hint: "simulator" },
-      { value: "web", label: "Web" },
-    ],
-    info.platform === "ios" ? "ios" : "android",
-  );
+  for (;;) {
+    const picked = await select<Platform>(
+      "Which platform do you want to review?",
+      [
+        { value: "android", label: "Android", hint: info.android ? "emulator or phone" : undefined },
+        { value: "ios", label: "iOS", hint: onMac ? "simulator" : "requires a Mac" },
+        { value: "web", label: "Web" },
+      ],
+      info.platform === "ios" && onMac ? "ios" : "android",
+    );
+    if (picked !== "ios" || onMac) return picked;
+    warnLine(`${IOS_NEEDS_MAC} Pick Android or Web, or run intentcue on a Mac.`);
+    // non-interactive runs would ask forever; Android is the default there anyway
+    if (!interactive()) return "android";
+  }
 }
 
 /** Ask which localhost port the web app runs on, listing the dev servers that answer first. */

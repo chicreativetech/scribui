@@ -63,7 +63,8 @@ export function detectProject(root: string): ProjectInfo {
         ? "bun"
         : "npm";
 
-  // Android
+  // Android (Windows runs the wrapper's .bat; cmd.exe can't run ./gradlew)
+  const gradlew = process.platform === "win32" ? "gradlew.bat" : "gradlew";
   const gradleDirs = ["", "android"].filter((d) => existsSync(join(root, d, "settings.gradle")) || existsSync(join(root, d, "settings.gradle.kts")));
   let android: ProjectInfo["android"];
   if (gradleDirs.length) {
@@ -76,8 +77,8 @@ export function detectProject(root: string): ProjectInfo {
         ? "npx react-native run-android"
         : flutter
           ? "flutter run -d android --debug"
-          : existsSync(join(root, dir, "gradlew"))
-            ? `${dir ? `cd ${dir} && ` : ""}./gradlew installDebug`
+          : existsSync(join(root, dir, gradlew))
+            ? `${dir ? `cd ${dir} && ` : ""}${gradlew === "gradlew.bat" ? "" : "./"}${gradlew} installDebug`
             : undefined;
     android = { ...(appId ? { appId } : {}), ...(build ? { build } : {}) };
   }
