@@ -3,12 +3,13 @@ import { emitKeypressEvents } from "node:readline";
 import { Platform, PRODUCT, ScreenManifest, screensPrompt } from "@intentcue/core";
 import { ReviewStore, startServer } from "@intentcue/server";
 import { captureRound, type CaptureEvent } from "./capture.js";
-import { confirm, input, interactive, select, waitFor } from "./prompts.js";
+import { input, interactive, select, waitFor } from "./prompts.js";
 import { makeRunner } from "./runner.js";
 import {
   BETA,
   copyToClipboard,
-  detectDevServer,
+  DEV_PORTS,
+  detectDevServers,
   detectProject,
   ensureAndroid,
   ensureIos,
@@ -107,14 +108,26 @@ async function choosePlatform(info: ProjectInfo): Promise<Platform> {
   );
 }
 
+/** Ask which localhost port the web app runs on, listing the dev servers that answer first. */
 async function findApp(root: string): Promise<string> {
-  const found = await detectDevServer(root);
-  if (found) {
-    const title = await pageTitle(found);
-    okLine(`found an app at ${c.accent(found)}${title ? c.dim(`  "${title}"`) : ""}`);
-    if (await confirm(`Review the app at ${found}?`, true)) return found;
+  const running = await detectDevServers(root);
+  const titles = await Promise.all(running.map(pageTitle));
+  const idle = DEV_PORTS.slice(0, 4)
+    .map((p) => `http://localhost:${p}`)
+    .filter((u) => !running.includes(u));
+  const options = [
+    ...running.map((u, i) => ({ value: u, label: u.replace(/^https?:\/\//, ""), hint: `running${titles[i] ? `  "${titles[i]}"` : ""}` })),
+    ...idle.slice(0, Math.max(0, 4 - running.length)).map((u) => ({ value: u, label: u.replace(/^https?:\/\//, ""), hint: "not running yet" })),
+    { value: "other", label: "Other port…" },
+  ];
+  const picked = await select("Which localhost port does your web app use?", options, options[0]!.value);
+  if (picked !== "other") return picked;
+  for (;;) {
+    const answer = (await input("Port (or full URL)", "3000")).trim();
+    if (/^\d{1,5}$/.test(answer) && Number(answer) > 0 && Number(answer) < 65536) return `http://localhost:${answer}`;
+    if (/^https?:\/\/\S+$/.test(answer)) return answer.replace(/\/$/, "");
+    warnLine(`"${answer}" is not a port number or a URL.`);
   }
-  return input("Where does your app run?", found ?? "http://localhost:3000");
 }
 
 async function pageTitle(url: string): Promise<string | null> {

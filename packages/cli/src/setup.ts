@@ -117,33 +117,32 @@ export function detectProject(root: string): ProjectInfo {
   };
 }
 
-const DEV_PORTS = [3000, 5173, 5174, 8080, 4200, 8000, 4321, 3001, 5000, 4173, 1234, 9000, 8888, 3030];
+export const DEV_PORTS = [3000, 5173, 5174, 8080, 4200, 8000, 4321, 3001, 5000, 4173, 1234, 9000, 8888, 3030];
 
 /**
- * Find the app's dev server: first a listening process started from this
+ * Find the app's dev servers: first listening processes started from this
  * project folder (any port), then a few common dev-server ports.
+ * Returns every URL that answers, the project's own first.
  */
-export async function detectDevServer(root?: string): Promise<string | null> {
-  if (root) {
-    const own = await serverStartedIn(root).catch(() => null);
-    if (own) return own;
-  }
-  const probes = DEV_PORTS.map(async (port) => {
-    const url = `http://localhost:${port}`;
-    try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(900), redirect: "manual" });
-      return r.status < 500 ? url : null;
-    } catch {
-      return null;
-    }
-  });
-  const found = await Promise.all(probes);
-  return found.find((u) => u) ?? null;
+export async function detectDevServers(root?: string): Promise<string[]> {
+  const own = root ? await serversStartedIn(root).catch(() => []) : [];
+  const probes = DEV_PORTS.map(async (port) => ((await answers(`http://localhost:${port}`)) ? `http://localhost:${port}` : null));
+  const common = (await Promise.all(probes)).filter((u): u is string => !!u);
+  return [...new Set([...own, ...common])];
 }
 
-async function serverStartedIn(root: string): Promise<string | null> {
+async function answers(url: string): Promise<boolean> {
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(900), redirect: "manual" });
+    return r.status < 500;
+  } catch {
+    return false;
+  }
+}
+
+async function serversStartedIn(root: string): Promise<string[]> {
   const ls = await run("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN", "-Fpn"], { timeoutMs: 5000 });
-  if (ls.code !== 0) return null;
+  if (ls.code !== 0) return [];
   // -F output: p<pid> then n<addr:port> lines
   const ports = new Map<string, number[]>();
   let pid = "";
@@ -154,21 +153,17 @@ async function serverStartedIn(root: string): Promise<string | null> {
       if (port && port !== 4382) ports.set(pid, [...(ports.get(pid) ?? []), port]);
     }
   }
+  const found: string[] = [];
   for (const [p, list] of ports) {
     const cwd = await run("lsof", ["-a", "-p", p, "-d", "cwd", "-Fn"], { timeoutMs: 3000 });
     const dir = cwd.stdout.toString().split("\n").find((l) => l.startsWith("n"))?.slice(1);
     if (!dir || !(dir === root || dir.startsWith(root + "/"))) continue;
     for (const port of [...new Set(list)].sort((a, b) => a - b)) {
       const url = `http://localhost:${port}`;
-      try {
-        const r = await fetch(url, { signal: AbortSignal.timeout(900), redirect: "manual" });
-        if (r.status < 500) return url;
-      } catch {
-        /* not http */
-      }
+      if (await answers(url)) found.push(url);
     }
   }
-  return null;
+  return found;
 }
 
 /* ─────────────────────────── running installs ─────────────────────────── */
