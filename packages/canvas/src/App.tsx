@@ -8,6 +8,12 @@ import { StatusLine, ToolRail, TopBar } from "./components/Chrome";
 import { CapturePanel, LanDialog, NextStepBanner } from "./components/Capture";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
 import { Inspector } from "./components/Inspector";
+import { LiveView, showLive, toggleView } from "./components/Live";
+
+const isWeb = () => {
+  const p = useStore.getState().project;
+  return !!p && "app" in p.manifest && p.manifest.app.platform === "web";
+};
 
 export function App() {
   const round = useStore((s) => s.round);
@@ -26,6 +32,12 @@ export function App() {
       /* storage blocked */
     }
   }, [theme]);
+
+  // a web project with nothing captured yet starts on the app tab
+  const startLive = useStore((s) => !!s.project && "app" in s.project.manifest && s.project.manifest.app.platform === "web" && s.project.latest === null);
+  useEffect(() => {
+    if (startLive) showLive();
+  }, [startLive]);
 
   useEffect(() => {
     void useStore.getState().load();
@@ -101,6 +113,9 @@ export function App() {
       const st = useStore.getState();
       if (st.helpOpen || st.sendOpen || st.sentPrompt) return;
       const mod = e.metaKey || e.ctrlKey;
+      if (!mod && !e.altKey && e.key.toLowerCase() === "l" && isWeb()) return toggleView();
+      // the board's keys don't apply while the live app is shown
+      if (st.view === "live") return;
 
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -126,6 +141,14 @@ export function App() {
       }
       if (mod || e.altKey) return;
 
+      // a remove button is asking: Enter removes, Escape cancels
+      if (st.removeAsk) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          return void st.removeScreen(st.removeAsk);
+        }
+        if (e.key === "Escape") return st.set({ removeAsk: null });
+      }
       if (e.key === "Escape") {
         if (st.picker) return st.set({ picker: null });
         if (st.ruleTargets.length) return st.set({ ruleTargets: [] });
@@ -159,6 +182,11 @@ export function App() {
         e.preventDefault();
         st.remove(st.selectedId);
         return;
+      }
+      // Delete on a focused view (nothing selected) asks to remove the view
+      if ((e.key === "Backspace" || e.key === "Delete") && st.focusId && !isReadOnly()) {
+        e.preventDefault();
+        return st.set({ removeAsk: st.focusId });
       }
       if (e.key === "Tab") {
         e.preventDefault();
@@ -202,6 +230,7 @@ export function App() {
         <Board />
         <NextStepBanner />
         <CapturePanel />
+        <LiveView />
         {!round && !loading && (
           <div className="empty-board">
             <div className="box">
@@ -216,12 +245,21 @@ export function App() {
                 <p className="err">✗ {project.manifest.error}</p>
               ) : (
                 <>
-                  <p>
-                    Ask your agent to list screens in <code>.intentcue/screens.json</code>, then run
-                  </p>
-                  <p>
-                    <code>npx intentcue capture</code>
-                  </p>
+                  {project && "app" in project.manifest && project.manifest.app.platform === "web" ? (
+                    <p>
+                      Open the <button className="link" onClick={showLive}>app tab</button> (<kbd>L</kbd>), browse to a view in your app and
+                      press <b>Capture view</b>.
+                    </p>
+                  ) : (
+                    <>
+                      <p>
+                        Ask your agent to list screens in <code>.intentcue/screens.json</code>, then run
+                      </p>
+                      <p>
+                        <code>npx intentcue capture</code>
+                      </p>
+                    </>
+                  )}
                   <p className="faint">This page updates on its own when a round is captured.</p>
                 </>
               )}

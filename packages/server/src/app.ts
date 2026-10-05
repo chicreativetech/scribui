@@ -296,6 +296,16 @@ export function createApp(opts: ServerOptions) {
     return c.json({ ok: true, count: list.length });
   });
 
+  app.delete("/api/rounds/:n/screens/:id", async (c) => {
+    const n = roundParam(c);
+    const id = c.req.param("id");
+    if (!(await store.readCapture(n, id)) && !(await store.readStatus(n)).screens?.some((s) => s.screenId === id))
+      throw new HttpError(404, `no screen "${id}" in round ${n}`);
+    const { notes } = await store.removeScreen(n, id);
+    broadcast({ type: "annotations-changed", round: n, by: "server" });
+    return c.json({ removed: id, notes });
+  });
+
   app.post("/api/rounds/:n/resolve", async (c) => {
     const n = roundParam(c);
     return c.json({ annotations: await resolveRound(store, n) });

@@ -81,6 +81,12 @@ type State = {
   lanOpen: boolean;
   /** The "applied" banner was dismissed for this round. */
   appliedDismissed: number | null;
+  /** Web: the review board, or the running app embedded for capturing views by hand. */
+  view: "board" | "live";
+  /** Once opened, the app tab stays mounted so switching views keeps the app's state. */
+  liveVisited: boolean;
+  /** The tile whose remove button is asking for confirmation. */
+  removeAsk: string | null;
 };
 
 type Actions = {
@@ -100,6 +106,7 @@ type Actions = {
   set(p: Partial<State>): void;
   recapture(screenIds: string[]): Promise<void>;
   captureNext(opts?: { build?: boolean; all?: boolean }): Promise<void>;
+  removeScreen(id: string): Promise<void>;
 };
 
 export type Store = State & Actions;
@@ -160,6 +167,9 @@ export const useStore = create<Store>((set, get) => ({
   lan: { enabled: false, paired: 0 },
   lanOpen: false,
   appliedDismissed: null,
+  view: "board",
+  liveVisited: false,
+  removeAsk: null,
 
   /** Recapture some screens into the current open round. */
   async recapture(ids) {
@@ -173,6 +183,22 @@ export const useStore = create<Store>((set, get) => ({
     if (readOnly(round)) return get().captureNext();
     try {
       set({ captureState: await api.recapture(round.round, ids) });
+    } catch (e) {
+      get().toast({ text: (e as Error).message, tone: "err" });
+    }
+  },
+
+  /** Remove a screen (and the notes on it) from the open round. */
+  async removeScreen(id) {
+    const round = get().round;
+    set({ removeAsk: null });
+    if (!round || readOnly(round)) return;
+    const title = round.screens.find((s) => s.id === id)?.title ?? id;
+    try {
+      const r = await api.removeScreen(round.round, id);
+      if (get().focusId === id) set({ focusId: null, preFocusCamera: null });
+      await get().load(round.round);
+      get().toast({ text: `removed "${title}"${r.notes ? ` and ${r.notes} note${r.notes === 1 ? "" : "s"}` : ""}`, tone: "ok" });
     } catch (e) {
       get().toast({ text: (e as Error).message, tone: "err" });
     }

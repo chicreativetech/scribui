@@ -27,6 +27,18 @@
         },
         "baseUrl": {
           "type": "string"
+        },
+        "device": {
+          "type": "string"
+        },
+        "build": {
+          "type": "string"
+        },
+        "sharedSources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
@@ -80,6 +92,15 @@
           },
           "setup": {
             "type": "string"
+          },
+          "live": {
+            "type": "boolean"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

@@ -65,21 +65,23 @@ intentcue looks at the project to decide what it is. A folder without Android or
    - creates `.intentcue/` and adds a short "Visual design review" section to `AGENTS.md`;
    - if Playwright is missing, asks *"Install Playwright? (Y/n)"* and adds it as a dev dependency with your package manager (npm, pnpm, yarn or bun). A project without `package.json` gets a shared copy in `~/.intentcue/runtime` instead, so nothing is added to it. Then it downloads Playwright's Chromium (about 150 MB, once);
    - if nothing answers at the chosen address, waits until your app is up (press Enter to go on anyway).
-3. **Paste one line into your coding agent.** intentcue prints it and copies it to your clipboard:
 
-   ```
-   List every screen and important state of this app in .intentcue/screens.json, following .intentcue/screens.md. The app runs at http://localhost:5173.
-   ```
-
-   intentcue waits and notices when the agent has saved `screens.json` (or press Enter to go on). Each screen is a `url`, an optional `viewport`, and for states you can't reach by URL (an open menu, a filled form), a small Playwright setup script in `.intentcue/flows/`.
-4. **The canvas opens** in your browser and the first round is captured. Before each screenshot, intentcue waits until the page has finished loading: no visible skeleton, spinner or `aria-busy` element and no DOM changes for a moment, for up to 6 s. A setup script runs after that wait, so it can still capture a loading state on purpose by reloading the page.
+   There's no list of screens to write first: you pick the views yourself.
+3. **A Chrome window opens on the canvas,** showing the **app** tab: your running app, embedded. Use it the way you normally would: log in, click through, open a menu, fill in a form. Switch between the **board** and the **app** with the toggle in the top bar or `L`. The app keeps its state when you switch.
+4. **Press Capture view** when you see something you want to comment on. intentcue screenshots the app exactly as it is, reads its elements, and adds the view to the open round (and to `.intentcue/screens.json`, marked `"live": true`). Name it first if you like, or pick **replace "…"** to update a view you captured earlier. The size picker renders the app at desktop, laptop, tablet or phone width, so views line up on the board.
 5. **Annotate** (see below) and press **Send to agent**. Paste the prompt it shows into your agent:
 
    ```
    Implement .intentcue/latest/review.md
    ```
 
-6. **That's it for the loop:** when the agent marks the review applied, intentcue recaptures the changed screens by itself (your dev server's hot reload has already updated the app) and the canvas shows the next round. You can also press **↻ Recapture** any time.
+6. **When the agent is done,** switch to the app tab, get back to the same view and press **Capture view** again; choosing **replace "…"** puts the new version where the old one was. Your next capture starts a new round, and the views you didn't recapture are carried over, marked `↺`.
+
+intentcue keeps the Chrome window's profile per project in `~/.intentcue/browser/`, so logins survive between sessions. When your app runs on `localhost`, the canvas does too, so the app's cookies work inside the app tab. Press `o` in the terminal to bring the window back if you close it.
+
+Views captured in the app tab are never recaptured automatically: their state (a login, an open menu, typed text) can't be rebuilt from the URL. Screens your agent lists in `screens.json` with a `url` and optional setup script still work as before, and **↻ Recapture** captures those.
+
+**Limits:** apps that refuse to be embedded (`X-Frame-Options` or a `frame-ancestors` policy, common on third-party login pages) don't show in the app tab. Capturing only works in the Chrome window intentcue opens; in another browser the app tab is view-only.
 
 ### Android App
 
@@ -117,7 +119,7 @@ intentcue looks at the project to decide what it is. A folder without Android or
 
 ### In the terminal while intentcue runs
 
-`r` recapture changed screens · `R` recapture all screens · `o` open the canvas again · `q` quit. Everything else happens in the canvas.
+`r` recapture changed screens · `R` recapture all screens · `o` open the canvas again (on the web: bring back the Chrome window) · `q` quit. Everything else happens in the canvas.
 
 ### Several projects at once
 
@@ -224,6 +226,7 @@ A developer tool with a terminal soul: a keyboard-first, monospace interface wit
 
 | Key | Tool | Gesture |
 | --- | --- | --- |
+| `L` | board / app | web: switch between the review board and your running app |
 | `V` | select | click an element or annotation, drag to pan or move |
 | `C` | comment | click to pin, then type |
 | `O` | circle | drag a loop around something |

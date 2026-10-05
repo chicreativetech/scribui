@@ -50,11 +50,15 @@ export async function captureRound(store: ReviewStore, opts: CaptureOptions = {}
   const manifest = await store.readManifest();
   const platform = opts.platform ?? manifest.app.platform;
   const device = opts.device ?? manifest.app.device;
-  const screens = manifest.screens;
-  if (screens.length === 0) throw new Error("screens.json lists no screens");
+  // views captured by hand in the app tab can't be reproduced from their url: carried forward, never recaptured
+  const screens = manifest.screens.filter((s) => !s.live);
+  const live = manifest.screens.filter((s) => s.live);
+  if (manifest.screens.length === 0) throw new Error("screens.json lists no screens");
   if (opts.screens?.length) {
-    const unknown = opts.screens.filter((id) => !screens.some((s) => s.id === id));
+    const unknown = opts.screens.filter((id) => !manifest.screens.some((s) => s.id === id));
     if (unknown.length) throw new Error(`unknown screen ids: ${unknown.join(", ")}`);
+    const handmade = opts.screens.filter((id) => live.some((s) => s.id === id));
+    if (handmade.length) throw new Error(`${handmade.join(", ")} came from the app tab: capture ${handmade.length === 1 ? "it" : "them"} again there`);
   }
 
   // which round we write into, and which round we compare against
@@ -91,6 +95,10 @@ export async function captureRound(store: ReviewStore, opts: CaptureOptions = {}
   log({ type: "plan", plan, previous: previousNo });
   const toCapture = plan.items.filter((i) => i.action === "capture");
 
+  if (screens.length === 0) {
+    const why = "every screen came from the app tab: capture them again there";
+    return { round: previousNo ?? 0, ok: [], failed: [], reused: live.map((s) => s.id), plan: { ...plan, why }, skipped: true };
+  }
   if (opts.dryRun || (toCapture.length === 0 && opts.intoRound === undefined)) {
     return { round: previousNo ?? 0, ok: [], failed: [], reused: plan.items.map((i) => i.screenId), plan, skipped: true };
   }
@@ -131,7 +139,10 @@ export async function captureRound(store: ReviewStore, opts: CaptureOptions = {}
     });
     reused.push(item.screenId);
   }
-  const ordered = () => screens.map((s) => progress.get(s.id)).filter((x): x is NonNullable<typeof x> => !!x);
+  if (previousNo !== null) {
+    for (const p of await carryForward(store, previousNo, n, live.map((s) => s.id))) progress.set(p.screenId, p);
+  }
+  const ordered = () => manifest.screens.map((s) => progress.get(s.id)).filter((x): x is NonNullable<typeof x> => !!x);
   const queueAfter = (i: number) => toCapture.slice(i).map((t) => t.screenId);
   await store.setStatus(n, "capturing", { screens: ordered(), progress: { total: toCapture.length, done: 0, queue: queueAfter(0) } });
 
@@ -177,6 +188,41 @@ export async function captureRound(store: ReviewStore, opts: CaptureOptions = {}
   delete final.progress;
   await store.writeStatus(n, { ...final, status: "open", updatedAt: new Date().toISOString(), screens: ordered() });
   return { round: n, ok, failed, reused, plan };
+}
+
+type ScreenStatus = NonNullable<StatusFile["screens"]>[number];
+
+/**
+ * Copy screens from round `from` into round `to` as reused, keeping where
+ * they were first captured. Only screens whose files exist are carried.
+ * Returns their status entries.
+ */
+export async function carryForward(store: ReviewStore, from: number, to: number, ids?: string[]): Promise<ScreenStatus[]> {
+  const st = await store.readStatus(from).catch(() => null);
+  const out: ScreenStatus[] = [];
+  for (const p of st?.screens ?? []) {
+    if (!p.ok || (ids && !ids.includes(p.screenId))) continue;
+    const src = store.roundDir(from);
+    const png = join(src, "screens", `${p.screenId}.png`);
+    const tree = join(src, "trees", `${p.screenId}.json`);
+    if (!existsSync(png) || !existsSync(tree)) continue;
+    if (from !== to) {
+      const dst = store.roundDir(to);
+      await mkdir(join(dst, "screens"), { recursive: true });
+      await mkdir(join(dst, "trees"), { recursive: true });
+      await copyFile(png, join(dst, "screens", `${p.screenId}.png`));
+      await copyFile(tree, join(dst, "trees", `${p.screenId}.json`));
+    }
+    const reusedFrom = from === to ? p.reusedFrom : (p.reusedFrom ?? from);
+    out.push({
+      screenId: p.screenId,
+      ok: true,
+      reason: from === to ? (p.reason ?? "kept") : `copied from R${pad(from)}`,
+      ...(reusedFrom !== undefined ? { reusedFrom } : {}),
+      ...(p.fingerprint ? { fingerprint: p.fingerprint } : {}),
+    });
+  }
+  return out;
 }
 
 async function readPrevious(store: ReviewStore, n: number): Promise<{ info: PreviousRound; createdAt: string } | null> {

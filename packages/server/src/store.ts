@@ -124,6 +124,21 @@ export class ReviewStore {
     }
   }
 
+  /**
+   * Add a screen to screens.json, or replace the one with the same id. The
+   * starter's example screen goes away with the first real one.
+   */
+  async upsertScreen(entry: ScreenManifest["screens"][number]) {
+    const starter = await this.isStarterManifest();
+    const raw = JSON.parse(await readFile(this.path("screens.json"), "utf8")) as { screens?: { id: string }[] };
+    const screens = starter ? [] : (raw.screens ?? []);
+    const i = screens.findIndex((s) => s.id === entry.id);
+    if (i >= 0) screens[i] = entry;
+    else screens.push(entry);
+    raw.screens = screens;
+    await writeJson(this.path("screens.json"), raw);
+  }
+
   agentSection() {
     return AGENT_SECTION;
   }
@@ -247,6 +262,35 @@ export class ReviewStore {
       if (c) out.set(c.screenId, c);
     }
     return out;
+  }
+
+  /**
+   * Remove a screen from an open round: its screenshot and tree, its status
+   * entry, the notes on it (and arrows or rules pointing at it), and its
+   * screens.json entry. Earlier rounds keep their copy. Returns how many notes
+   * were removed.
+   */
+  async removeScreen(n: number, id: string): Promise<{ notes: number }> {
+    const st = await this.readStatus(n);
+    if (st.status === "sent" || st.status === "applied") throw new RoundLockedError(n, st.status);
+    if (st.status === "capturing") throw new Error(`round ${n} is being captured; try again when it's done`);
+    const sid = safeId(id);
+    await rm(join(this.roundDir(n), "screens", `${sid}.png`), { force: true });
+    await rm(join(this.roundDir(n), "trees", `${sid}.json`), { force: true });
+    await this.writeStatus(n, { ...st, updatedAt: new Date().toISOString(), screens: (st.screens ?? []).filter((s) => s.screenId !== id) });
+
+    const before = await this.readAnnotations(n);
+    const after = before
+      .filter((a) => a.screenId !== id && !(a.geometry.type === "arrow" && a.geometry.toScreenId === id))
+      .map((a) => (a.kind === "rule" && a.targets ? { ...a, targets: a.targets.filter((t) => !t.startsWith(`${id}#`)) } : a));
+    await this.writeAnnotations(n, after);
+
+    const raw = JSON.parse(await readFile(this.path("screens.json"), "utf8")) as { screens?: { id: string }[] };
+    if (raw.screens?.some((s) => s.id === id)) {
+      raw.screens = raw.screens.filter((s) => s.id !== id);
+      await writeJson(this.path("screens.json"), raw);
+    }
+    return { notes: before.length - after.length };
   }
 
   /* ─────────────── annotations ─────────────── */

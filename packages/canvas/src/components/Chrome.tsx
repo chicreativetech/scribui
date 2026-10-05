@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { TOOLS, isReadOnly, unresolvedCount, useStore } from "../store";
 import { Spinner } from "./Capture";
+import { showLive } from "./Live";
 
 /* ───────── top bar ───────── */
 
@@ -27,6 +28,7 @@ export function TopBar({ onSend }: { onSend: () => void }) {
   const platform = round?.app?.platform ?? (project && "app" in project.manifest ? project.manifest.app.platform : undefined);
   const mobile = platform === "android" || platform === "ios";
   const capturing = cs.running || !!ext;
+  const view = useStore((s) => s.view);
 
   return (
     <header className="bar">
@@ -42,6 +44,16 @@ export function TopBar({ onSend }: { onSend: () => void }) {
           </span>
         )}
       </div>
+      {platform === "web" && (
+        <div className="seg view-switch">
+          <button className={`toggle ${view === "board" ? "on" : ""}`} onClick={() => useStore.getState().set({ view: "board" })} title="review board (L)">
+            ▦ <span className="hide-sm">board</span>
+          </button>
+          <button className={`toggle ${view === "live" ? "on" : ""}`} onClick={showLive} title="your running app: browse and capture views (L)">
+            ◉ <span className="hide-sm">app</span>
+          </button>
+        </div>
+      )}
       {round && (
         <div className="seg">
           <select
