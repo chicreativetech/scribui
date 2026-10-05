@@ -126,6 +126,55 @@ const SETTLE = String.raw`new Promise((resolve) => {
   tick();
 })`;
 
+/**
+ * Playwright's chromium: from the project being reviewed first (works with a
+ * global intentcue), then the shared install intentcue makes for projects
+ * without package.json, then our own dependency.
+ */
+export async function loadChromium(projectDir: string): Promise<unknown> {
+  type Mod = { chromium?: unknown; default?: { chromium?: unknown } };
+  const load = async (spec: string) => {
+    const mod = (await import(spec)) as Mod;
+    const c = mod.chromium ?? mod.default?.chromium;
+    if (!c) throw new Error("no chromium export");
+    return c;
+  };
+  for (const base of [projectDir, join(homedir(), ".intentcue", "runtime")]) {
+    try {
+      const req = createRequire(join(base, "package.json"));
+      return await load(pathToFileURL(req.resolve("playwright")).href);
+    } catch {
+      /* not there */
+    }
+  }
+  try {
+    return await load("playwright");
+  } catch {
+    throw new CaptureError("playwright is not installed", "npm i -D playwright && npx playwright install chromium");
+  }
+}
+
+type LiveFrame = { evaluate<T>(fn: string): Promise<T> };
+type LiveElement = { screenshot(o?: object): Promise<Uint8Array> };
+
+/**
+ * Capture what an embedded frame shows right now (the canvas's live tab):
+ * no navigation and no waiting, so the user's state is kept exactly.
+ * Writes `screens/<id>.png` into `roundDir`.
+ */
+export async function captureLiveFrame(opts: { frame: LiveFrame; element: LiveElement; screen: ScreenEntry; roundDir: string }): Promise<ScreenCapture> {
+  const { frame, element, screen, roundDir } = opts;
+  await frame.evaluate(`window.__intentcueFullPage = false`);
+  const png = await element.screenshot({ type: "png", animations: "disabled", caret: "hide" });
+  const rel = `screens/${screen.id}.png`;
+  await writePng(join(roundDir, rel), png);
+  const px = pngSize(png);
+  const css = await frame.evaluate<RawElement>(DOM_WALK);
+  const scale = px.width / css.bounds.w;
+  const device = { name: `Chrome ${Math.round(css.bounds.w)}×${Math.round(css.bounds.h)}`, width: Math.round(css.bounds.w), height: Math.round(css.bounds.h), scale };
+  return toCapture(screen, "web", device, rel, scaleTree(css, scale), px);
+}
+
 export class WebAdapter implements CaptureAdapter {
   readonly platform = "web" as const;
   private browser: Browser | null = null;
@@ -134,29 +183,8 @@ export class WebAdapter implements CaptureAdapter {
 
   constructor(private ctx: CaptureContext) {}
 
-  /** Playwright from the project being reviewed first (works with a global intentcue), then our own. */
-  private async chromium(): Promise<Chromium> {
-    type Mod = { chromium?: Chromium; default?: { chromium?: Chromium } };
-    const load = async (spec: string) => {
-      const mod = (await import(spec)) as Mod;
-      const c = mod.chromium ?? mod.default?.chromium;
-      if (!c) throw new Error("no chromium export");
-      return c;
-    };
-    // the project first, then the shared install intentcue makes for projects without package.json
-    for (const base of [dirname(this.ctx.reviewDir), join(homedir(), ".intentcue", "runtime")]) {
-      try {
-        const req = createRequire(join(base, "package.json"));
-        return await load(pathToFileURL(req.resolve("playwright")).href);
-      } catch {
-        /* not there */
-      }
-    }
-    try {
-      return await load("playwright");
-    } catch {
-      throw new CaptureError("playwright is not installed", "npm i -D playwright && npx playwright install chromium");
-    }
+  private chromium(): Promise<Chromium> {
+    return loadChromium(dirname(this.ctx.reviewDir)) as Promise<Chromium>;
   }
 
   async check() {

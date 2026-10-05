@@ -18,6 +18,8 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
   const picker = useStore((s) => s.picker);
   const focusId = useStore((s) => s.focusId);
   const tool = useStore((s) => s.tool);
+  const removeAsk = useStore((s) => s.removeAsk);
+  const ro = !round || round.status.status === "sent" || round.status.status === "applied";
   const capturing = useCapturingScreens();
   const { markers, rules } = useMarkers();
   const byTile = new Map(tiles.map((t) => [t.id, t]));
@@ -45,12 +47,37 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
             title="focus (double-click the tile)"
           >
             <span className="t">{info?.title ?? t.id}</span>
-            {w > 170 && (
+            {w > 170 && removeAsk !== t.id && (
               <span className="m">
                 {info?.platform ?? "—"} · {info?.device ? `${info.device.width}×${info.device.height}` : ""}
               </span>
             )}
-            {n > 0 && <span className="n">{n}●</span>}
+            {n > 0 && removeAsk !== t.id && <span className="n">{n}●</span>}
+            {!ro &&
+              w > 90 &&
+              (removeAsk === t.id ? (
+                <span className="remove-ask" onClick={(e) => e.stopPropagation()}>
+                  {n > 0 ? `remove with ${n} note${n === 1 ? "" : "s"}?` : "remove?"}
+                  <span role="button" className="yes" onClick={() => void useStore.getState().removeScreen(t.id)}>
+                    remove ⏎
+                  </span>
+                  <span role="button" onClick={() => useStore.getState().set({ removeAsk: null })}>
+                    cancel
+                  </span>
+                </span>
+              ) : (
+                <span
+                  role="button"
+                  className="remove"
+                  title="remove this view from the round (Delete on a focused view)"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    useStore.getState().set({ removeAsk: t.id });
+                  }}
+                >
+                  ✕
+                </span>
+              ))}
             {capturing.has(t.id) ? (
               <span className="stale busy">capturing…</span>
             ) : (

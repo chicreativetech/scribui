@@ -150,6 +150,32 @@ describe("http api", () => {
     expect((await open.app.request("/api/rounds", { headers: { cookie } }, remote)).status).toBe(403);
   });
 
+  it("removes a screen from an open round, with the notes on it", async () => {
+    const { store, n } = await project();
+    const { app } = createApp({ projectDir: store.root });
+    const local = { incoming: { socket: { remoteAddress: "127.0.0.1" } } };
+    await store.setStatus(n, "open", { screens: [{ screenId: "cart", ok: true }, { screenId: "checkout-default", ok: true }] });
+    const note = (id: string, screenId: string, extra = {}) => ({ id, screenId, kind: "comment", geometry: { type: "point", x: 1, y: 1 }, text: "x", ...extra });
+    await store.writeAnnotations(n, [
+      note("a1", "cart"),
+      note("a2", "checkout-default"),
+      { id: "a3", screenId: "checkout-default", kind: "arrow", geometry: { type: "arrow", from: [1, 1], to: [2, 2], toScreenId: "cart" } },
+    ] as never);
+
+    const res = await app.request(`/api/rounds/${n}/screens/cart`, { method: "DELETE" }, local);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ removed: "cart", notes: 2 });
+    expect(existsSync(join(store.roundDir(n), "screens", "cart.png"))).toBe(false);
+    expect(await store.readCapture(n, "cart")).toBeNull();
+    expect((await store.readStatus(n)).screens?.map((s) => s.screenId)).toEqual(["checkout-default"]);
+    expect((await store.readAnnotations(n)).map((a) => a.id)).toEqual(["a2"]);
+    expect((await store.readManifest()).screens.map((s) => s.id)).not.toContain("cart");
+
+    expect((await app.request(`/api/rounds/${n}/screens/cart`, { method: "DELETE" }, local)).status).toBe(404);
+    await store.setStatus(n, "sent");
+    expect((await app.request(`/api/rounds/${n}/screens/checkout-default`, { method: "DELETE" }, local)).status).toBe(409);
+  });
+
   it("pairing tokens expire", () => {
     const lan = new LanAuth();
     const t = lan.issueToken(-1);

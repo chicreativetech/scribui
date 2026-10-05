@@ -101,6 +101,8 @@ export const api = {
   lan: () => fetch("/api/lan").then((r) => json<LanState>(r)),
   startLan: () => fetch("/api/lan", { method: "POST" }).then((r) => json<LanState>(r)),
   unpairAll: () => fetch("/api/lan", { method: "DELETE" }).then((r) => json<LanState>(r)),
+  removeScreen: (n: number, id: string) =>
+    fetch(`/api/rounds/${n}/screens/${encodeURIComponent(id)}`, { method: "DELETE" }).then((r) => json<{ removed: string; notes: number }>(r)),
   review: (n: number) => fetch(`/api/rounds/${n}/review`).then((r) => (r.ok ? r.text() : null)),
   rules: () => fetch("/api/rules").then((r) => r.text()),
 };

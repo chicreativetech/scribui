@@ -221,6 +221,8 @@ const KEYS: [string, [string, string][]][] = [
       ["double-click", "focus a screen"],
       ["esc", "leave focus · close"],
       ["F", "fit all"],
+      ["L", "web: switch between the board and your app"],
+      ["delete", "on a focused view: remove it from the round"],
       ["1 / 0", "zoom 100% / fit"],
       ["tab", "toggle panel"],
     ],

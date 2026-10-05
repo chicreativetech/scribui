@@ -5,6 +5,7 @@ import type { ReviewStore } from "@intentcue/server";
 import { captureRound, type CaptureEvent } from "./capture.js";
 import { input, interactive, select, waitFor } from "./prompts.js";
 import { findRunning, portRange, startOnFreePort } from "./instances.js";
+import { openLiveWindow, type LiveWindow } from "./live.js";
 import { makeRunner } from "./runner.js";
 import {
   BETA,
@@ -81,9 +82,9 @@ export async function start(store: ReviewStore, flags: StartFlags) {
     return process.exit(1);
   }
 
-  // the agent lists the screens
+  // the agent lists the screens (mobile; on the web you capture views yourself in the app tab)
   const rounds = await store.listRounds();
-  if (rounds.length === 0 && (await store.isStarterManifest())) {
+  if (platform !== "web" && rounds.length === 0 && (await store.isStarterManifest())) {
     const ok = await waitForScreens(store, platform);
     if (!ok) return process.exit(1);
   }
@@ -96,7 +97,7 @@ export async function start(store: ReviewStore, flags: StartFlags) {
     return;
   }
 
-  await serve(store, flags, platform, (await store.listRounds()).length === 0);
+  await serve(store, flags, platform, platform !== "web" && (await store.listRounds()).length === 0);
 }
 
 /** iOS capture runs the iOS Simulator, which only exists in Xcode on macOS. */
@@ -247,7 +248,8 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
   const running = await findRunning(store.root, port);
   if (running) {
     okLine(`intentcue is already running for this project: ${c.accent(running)}`);
-    if (flags.open !== false) openBrowser(running);
+    if (platform === "web") out(c.dim("    Its canvas is in the Chrome window intentcue opened; press o in that terminal to bring it back."));
+    else if (flags.open !== false) openBrowser(running);
     out();
     return;
   }
@@ -263,7 +265,14 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
   const url = `http://127.0.0.1:${srv.port}/`;
   out();
   line("canvas", c.accent(url));
-  if (flags.open !== false) openBrowser(url);
+  // web: the canvas opens in a Chrome window intentcue controls, so its app tab can capture the app
+  let live: LiveWindow | null = null;
+  if (platform === "web" && flags.open !== false) {
+    live = await openLiveWindow(store, await liveCanvasUrl(store, srv.port), (msg) => warnLine(`Couldn't open the live window: ${msg}`));
+    if (live) line("app tab", c.dim("browse your app in the canvas's app tab (L) and press Capture view"));
+    else openBrowser(url);
+  } else if (flags.open !== false) openBrowser(url);
+  const show = () => (live ? void live.show() : openBrowser(url));
 
   if (captureFirst) {
     out();
@@ -280,6 +289,7 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
   out(c.dim(`  ${c.bold("r")} recapture changed   ${c.bold("R")} recapture all   ${c.bold("o")} open canvas   ${c.bold("q")} quit`));
 
   const stop = async () => {
+    await live?.close();
     await srv.close();
     process.exit(0);
   };
@@ -294,7 +304,7 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
     process.stdin.on("keypress", (_s: string, key: { name?: string; ctrl?: boolean; shift?: boolean }) => {
       if (key?.ctrl && key.name === "c") void stop();
       else if (key?.name === "q") void stop();
-      else if (key?.name === "o") openBrowser(url);
+      else if (key?.name === "o") show();
       else if (key?.name === "r") {
         try {
           out();
@@ -306,6 +316,20 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
       }
     });
   }
+}
+
+/**
+ * The canvas URL for the live window. When the app runs on localhost, the
+ * canvas uses localhost too: the embedded app is then same-site, so its
+ * cookies (and logins) work inside the app tab.
+ */
+async function liveCanvasUrl(store: ReviewStore, port: number): Promise<string> {
+  const base = await store
+    .readManifest()
+    .then((m) => m.app.baseUrl)
+    .catch(() => undefined);
+  const host = base ? new URL(base).hostname : "";
+  return `http://${host === "localhost" ? "localhost" : "127.0.0.1"}:${port}/`;
 }
 
 export function openBrowser(url: string) {
