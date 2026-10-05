@@ -1,7 +1,7 @@
-import type { Platform, ScreenCapture, ScreenEntry, ScreenManifest } from "@intentcue/core";
+import type { Platform, ScreenCapture, ScreenEntry, ScreenManifest } from "@scribui/core";
 
 export type CaptureContext = {
-  /** Absolute path of the `.intentcue/` folder. */
+  /** Absolute path of the `.scribui/` folder. */
   reviewDir: string;
   /** Absolute path of the round folder being captured. */
   roundDir: string;

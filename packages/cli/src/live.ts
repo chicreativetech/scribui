@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { captureLiveFrame, loadChromium } from "@intentcue/capture";
-import type { ScreenEntry } from "@intentcue/core";
-import type { ReviewStore } from "@intentcue/server";
+import { captureLiveFrame, loadChromium } from "@scribui/capture";
+import type { ScreenEntry } from "@scribui/core";
+import type { ReviewStore } from "@scribui/server";
 import { carryForward } from "./capture.js";
 
 /**
- * The live window: a Chrome window intentcue controls, showing the canvas. Its
+ * The live window: a Chrome window ScribUI controls, showing the canvas. Its
  * app tab embeds the running app; "Capture view" calls a function this module
  * exposes to the page, which screenshots the embedded app exactly as the user
  * left it (login, open menus, form input) and adds it to the open round.
@@ -58,7 +58,7 @@ export async function openLiveWindow(store: ReviewStore, canvasUrl: string, onEr
     return null;
   }
   // one profile per project: logins persist between sessions, and several projects can be open at once
-  const profile = join(homedir(), ".intentcue", "browser", createHash("sha1").update(store.root).digest("hex").slice(0, 12));
+  const profile = join(homedir(), ".scribui", "browser", createHash("sha1").update(store.root).digest("hex").slice(0, 12));
   await mkdir(profile, { recursive: true });
 
   let ctx: Context | null = null;
@@ -110,7 +110,7 @@ export async function openLiveWindow(store: ReviewStore, canvasUrl: string, onEr
 export async function attachLiveCapture(context: unknown, store: ReviewStore) {
   const c = context as Context;
   let busy = false;
-  await c.exposeBinding("__intentcueCapture", async ({ page }, arg) => {
+  await c.exposeBinding("__scribuiCapture", async ({ page }, arg) => {
     if (busy) throw new Error("a capture is already running");
     busy = true;
     try {
@@ -123,14 +123,14 @@ export async function attachLiveCapture(context: unknown, store: ReviewStore) {
     // the canvas can't read a cross-origin frame's url; tell it where the embedded app went
     p.on("framenavigated", (f) => {
       if (f.parentFrame() !== p.mainFrame()) return;
-      void p.evaluate(`window.dispatchEvent(new CustomEvent("intentcue:live-url", { detail: ${JSON.stringify(f.url())} }))`).catch(() => {});
+      void p.evaluate(`window.dispatchEvent(new CustomEvent("scribui:live-url", { detail: ${JSON.stringify(f.url())} }))`).catch(() => {});
     });
   for (const p of c.pages()) watch(p);
   c.on("page", (p) => p && watch(p));
 }
 
 async function captureFromPage(store: ReviewStore, page: Page, req: LiveCaptureRequest): Promise<LiveCaptureResult> {
-  const element = await page.$("iframe[data-intentcue-live]");
+  const element = await page.$("iframe[data-scribui-live]");
   const frame = await element?.contentFrame();
   if (!element || !frame) throw new Error("the app tab isn't showing an app");
   const url = frame.url();
@@ -154,22 +154,22 @@ async function captureFromPage(store: ReviewStore, page: Page, req: LiveCaptureR
 /**
  * For the moment of the screenshot, only the app: the canvas's own interface
  * is hidden and the app is pinned to the window's top-left corner at its
- * current size, so nothing of intentcue (toolbar, panel, toasts, or a scroll
+ * current size, so nothing of ScribUI (toolbar, panel, toasts, or a scroll
  * area cutting the app off) ends up in the picture. The frame isn't moved in
  * the DOM, so the app doesn't reload and keeps its state.
  */
 const ISOLATE = String.raw`(() => {
-  const f = document.querySelector("iframe[data-intentcue-live]");
+  const f = document.querySelector("iframe[data-scribui-live]");
   const r = f.getBoundingClientRect();
   const st = document.createElement("style");
-  st.id = "intentcue-capturing";
+  st.id = "scribui-capturing";
   st.textContent = "html, body, body * { visibility: hidden !important; transition: none !important; }" +
-    "iframe[data-intentcue-live] { visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important;" +
+    "iframe[data-scribui-live] { visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important;" +
     " margin: 0 !important; box-shadow: none !important; transform: none !important; z-index: 2147483647 !important;" +
     " width: " + r.width + "px !important; height: " + r.height + "px !important; }";
   document.head.appendChild(st);
 })()`;
-const RESTORE = `document.getElementById("intentcue-capturing")?.remove()`;
+const RESTORE = `document.getElementById("scribui-capturing")?.remove()`;
 
 /**
  * Add one hand-captured view to the open round: a new round when the latest
@@ -182,7 +182,7 @@ export async function saveLiveCapture(
     url: string;
     title: string;
     replace?: string;
-    capture: (screen: ScreenEntry, roundDir: string) => Promise<import("@intentcue/core").ScreenCapture>;
+    capture: (screen: ScreenEntry, roundDir: string) => Promise<import("@scribui/core").ScreenCapture>;
   },
 ): Promise<LiveCaptureResult> {
   const manifest = await store.readManifest();

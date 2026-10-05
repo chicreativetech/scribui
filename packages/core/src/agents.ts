@@ -1,31 +1,37 @@
 import type { ScreenManifest } from "./schemas.js";
 
-const START = "<!-- intentcue:start -->";
-const END = "<!-- intentcue:end -->";
+const START = "<!-- scribui:start -->";
+const END = "<!-- scribui:end -->";
+/** The section written under ScribUI's earlier name, replaced in place. */
+const LEGACY_START = "<!-- intentcue:start -->";
+const LEGACY_END = "<!-- intentcue:end -->";
 
 export const AGENT_SECTION = `${START}
 ## Visual design review
 
-Design feedback lives in \`.intentcue/\`.
+Design feedback lives in \`.scribui/\`.
 
-- Before any UI work, read \`.intentcue/rules.md\` and follow it.
-- When \`.intentcue/latest/status.json\` says \`sent\`, implement \`.intentcue/latest/review.md\`,
+- Before any UI work, read \`.scribui/rules.md\` and follow it.
+- When \`.scribui/latest/status.json\` says \`sent\`, implement \`.scribui/latest/review.md\`,
   then set its status to \`applied\` and add \`"changedScreens"\`: the ids of every screen whose UI
   you changed (check screens that share the components you edited), or \`"all"\` if you changed
   shared styles, theme or design-system components. Only those screens are recaptured.
-- When you add, remove or change screens, update \`.intentcue/screens.json\`.
+- When you add, remove or change screens, update \`.scribui/screens.json\`.
 - If an instruction is marked \`unresolved\`, ask the user instead of guessing.
-- To request a review, run \`npx intentcue capture\` and tell the user it is ready.
+- To request a review, run \`npx scribui capture\` and tell the user it is ready.
 ${END}
 `;
 
-/** Insert or refresh the intentcue section in an AGENTS.md / CLAUDE.md body. */
+/** Insert or refresh the ScribUI section in an AGENTS.md / CLAUDE.md body. */
 export function upsertAgentSection(existing: string | null): string {
   if (!existing || !existing.trim()) return `# Agent instructions\n\n${AGENT_SECTION}`;
-  const s = existing.indexOf(START);
-  const e = existing.indexOf(END);
-  if (s !== -1 && e !== -1 && e > s) {
-    return existing.slice(0, s) + AGENT_SECTION.trimEnd() + existing.slice(e + END.length);
+  for (const [start, end] of [
+    [START, END],
+    [LEGACY_START, LEGACY_END],
+  ] as const) {
+    const s = existing.indexOf(start);
+    const e = existing.indexOf(end);
+    if (s !== -1 && e !== -1 && e > s) return existing.slice(0, s) + AGENT_SECTION.trimEnd() + existing.slice(e + end.length);
   }
   return existing.replace(/\s*$/, "\n\n") + AGENT_SECTION;
 }
@@ -54,6 +60,6 @@ export function exampleManifest(platform: "ios" | "android" | "web", name: strin
 export const RULES_HEADER = `# Design rules
 
 Persistent design rules for this project. The coding agent reads this file before any UI work.
-intentcue appends new rules at the end; edit freely, your edits are kept.
+ScribUI appends new rules at the end; edit freely, your edits are kept.
 
 `;

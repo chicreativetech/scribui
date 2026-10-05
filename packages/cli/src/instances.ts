@@ -2,15 +2,15 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { startServer, type ServerOptions } from "@intentcue/server";
+import { startServer, type ServerOptions } from "@scribui/server";
 
 /**
- * One intentcue server per project. Each running server records its port in
- * ~/.intentcue/servers/, so a second `intentcue` in the same project finds it
+ * One ScribUI server per project. Each running server records its port in
+ * ~/.scribui/servers/, so a second `scribui` in the same project finds it
  * even when it was started with a custom --port.
  */
 
-const SERVERS_DIR = join(homedir(), ".intentcue", "servers");
+const SERVERS_DIR = join(homedir(), ".scribui", "servers");
 const PORT_RANGE = 10;
 
 const recordFile = (root: string) => join(SERVERS_DIR, `${createHash("sha1").update(root).digest("hex").slice(0, 16)}.json`);

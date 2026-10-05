@@ -9,7 +9,7 @@ export class LanAuth {
   private token: string | null = null;
   private tokenExpires = 0;
   private sessions = new Set<string>();
-  readonly cookieName = "intentcue_session";
+  readonly cookieName = "scribui_session";
 
   issueToken(ttlMs = 10 * 60_000): string {
     this.token = randomBytes(16).toString("hex");

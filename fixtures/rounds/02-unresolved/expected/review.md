@@ -13,4 +13,4 @@ Screenshot: screens/cart.annotated.png
 4. [R2-4] In the empty area at (x 390, y 1500): Add a recommended-products carousel here.
 5. [R2-5] Container (id: promoBanner): Make this much quieter.
 
-When done, set `"status": "applied"` in `.intentcue/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. intentcue then recaptures those screens.
+When done, set `"status": "applied"` in `.scribui/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. ScribUI then recaptures those screens.

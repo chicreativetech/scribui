@@ -17,7 +17,7 @@ export function newAnnotationId(): string {
 }
 
 export const PRODUCT = {
-  name: "intentcue",
-  folder: ".intentcue",
+  name: "scribui",
+  folder: ".scribui",
   defaultPort: 4382,
 } as const;

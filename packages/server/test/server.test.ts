@@ -8,7 +8,7 @@ const F = join(import.meta.dirname, "../../../fixtures");
 
 /** A project with round 1 captured from the web fixtures. */
 async function project() {
-  const dir = mkdtempSync(join(tmpdir(), "intentcue-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "scribui-test-"));
   const store = new ReviewStore(dir);
   await store.init({ platform: "web", name: "Test" });
   cpSync(join(F, "web/checkout/screens.json"), store.path("screens.json"));
@@ -23,16 +23,16 @@ async function project() {
 
 describe("store", () => {
   it("init creates the folder contract and the agent section", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "intentcue-init-"));
+    const dir = mkdtempSync(join(tmpdir(), "scribui-init-"));
     writeFileSync(join(dir, "CLAUDE.md"), "# Mine\n\nKeep this.\n");
     const store = new ReviewStore(dir);
     const created = await store.init({ platform: "ios" });
-    expect(created).toContain(".intentcue/screens.json");
-    expect(existsSync(join(dir, ".intentcue/flows/home.yaml"))).toBe(true);
+    expect(created).toContain(".scribui/screens.json");
+    expect(existsSync(join(dir, ".scribui/flows/home.yaml"))).toBe(true);
     const agents = readFileSync(join(dir, "AGENTS.md"), "utf8");
     expect(agents).toContain("## Visual design review");
     const claude = readFileSync(join(dir, "CLAUDE.md"), "utf8");
-    expect(claude).toMatch(/^# Mine\n\nKeep this\.\n\n<!-- intentcue:start -->/);
+    expect(claude).toMatch(/^# Mine\n\nKeep this\.\n\n<!-- scribui:start -->/);
     // idempotent
     expect(await store.init({ platform: "ios" })).toEqual([]);
   });
@@ -55,7 +55,7 @@ describe("store", () => {
     expect(body).toContain("- My hand-written rule\n\n## Round 1 · 2026-09-30\n\n- New rule.\n");
   });
 
-  it("refuses paths outside .intentcue", async () => {
+  it("refuses paths outside .scribui", async () => {
     const { store } = await project();
     expect(store.safePath("../package.json")).toBeNull();
     expect(store.safePath("rounds/001/review.md")).not.toBeNull();
@@ -118,7 +118,7 @@ describe("http api", () => {
     expect(ok.status).toBe(200);
 
     const sent = (await (await req(`/api/rounds/${n}/send`, { method: "POST" })).json()) as { prompt: string };
-    expect(sent.prompt).toBe("Implement .intentcue/latest/review.md");
+    expect(sent.prompt).toBe("Implement .scribui/latest/review.md");
     expect((await req(`/api/rounds/${n}/send`, { method: "POST" })).status).toBe(409);
     expect(await (await req(`/api/rounds/${n}/review`)).text()).toContain("promoBanner");
 
@@ -143,7 +143,7 @@ describe("http api", () => {
     // one-time token
     expect((await open.app.request(`/pair?token=${token}`, undefined, remote)).status).toBe(403);
 
-    // only the computer running intentcue can unpair, and unpairing locks the device out
+    // only the computer running ScribUI can unpair, and unpairing locks the device out
     expect((await open.app.request("/api/lan", { method: "DELETE", headers: { cookie } }, remote)).status).toBe(403);
     expect((await open.app.request("/api/lan", { method: "DELETE" }, { incoming: { socket: { remoteAddress: "127.0.0.1" } } })).status).toBe(200);
     expect(open.lan.paired).toBe(0);

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
-import { PRODUCT } from "@intentcue/core";
-import type { ReviewStore } from "@intentcue/server";
+import { PRODUCT } from "@scribui/core";
+import type { ReviewStore } from "@scribui/server";
 import { captureRound } from "./capture.js";
 
 /**
@@ -14,7 +14,7 @@ export async function runMcp(store: ReviewStore) {
     {
       name: "request_review",
       description:
-        "Capture every screen in .intentcue/screens.json into a new review round. Afterwards tell the user the round is ready and that they can open it with `npx intentcue open`.",
+        "Capture every screen in .scribui/screens.json into a new review round. Afterwards tell the user the round is ready and that they can open it with `npx scribui open`.",
       inputSchema: {
         type: "object",
         properties: {
@@ -53,9 +53,9 @@ export async function runMcp(store: ReviewStore) {
     }
     if (name === "request_review") {
       const res = await captureRound(store, { screens: args["screens"] as string[] | undefined, all: args["all"] === true });
-      if (!res) return { error: "capture tools not ready; run `npx intentcue doctor`" };
+      if (!res) return { error: "capture tools not ready; run `npx scribui doctor`" };
       if (res.skipped) return { round: res.round, captured: [], note: `nothing to capture: ${res.plan.why}` };
-      return { round: res.round, captured: res.ok, reused: res.reused, failed: res.failed, next: "Ask the user to review with `npx intentcue open`." };
+      return { round: res.round, captured: res.ok, reused: res.reused, failed: res.failed, next: "Ask the user to review with `npx scribui open`." };
     }
     if (name === "get_feedback") {
       const n = await store.latestRound();
@@ -92,7 +92,7 @@ export async function runMcp(store: ReviewStore) {
         result: {
           protocolVersion: (params?.["protocolVersion"] as string) ?? "2025-06-18",
           capabilities: { tools: {} },
-          serverInfo: { name: "intentcue", version: "0.1.0" },
+          serverInfo: { name: "scribui", version: "0.1.0" },
         },
       });
     } else if (method === "tools/list") {

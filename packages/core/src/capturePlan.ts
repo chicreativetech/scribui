@@ -49,7 +49,7 @@ export type CapturePlan = { items: PlanItem[]; full: boolean; why: string };
 
 /** Paths that never decide what to recapture. */
 export const IGNORED_CHANGES = [
-  ".intentcue/**",
+  ".scribui/**",
   "AGENTS.md",
   "CLAUDE.md",
   "**/*.md",

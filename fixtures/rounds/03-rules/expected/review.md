@@ -14,4 +14,4 @@ Screenshot: screens/checkout-default.annotated.png
 
 1. [R2-1] "4242 4242 4242 4242" input (id: cardInput): Show the card brand icon inside the field.
 
-When done, set `"status": "applied"` in `.intentcue/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. intentcue then recaptures those screens.
+When done, set `"status": "applied"` in `.scribui/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. ScribUI then recaptures those screens.

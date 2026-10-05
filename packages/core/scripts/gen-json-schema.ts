@@ -9,7 +9,7 @@ mkdirSync(out, { recursive: true });
 const schemas = { UIElement, ScreenCapture, ScreenManifest, Annotation, AnnotationsFile, ReviewJson, StatusFile };
 for (const [name, schema] of Object.entries(schemas)) {
   const json = z.toJSONSchema(schema as z.ZodType, { target: "draft-2020-12", cycles: "ref", unrepresentable: "any" });
-  const body = { $id: `https://intentcue.dev/schemas/${name}.schema.json`, title: name, ...json };
+  const body = { $id: `https://scribui.dev/schemas/${name}.schema.json`, title: name, ...json };
   writeFileSync(join(out, `${name}.schema.json`), JSON.stringify(body, null, 2) + "\n");
   console.log(`wrote schemas/${name}.schema.json`);
 }

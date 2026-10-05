@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { delimiter, dirname, extname, isAbsolute, join } from "node:path";
 import { findTool } from "../tools.js";
-import { normalizeTree, type Device, type Platform, type RawElement, type ScreenCapture, type ScreenEntry } from "@intentcue/core";
+import { normalizeTree, type Device, type Platform, type RawElement, type ScreenCapture, type ScreenEntry } from "@scribui/core";
 import { CaptureError, run } from "../exec.js";
 import type { CaptureContext } from "../types.js";
 

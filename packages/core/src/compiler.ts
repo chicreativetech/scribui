@@ -387,7 +387,7 @@ function renderMarkdown(ctx: Ctx, review: ReviewJson): string {
   }
   if (review.instructions.length === 0) L.push("No instructions in this round.", "");
   L.push(
-    'When done, set `"status": "applied"` in `.intentcue/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. intentcue then recaptures those screens.',
+    'When done, set `"status": "applied"` in `.scribui/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. ScribUI then recaptures those screens.',
     "",
   );
   return L.join("\n");

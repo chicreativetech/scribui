@@ -1,7 +1,7 @@
 import { readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RawElement, ScreenCapture, ScreenEntry } from "@intentcue/core";
+import type { RawElement, ScreenCapture, ScreenEntry } from "@scribui/core";
 import { CaptureError, run, which } from "../exec.js";
 import { findTool } from "../tools.js";
 import { parseIdb } from "../parsers/idb.js";
@@ -75,7 +75,7 @@ export class IosAdapter implements CaptureAdapter {
   async prepare(screen: ScreenEntry) {
     const sim = await this.findSim();
     if (!sim) throw new CaptureError("no booted simulator");
-    await runFlow(this.ctx, screen, ["--udid", sim.udid], { INTENTCUE_UDID: sim.udid });
+    await runFlow(this.ctx, screen, ["--udid", sim.udid], { SCRIBUI_UDID: sim.udid });
   }
 
   async capture(screen: ScreenEntry): Promise<ScreenCapture> {
@@ -84,7 +84,7 @@ export class IosAdapter implements CaptureAdapter {
     if (!this.tree) await this.check();
 
     const shot = screenshotPath(this.ctx, screen.id);
-    const tmp = join(tmpdir(), `intentcue-${process.pid}-${screen.id}.png`);
+    const tmp = join(tmpdir(), `scribui-${process.pid}-${screen.id}.png`);
     const r = await run("xcrun", ["simctl", "io", sim.udid, "screenshot", "--type=png", tmp], { timeoutMs: 30_000 });
     if (r.code !== 0) throw new CaptureError(`screenshot failed for "${screen.id}"`, r.stderr);
     const png = await readFile(tmp);

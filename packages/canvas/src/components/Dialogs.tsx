@@ -100,7 +100,7 @@ export function SendDialog() {
           )}
           <div className="dim" style={{ fontSize: 11.5, lineHeight: 1.6 }}>
             Writes <span style={{ color: "var(--fg)" }}>review.md</span>, <span style={{ color: "var(--fg)" }}>review.json</span> and
-            annotated screenshots to <span style={{ color: "var(--fg)" }}>.intentcue/rounds/{String(round.round).padStart(3, "0")}/</span>,
+            annotated screenshots to <span style={{ color: "var(--fg)" }}>.scribui/rounds/{String(round.round).padStart(3, "0")}/</span>,
             appends rules, and locks the round.
           </div>
           {error && <div className="err" style={{ marginTop: 10 }}>✗ {error}</div>}
@@ -179,7 +179,7 @@ export function SentDialog() {
                   <b>1</b> Your agent implements the changes and marks the round applied.
                 </div>
                 <div>
-                  <b>2</b> intentcue recaptures the changed screens automatically and shows the next round here.
+                  <b>2</b> ScribUI recaptures the changed screens automatically and shows the next round here.
                 </div>
               </>
             )}

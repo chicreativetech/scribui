@@ -19,7 +19,7 @@ import {
   upsertAgentSection,
   type Platform,
   type RoundState,
-} from "@intentcue/core";
+} from "@scribui/core";
 
 export const pad = (n: number) => String(n).padStart(3, "0");
 
@@ -29,7 +29,7 @@ export class RoundLockedError extends Error {
   }
 }
 
-/** All reads and writes of the `.intentcue/` folder. */
+/** All reads and writes of the `.scribui/` folder. */
 export class ReviewStore {
   readonly root: string;
   readonly dir: string;
@@ -147,7 +147,7 @@ export class ReviewStore {
 
   async readManifest(): Promise<ScreenManifest> {
     const p = this.path("screens.json");
-    if (!existsSync(p)) throw new Error(`${PRODUCT.folder}/screens.json not found. Run: npx intentcue init`);
+    if (!existsSync(p)) throw new Error(`${PRODUCT.folder}/screens.json not found. Run: npx scribui init`);
     const raw = JSON.parse(await readFile(p, "utf8"));
     const parsed = ScreenManifest.safeParse(raw);
     if (!parsed.success) {
@@ -328,7 +328,7 @@ export class ReviewStore {
     return readFile(p, "utf8");
   }
 
-  /** Resolve a path inside `.intentcue/`, or null if it escapes. */
+  /** Resolve a path inside `.scribui/`, or null if it escapes. */
   safePath(rel: string): string | null {
     const p = resolve(this.dir, rel);
     const r = relative(this.dir, p);

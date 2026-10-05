@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Annotation, UIElement } from "@intentcue/core";
+import type { Annotation, UIElement } from "@scribui/core";
 import { api } from "../api";
 import { compileCurrent, describeElement, elementOf, useMarkers, useStore } from "../store";
 import { focusTile, panToAnnotation } from "./Board";

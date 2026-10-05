@@ -5,14 +5,14 @@ import { Spinner } from "./Capture";
 
 /**
  * The app tab: the running web app, embedded, for capturing views by hand.
- * Capturing needs the Chrome window intentcue opens: it exposes
- * `window.__intentcueCapture`, which screenshots the embedded app as it is.
+ * Capturing needs the Chrome window ScribUI opens: it exposes
+ * `window.__scribuiCapture`, which screenshots the embedded app as it is.
  */
 
 type CaptureFn = (req: { title?: string; replace?: string }) => Promise<{ round: number; screenId: string; title: string }>;
 declare global {
   interface Window {
-    __intentcueCapture?: CaptureFn;
+    __scribuiCapture?: CaptureFn;
   }
 }
 
@@ -38,7 +38,7 @@ export function toggleView() {
 
 function readSize(): string {
   try {
-    return localStorage.getItem("intentcue:live-size") || "fit";
+    return localStorage.getItem("scribui:live-size") || "fit";
   } catch {
     return "fit";
   }
@@ -59,7 +59,7 @@ export function LiveView() {
   const [name, setName] = useState("");
   const [replace, setReplace] = useState("");
   const [busy, setBusy] = useState(false);
-  const canCapture = typeof window.__intentcueCapture === "function";
+  const canCapture = typeof window.__scribuiCapture === "function";
 
   // the project loads after the first render
   useEffect(() => {
@@ -72,8 +72,8 @@ export function LiveView() {
   // the live window reports where the embedded app navigated
   useEffect(() => {
     const onUrl = (e: Event) => setAddress((e as CustomEvent<string>).detail);
-    window.addEventListener("intentcue:live-url", onUrl);
-    return () => window.removeEventListener("intentcue:live-url", onUrl);
+    window.addEventListener("scribui:live-url", onUrl);
+    return () => window.removeEventListener("scribui:live-url", onUrl);
   }, []);
 
   if (!visited) return null;
@@ -92,18 +92,18 @@ export function LiveView() {
   const pickSize = (id: string) => {
     setSize(id);
     try {
-      localStorage.setItem("intentcue:live-size", id);
+      localStorage.setItem("scribui:live-size", id);
     } catch {
       /* storage blocked */
     }
   };
 
   const capture = async () => {
-    if (!window.__intentcueCapture || busy) return;
+    if (!window.__scribuiCapture || busy) return;
     setBusy(true);
     const st = useStore.getState();
     try {
-      const r = await window.__intentcueCapture({ ...(name.trim() ? { title: name.trim() } : {}), ...(replace ? { replace } : {}) });
+      const r = await window.__scribuiCapture({ ...(name.trim() ? { title: name.trim() } : {}), ...(replace ? { replace } : {}) });
       setName("");
       setReplace("");
       await st.refreshRounds();
@@ -174,7 +174,7 @@ export function LiveView() {
       </div>
       {!canCapture && (
         <div className="live-note">
-          Capturing works in the Chrome window intentcue opens for web projects. Press <kbd>o</kbd> in the terminal where intentcue runs to
+          Capturing works in the Chrome window ScribUI opens for web projects. Press <kbd>o</kbd> in the terminal where ScribUI runs to
           bring it back.
         </div>
       )}
@@ -182,7 +182,7 @@ export function LiveView() {
         {src ? (
           <iframe
             key={reloadKey}
-            data-intentcue-live=""
+            data-scribui-live=""
             src={src}
             title="live app"
             style={frameStyle}

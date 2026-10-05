@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createAdapter, CaptureError } from "@intentcue/capture";
-import { planCapture, ReviewJson, type CapturePlan, type Platform, type PreviousRound, type StatusFile } from "@intentcue/core";
-import type { ReviewStore } from "@intentcue/server";
+import { createAdapter, CaptureError } from "@scribui/capture";
+import { planCapture, ReviewJson, type CapturePlan, type Platform, type PreviousRound, type StatusFile } from "@scribui/core";
+import type { ReviewStore } from "@scribui/server";
 import { changedFilesSince, screenFingerprint } from "./changes.js";
 
 export type CaptureOptions = {

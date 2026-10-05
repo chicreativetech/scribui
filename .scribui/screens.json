@@ -1,7 +1,7 @@
 {
   "version": 1,
   "app": {
-    "name": "intentcue",
+    "name": "ScribUI",
     "platform": "web",
     "baseUrl": "http://localhost:3000"
   },

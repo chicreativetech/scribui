@@ -1,22 +1,22 @@
 import type { Platform, ScreenManifest } from "./schemas.js";
 
-/** Text and files intentcue writes for the user and their coding agent. */
+/** Text and files ScribUI writes for the user and their coding agent. */
 
 export const SCREENS_GUIDE_FILE = "screens.md";
 
 /** The one line the user pastes into their coding agent to get screens.json filled. */
 export function screensPrompt(platform: Platform, baseUrl?: string): string {
   const where = platform === "web" && baseUrl ? ` The app runs at ${baseUrl}.` : "";
-  return `List every screen and important state of this app in .intentcue/screens.json, following .intentcue/screens.md.${where}`;
+  return `List every screen and important state of this app in .scribui/screens.json, following .scribui/screens.md.${where}`;
 }
 
 /** The one line the user pastes after pressing Send. */
-export const IMPLEMENT_PROMPT = "Implement .intentcue/latest/review.md";
+export const IMPLEMENT_PROMPT = "Implement .scribui/latest/review.md";
 
 export function screensGuide(platform: Platform, opts: { baseUrl?: string; appId?: string } = {}): string {
-  const common = `# How to fill .intentcue/screens.json
+  const common = `# How to fill .scribui/screens.json
 
-intentcue captures every screen listed in \`screens.json\` so the user can review them visually.
+ScribUI captures every screen listed in \`screens.json\` so the user can review them visually.
 Replace the example entries with the app's real screens.
 
 - \`id\`: short, stable, kebab-case (\`checkout-card-error\`). Never reuse an id for a different screen.
@@ -47,10 +47,10 @@ Each screen is a URL relative to \`app.baseUrl\`${opts.baseUrl ? ` (currently \`
 \`\`\`
 
 - \`viewport\` defaults to a 390×844 phone at 2×. Use \`{ "width": 1440, "height": 900 }\` for desktop; add \`"fullPage": true\` for whole pages.
-- When a URL alone can't reach a state (logged in, filled form, error), add a \`setup\` script in \`.intentcue/flows/\`:
+- When a URL alone can't reach a state (logged in, filled form, error), add a \`setup\` script in \`.scribui/flows/\`:
 
 \`\`\`js
-// .intentcue/flows/checkout-error.mjs: receives the Playwright page after the URL loaded
+// .scribui/flows/checkout-error.mjs: receives the Playwright page after the URL loaded
 export default async function (page) {
   await page.fill("[data-testid=cardInput]", "4000 0000 0000 0002");
   await page.click("[data-testid=payButton]");
@@ -62,12 +62,12 @@ export default async function (page) {
     return `${common}
 ## Android
 
-Each screen has a \`flow\`: a script in \`.intentcue/flows/\` that opens the app and navigates to the screen.
+Each screen has a \`flow\`: a script in \`.scribui/flows/\` that opens the app and navigates to the screen.
 The easiest is a shell script using the bundled helper (no extra tools needed):
 
 \`\`\`sh
 #!/bin/sh
-# .intentcue/flows/shop-category.sh (make it executable: chmod +x)
+# .scribui/flows/shop-category.sh (make it executable: chmod +x)
 set -e; cd "$(dirname "$0")"
 node adb.mjs launch                        # restart the app on its first screen
 node adb.mjs tap "Shop"                    # tap the element whose text or content description matches
@@ -88,10 +88,10 @@ node adb.mjs tap "Stress & recovery"
   return `${common}
 ## iOS (simulator)
 
-Each screen has a Maestro \`flow\` in \`.intentcue/flows/\` that opens the app and navigates to the screen:
+Each screen has a Maestro \`flow\` in \`.scribui/flows/\` that opens the app and navigates to the screen:
 
 \`\`\`yaml
-# .intentcue/flows/checkout.yaml
+# .scribui/flows/checkout.yaml
 appId: ${opts.appId ?? "com.example.app"}
 ---
 - launchApp
@@ -111,11 +111,11 @@ appId: ${opts.appId ?? "com.example.app"}
 
 /** Android navigation helper used by shell-script flows (no Maestro needed). */
 export function androidFlowHelper(appId: string): string {
-  return `// intentcue Android navigation helper: node adb.mjs launch | tap "<text>" | back | wait <ms>
-// ANDROID_SERIAL (set by intentcue) picks the device; adb is put on PATH by intentcue.
+  return `// ScribUI Android navigation helper: node adb.mjs launch | tap "<text>" | back | wait <ms>
+// ANDROID_SERIAL (set by ScribUI) picks the device; adb is put on PATH by ScribUI.
 import { execFileSync } from "node:child_process";
 
-const APP = process.env.INTENTCUE_APP_ID || ${JSON.stringify(appId)};
+const APP = process.env.SCRIBUI_APP_ID || ${JSON.stringify(appId)};
 const adb = (...args) => execFileSync("adb", args, { encoding: "utf8" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const decode = (s) => s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
@@ -123,17 +123,17 @@ const decode = (s) => s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/
 function nodes() {
   // a failed dump ("null root node" while the app is starting) exits 0 and leaves an
   // old file behind: delete it first and treat errors as "not ready yet"
-  adb("shell", "rm", "-f", "/sdcard/intentcue_nav.xml");
+  adb("shell", "rm", "-f", "/sdcard/scribui_nav.xml");
   let out = "";
   try {
-    out = adb("shell", "uiautomator", "dump", "/sdcard/intentcue_nav.xml");
+    out = adb("shell", "uiautomator", "dump", "/sdcard/scribui_nav.xml");
   } catch {
     return [];
   }
   if (/ERROR/i.test(out)) return [];
   let xml = "";
   try {
-    xml = adb("exec-out", "cat", "/sdcard/intentcue_nav.xml");
+    xml = adb("exec-out", "cat", "/sdcard/scribui_nav.xml");
   } catch {
     return [];
   }

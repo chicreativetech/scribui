@@ -15,22 +15,22 @@ type Ann = {
 
 type Cam = { x: number; y: number; zoom: number };
 type StoreShape = { getState(): { tiles: { id: string; x: number; y: number; scale: number }[]; camera: Cam; annotations: Ann[] } };
-type Win = { __intentcue: StoreShape };
+type Win = { __scribui: StoreShape };
 
-const camera = (page: Page) => page.evaluate(() => (window as unknown as Win).__intentcue.getState().camera);
+const camera = (page: Page) => page.evaluate(() => (window as unknown as Win).__scribui.getState().camera);
 
 async function reset(page: Page) {
   await page.request.put("/api/rounds/1/annotations", { data: { annotations: [] } });
   await page.goto("/");
   await expect(page.locator(".tile img").first()).toBeVisible();
-  await page.waitForFunction(() => (window as never as { __intentcue?: unknown }).__intentcue);
+  await page.waitForFunction(() => (window as never as { __scribui?: unknown }).__scribui);
 }
 
 /** Screen coordinates of a screenshot pixel on a tile. */
 async function at(page: Page, screen: string, x: number, y: number): Promise<[number, number]> {
   return page.evaluate(
     ([screen, x, y]) => {
-      const st = (window as unknown as Win).__intentcue.getState();
+      const st = (window as unknown as Win).__scribui.getState();
       const t = st.tiles.find((t) => t.id === screen)!;
       const r = document.querySelector(".board")!.getBoundingClientRect();
       const c = st.camera;
@@ -41,7 +41,7 @@ async function at(page: Page, screen: string, x: number, y: number): Promise<[nu
 }
 
 const annotations = (page: Page) =>
-  page.evaluate(() => (window as unknown as Win).__intentcue.getState().annotations);
+  page.evaluate(() => (window as unknown as Win).__scribui.getState().annotations);
 
 async function saved(page: Page): Promise<Ann[]> {
   await expect(page.locator(".status")).toContainText("saved");
@@ -254,7 +254,7 @@ test("send writes the review and locks the round", async ({ page }) => {
   await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.locator(".modal h2")).toContainText("Send 1 instruction");
   await page.keyboard.press("Enter");
-  await expect(page.locator(".prompt-box code")).toHaveText("Implement .intentcue/latest/review.md");
+  await expect(page.locator(".prompt-box code")).toHaveText("Implement .scribui/latest/review.md");
   const md = await (await page.request.get("/api/rounds/1/review")).text();
   expect(md).toContain('[R1-1] Remove the "Pay with Apple Pay" button (id: applePayButton).');
   await page.keyboard.press("Escape");

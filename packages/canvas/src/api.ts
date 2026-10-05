@@ -1,4 +1,4 @@
-import type { Annotation, Device, ScreenCapture, ScreenManifest, StatusFile } from "@intentcue/core";
+import type { Annotation, Device, ScreenCapture, ScreenManifest, StatusFile } from "@scribui/core";
 
 export type ScreenInfo = {
   id: string;

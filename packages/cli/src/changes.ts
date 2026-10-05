@@ -4,12 +4,12 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import type { ScreenEntry } from "@intentcue/core";
+import type { ScreenEntry } from "@scribui/core";
 
 const exec = promisify(execFile);
 
 const WALK_SKIP = new Set([
-  ".git", ".intentcue", "node_modules", "build", "dist", ".gradle", ".kotlin", ".idea", ".next", ".expo",
+  ".git", ".scribui", "node_modules", "build", "dist", ".gradle", ".kotlin", ".idea", ".next", ".expo",
   "Pods", "DerivedData", ".dart_tool", "coverage", ".turbo", ".cache",
 ]);
 const MAX_FILES = 50_000;

@@ -17,7 +17,7 @@ export function TopBar({ onSend }: { onSend: () => void }) {
   const captured = round?.screens.filter((s) => s.captured).length ?? 0;
   const failed = round?.screens.filter((s) => s.error).length ?? 0;
   const appName =
-    round?.app?.name ?? (project && "app" in project.manifest ? project.manifest.app.name : undefined) ?? "intentcue";
+    round?.app?.name ?? (project && "app" in project.manifest ? project.manifest.app.name : undefined) ?? "ScribUI";
   const status = round?.status.status;
   const ro = isReadOnly();
   const count = annotations.filter((a) => !(a.kind === "comment" && a.attachedTo)).length;
@@ -34,7 +34,7 @@ export function TopBar({ onSend }: { onSend: () => void }) {
     <header className="bar">
       <div className="seg brand">
         <span className="sq" />
-        <span>intentcue</span>
+        <span>ScribUI</span>
       </div>
       <div className="seg">
         <span className="app-name">{appName}</span>
