@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { normalizeTree, TreeIndex, type UIElement } from "@intentcue/core";
+import { normalizeTree, TreeIndex, type UIElement } from "@scribui/core";
 import { androidType, iosType, parseIdb, parseMaestro, parseUiautomator, pngSize } from "../src/index.js";
 
 const F = join(import.meta.dirname, "../../../fixtures");

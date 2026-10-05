@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
-import { Platform, PRODUCT, ScreenManifest, screensPrompt } from "@intentcue/core";
-import type { ReviewStore } from "@intentcue/server";
+import { Platform, PRODUCT, ScreenManifest, screensPrompt } from "@scribui/core";
+import type { ReviewStore } from "@scribui/server";
 import { captureRound, type CaptureEvent } from "./capture.js";
 import { input, interactive, select, waitFor } from "./prompts.js";
 import { findRunning, portRange, startOnFreePort } from "./instances.js";
@@ -33,7 +33,7 @@ export type StartFlags = {
 const pad = (n: number) => String(n).padStart(3, "0");
 
 /**
- * `intentcue` with no command: set up on first run (asking only what it can't
+ * `scribui` with no command: set up on first run (asking only what it can't
  * detect), make sure the capture tools work, wait for the agent to list the
  * screens, capture, and open the canvas. Later runs open the canvas directly.
  */
@@ -45,7 +45,7 @@ export async function start(store: ReviewStore, flags: StartFlags) {
   let platform: Platform;
 
   if (firstRun) {
-    out(`  First time with intentcue in ${c.bold(info.name)}. Setting it up.`);
+    out(`  First time with ScribUI in ${c.bold(info.name)}. Setting it up.`);
     out();
     if (flags.platform === "ios" && !onMac) {
       errLine(IOS_NEEDS_MAC);
@@ -77,7 +77,7 @@ export async function start(store: ReviewStore, flags: StartFlags) {
   if (!manifest) return process.exit(1);
   if (!(await ensureTools(store, platform, manifest, info, flags))) {
     out();
-    out(c.dim("  Run intentcue again when that's sorted."));
+    out(c.dim("  Run scribui again when that's sorted."));
     out();
     return process.exit(1);
   }
@@ -89,11 +89,11 @@ export async function start(store: ReviewStore, flags: StartFlags) {
     if (!ok) return process.exit(1);
   }
 
-  // non-interactive (an agent or CI ran plain `intentcue`): capture and stop
+  // non-interactive (an agent or CI ran plain `scribui`): capture and stop
   if (!interactive()) {
     const r = await captureRound(store, { platform, ...(flags.device ? { device: flags.device } : {}), log: flags.printEvent });
     out();
-    if (r && !r.skipped) okLine(`round ${pad(r.round)} captured. Open the canvas with: intentcue`);
+    if (r && !r.skipped) okLine(`round ${pad(r.round)} captured. Open the canvas with: scribui`);
     return;
   }
 
@@ -120,7 +120,7 @@ async function choosePlatform(info: ProjectInfo): Promise<Platform> {
       info.platform === "ios" && onMac ? "ios" : "android",
     );
     if (picked !== "ios" || onMac) return picked;
-    warnLine(`${IOS_NEEDS_MAC} Pick Android or Web, or run intentcue on a Mac.`);
+    warnLine(`${IOS_NEEDS_MAC} Pick Android or Web, or run scribui on a Mac.`);
     // non-interactive runs would ask forever; Android is the default there anyway
     if (!interactive()) return "android";
   }
@@ -247,8 +247,8 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
   const port = flags.port ?? PRODUCT.defaultPort;
   const running = await findRunning(store.root, port);
   if (running) {
-    okLine(`intentcue is already running for this project: ${c.accent(running)}`);
-    if (platform === "web") out(c.dim("    Its canvas is in the Chrome window intentcue opened; press o in that terminal to bring it back."));
+    okLine(`scribui is already running for this project: ${c.accent(running)}`);
+    if (platform === "web") out(c.dim("    Its canvas is in the Chrome window ScribUI opened; press o in that terminal to bring it back."));
     else if (flags.open !== false) openBrowser(running);
     out();
     return;
@@ -265,7 +265,7 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
   const url = `http://127.0.0.1:${srv.port}/`;
   out();
   line("canvas", c.accent(url));
-  // web: the canvas opens in a Chrome window intentcue controls, so its app tab can capture the app
+  // web: the canvas opens in a Chrome window ScribUI controls, so its app tab can capture the app
   let live: LiveWindow | null = null;
   if (platform === "web" && flags.open !== false) {
     live = await openLiveWindow(store, await liveCanvasUrl(store, srv.port), (msg) => warnLine(`Couldn't open the live window: ${msg}`));

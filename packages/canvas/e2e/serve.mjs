@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = join(import.meta.dirname, "../../..");
-const dir = mkdtempSync(join(tmpdir(), "intentcue-e2e-"));
+const dir = mkdtempSync(join(tmpdir(), "scribui-e2e-"));
 cpSync(join(root, "fixtures/project"), dir, { recursive: true });
-symlinkSync(join("rounds", "001"), join(dir, ".intentcue/latest"));
+symlinkSync(join("rounds", "001"), join(dir, ".scribui/latest"));
 const child = spawn(process.execPath, [join(root, "packages/cli/dist/cli.js"), "open", "--dir", dir, "--port", process.env.PORT ?? "4399", "--no-open"], {
   stdio: "inherit",
 });

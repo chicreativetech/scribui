@@ -1,5 +1,5 @@
 {
-  "$id": "https://intentcue.dev/schemas/UIElement.schema.json",
+  "$id": "https://scribui.dev/schemas/UIElement.schema.json",
   "title": "UIElement",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

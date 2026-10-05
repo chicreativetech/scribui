@@ -60,8 +60,8 @@ describe("planCapture", () => {
     expect(plan({ screens, changedFiles: ["app/src/main/AndroidManifest.xml"] }).why).toContain("not mapped");
   });
 
-  it("ignores docs, tests and intentcue files", () => {
-    const p = plan({ screens, changedFiles: ["README.md", ".intentcue/rounds/001/status.json", "app/src/test/x/FooTest.kt"] });
+  it("ignores docs, tests and scribui files", () => {
+    const p = plan({ screens, changedFiles: ["README.md", ".scribui/rounds/001/status.json", "app/src/test/x/FooTest.kt"] });
     expect(captured(p)).toEqual([]);
     expect(p.why).toContain("nothing changed");
   });

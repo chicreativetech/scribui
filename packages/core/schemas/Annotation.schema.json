@@ -1,5 +1,5 @@
 {
-  "$id": "https://intentcue.dev/schemas/Annotation.schema.json",
+  "$id": "https://scribui.dev/schemas/Annotation.schema.json",
   "title": "Annotation",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { bboxOf, indexFor, type Annotation, type Rect } from "@intentcue/core";
+import { bboxOf, indexFor, type Annotation, type Rect } from "@scribui/core";
 import { worldToScreen, type TileLayout } from "../layout";
 import { describeElement, elementOf, isReadOnly, useCapturingScreens, useMarkers, useStore } from "../store";
 import { annotationFromInk, focusTile } from "./Board";

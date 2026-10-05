@@ -15,8 +15,8 @@ import {
   startEmulator,
   which,
   type AndroidDevice,
-} from "@intentcue/capture";
-import type { Platform } from "@intentcue/core";
+} from "@scribui/capture";
+import type { Platform } from "@scribui/core";
 import { confirm, select, spinner } from "./prompts.js";
 import { c, errLine, okLine, out, warnLine } from "./ui.js";
 
@@ -181,7 +181,7 @@ export function runVisible(cmd: string, cwd: string, env: NodeJS.ProcessEnv = pr
 
 /* ─────────────────────────── web: Playwright ─────────────────────────── */
 
-export const RUNTIME_DIR = join(homedir(), ".intentcue", "runtime");
+export const RUNTIME_DIR = join(homedir(), ".scribui", "runtime");
 
 type PlaywrightMod = { chromium?: { executablePath(): string }; default?: { chromium?: { executablePath(): string } } };
 
@@ -227,7 +227,7 @@ export async function ensureWebTools(root: string, info: ProjectInfo): Promise<b
       // no package.json (plain HTML, other stacks): keep it out of the project
       await mkdir(RUNTIME_DIR, { recursive: true });
       if (!existsSync(join(RUNTIME_DIR, "package.json")))
-        await writeFile(join(RUNTIME_DIR, "package.json"), JSON.stringify({ name: "intentcue-runtime", private: true }) + "\n");
+        await writeFile(join(RUNTIME_DIR, "package.json"), JSON.stringify({ name: "scribui-runtime", private: true }) + "\n");
       ok = await runVisible("npm install --no-audit --no-fund playwright", RUNTIME_DIR);
     }
     if (!ok) {
@@ -280,7 +280,7 @@ export async function ensureAndroid(
 
   if (!(await findTool("maestro"))) {
     out(c.dim("  Tip: Maestro (https://maestro.mobile.dev) makes navigation flows faster. It's optional;"));
-    out(c.dim("  intentcue's built-in adb helper works without it."));
+    out(c.dim("  ScribUI's built-in adb helper works without it."));
   }
 
   const device = await ensureAndroidDevice(opts.device);
@@ -294,11 +294,11 @@ export async function ensureAndroid(
       if (opts.build && (await confirm(`Build and install it now? (${opts.build})`, true))) {
         const ok = await runVisible(opts.build, root, buildEnv(device.serial));
         if (!ok) {
-          errLine("The build failed (see above). Fix it, install the app, then run intentcue again.");
+          errLine("The build failed (see above). Fix it, install the app, then run scribui again.");
           return { device: device.serial, ok: false };
         }
       } else {
-        errLine("Install the app on the device, then run intentcue again.");
+        errLine("Install the app on the device, then run scribui again.");
         return { device: device.serial, ok: false };
       }
     } else okLine(`${opts.appId} installed on ${device.model || device.serial}`);
@@ -324,7 +324,7 @@ async function ensureAndroidDevice(want?: string): Promise<AndroidDevice | null>
       return null;
     }
     out();
-    const avd = avds.length === 1 ? avds[0]! : await select("Which emulator should intentcue start?", avds.map((a) => ({ value: a, label: a.replace(/_/g, " ") })), avds[0]!);
+    const avd = avds.length === 1 ? avds[0]! : await select("Which emulator should ScribUI start?", avds.map((a) => ({ value: a, label: a.replace(/_/g, " ") })), avds[0]!);
     if (!(await confirm(`Start the ${avd.replace(/_/g, " ")} emulator?`, true))) return null;
     const spin = spinner(`Starting ${avd.replace(/_/g, " ")}… (first boot can take a minute)`);
     const ok = await startEmulator(avd);
@@ -340,7 +340,7 @@ async function ensureAndroidDevice(want?: string): Promise<AndroidDevice | null>
     return devices[0]!;
   }
   const serial = await select(
-    "Several devices are connected. Which one should intentcue use?",
+    "Several devices are connected. Which one should ScribUI use?",
     devices.map((d) => ({ value: d.serial, label: d.model || d.serial, hint: d.emulator ? "emulator" : `phone · ${d.serial}` })),
     (devices.find((d) => d.emulator) ?? devices[0]!).serial,
   );
@@ -381,7 +381,7 @@ export async function ensureIos(root: string, opts: { bundleId?: string; build?:
     out();
     out("  Maestro is required to read iOS screens and navigate between them.");
     if (!(await confirm("Install Maestro? (curl -fsSL https://get.maestro.mobile.dev | bash)", true))) {
-      errLine("Skipped. Install Maestro, then run intentcue again.");
+      errLine("Skipped. Install Maestro, then run scribui again.");
       return { device: null, ok: false };
     }
     await runVisible("curl -fsSL https://get.maestro.mobile.dev | bash", root);
@@ -406,7 +406,7 @@ export async function ensureIos(root: string, opts: { bundleId?: string; build?:
       errLine("No iPhone simulators found. Add one in Xcode → Window → Devices and Simulators.");
       return { device: null, ok: false };
     }
-    const udid = await select("Which simulator should intentcue boot?", phones.slice(0, 6).map((s) => ({ value: s.udid, label: s.name, hint: s.runtime })), phones[0]!.udid);
+    const udid = await select("Which simulator should ScribUI boot?", phones.slice(0, 6).map((s) => ({ value: s.udid, label: s.name, hint: s.runtime })), phones[0]!.udid);
     const spin = spinner("Booting the simulator…");
     const ok = await bootSimulator(udid);
     spin.stop(ok ? `  ${c.ok("✓")} simulator booted` : undefined);
@@ -421,7 +421,7 @@ export async function ensureIos(root: string, opts: { bundleId?: string; build?:
       if (opts.build && (await confirm(`Build and install it now? (${opts.build})`, true))) {
         if (!(await runVisible(opts.build, root))) return { device: sim.name, ok: false };
       } else {
-        errLine("Build and run the app on the simulator once (Xcode ▶), then run intentcue again.");
+        errLine("Build and run the app on the simulator once (Xcode ▶), then run scribui again.");
         return { device: sim.name, ok: false };
       }
     } else okLine(`${opts.bundleId} installed`);

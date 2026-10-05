@@ -1,4 +1,4 @@
-import type { RawElement } from "@intentcue/core";
+import type { RawElement } from "@scribui/core";
 import { androidType } from "./typeMaps.js";
 
 /**

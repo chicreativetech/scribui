@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
-import { listAndroidDevices } from "@intentcue/capture";
-import type { Platform } from "@intentcue/core";
-import type { CaptureRunner, ReviewStore } from "@intentcue/server";
+import { listAndroidDevices } from "@scribui/capture";
+import type { Platform } from "@scribui/core";
+import type { CaptureRunner, ReviewStore } from "@scribui/server";
 import { captureRound, type CaptureEvent } from "./capture.js";
 import { buildEnv } from "./setup.js";
 
@@ -22,7 +22,7 @@ export function makeRunner(
 
     if (req.build) {
       const cmd = manifest.app.build;
-      if (!cmd) throw new Error('no "build" command under "app" in .intentcue/screens.json');
+      if (!cmd) throw new Error('no "build" command under "app" in .scribui/screens.json');
       const lines: string[] = [];
       report({ phase: "building", log: [`$ ${cmd}`] });
       const serial = manifest.app.platform === "android" ? await androidSerial(device) : undefined;
@@ -69,7 +69,7 @@ export function makeRunner(
         }
       },
     });
-    if (!result) throw new Error(problems.join("\n") || "capture tools are not ready; run `intentcue doctor`");
+    if (!result) throw new Error(problems.join("\n") || "capture tools are not ready; run `scribui doctor`");
     if (result.skipped) return { round: null, summary: `nothing to capture: ${result.plan.why}`, failed: [] };
     const reused = result.reused.length ? `, ${result.reused.length} reused` : "";
     return { round: result.round, summary: `${result.ok.length} captured${reused}`, failed: result.failed };

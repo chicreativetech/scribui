@@ -6,7 +6,7 @@
 // --format: idb | maestro | uiautomator (default: idb for ios, uiautomator for android)
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { ScreenCapture } from "@intentcue/core";
+import { ScreenCapture } from "@scribui/core";
 import { parseIdb, parseMaestro, parseUiautomator, pngSize, toCapture } from "../src/index.js";
 
 const { values } = parseArgs({

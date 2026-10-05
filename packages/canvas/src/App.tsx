@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { newAnnotationId, type Annotation } from "@intentcue/core";
+import { newAnnotationId, type Annotation } from "@scribui/core";
 import { connectEvents } from "./api";
 import { fitCamera } from "./layout";
 import { TOOLS, isReadOnly, useStore } from "./store";
@@ -27,7 +27,7 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try {
-      localStorage.setItem("intentcue:theme", theme);
+      localStorage.setItem("scribui:theme", theme);
     } catch {
       /* storage blocked */
     }
@@ -253,10 +253,10 @@ export function App() {
                   ) : (
                     <>
                       <p>
-                        Ask your agent to list screens in <code>.intentcue/screens.json</code>, then run
+                        Ask your agent to list screens in <code>.scribui/screens.json</code>, then run
                       </p>
                       <p>
-                        <code>npx intentcue capture</code>
+                        <code>npx scribui capture</code>
                       </p>
                     </>
                   )}

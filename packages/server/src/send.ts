@@ -12,7 +12,7 @@ import {
   type CompileOutput,
   type ScreenCapture,
   type UIElement,
-} from "@intentcue/core";
+} from "@scribui/core";
 import { ReviewStore, RoundLockedError, writeJson } from "./store.js";
 
 export type SendResult = {
@@ -120,7 +120,7 @@ export async function sendRound(store: ReviewStore, n: number): Promise<SendResu
   await store.setStatus(n, "sent");
   return {
     round: n,
-    prompt: "Implement .intentcue/latest/review.md",
+    prompt: "Implement .scribui/latest/review.md",
     counts: out.review.counts,
   };
 }

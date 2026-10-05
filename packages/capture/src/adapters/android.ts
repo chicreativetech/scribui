@@ -1,4 +1,4 @@
-import type { RawElement, ScreenCapture, ScreenEntry } from "@intentcue/core";
+import type { RawElement, ScreenCapture, ScreenEntry } from "@scribui/core";
 import { CaptureError, run } from "../exec.js";
 import { findTool } from "../tools.js";
 import { parseUiautomator } from "../parsers/uiautomator.js";
@@ -90,14 +90,14 @@ export class AndroidAdapter implements CaptureAdapter {
     let lastErr = "";
     for (let attempt = 0; attempt < 6 && !raw; attempt++) {
       if (attempt) await new Promise((r) => setTimeout(r, 700));
-      await this.adb(["shell", "rm", "-f", "/sdcard/intentcue_dump.xml"]);
-      const d = await this.adb(["shell", "uiautomator", "dump", "/sdcard/intentcue_dump.xml"], 60_000);
+      await this.adb(["shell", "rm", "-f", "/sdcard/scribui_dump.xml"]);
+      const d = await this.adb(["shell", "uiautomator", "dump", "/sdcard/scribui_dump.xml"], 60_000);
       const msg = `${d.stdout.toString()}${d.stderr}`;
       if (d.code !== 0 || /ERROR/i.test(msg)) {
         lastErr = msg.trim();
         continue;
       }
-      const x = await this.adb(["exec-out", "cat", "/sdcard/intentcue_dump.xml"]);
+      const x = await this.adb(["exec-out", "cat", "/sdcard/scribui_dump.xml"]);
       if (x.code === 0 && x.stdout.length > 0) raw = parseUiautomator(x.stdout.toString());
     }
     if (!raw) throw new CaptureError("could not read the screen's element tree (uiautomator)", lastErr);

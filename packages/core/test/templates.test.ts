@@ -3,11 +3,21 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { androidFlowHelper, androidFlowScript, screensGuide, screensPrompt, starterManifest, ScreenManifest } from "../src/index.js";
+import { androidFlowHelper, androidFlowScript, screensGuide, screensPrompt, starterManifest, ScreenManifest, upsertAgentSection } from "../src/index.js";
 
 describe("templates", () => {
+  it("replaces the agent section written under the old name in place", () => {
+    const old = "# Mine\n\n<!-- intentcue:start -->\nDesign feedback lives in `.intentcue/`.\n<!-- intentcue:end -->\n\nAfter.\n";
+    const next = upsertAgentSection(old);
+    expect(next).toMatch(/^# Mine\n\n<!-- scribui:start -->/);
+    expect(next).toContain("`.scribui/`");
+    expect(next).not.toContain("intentcue");
+    expect(next).toMatch(/<!-- scribui:end -->\n\nAfter\.\n$/);
+    expect(upsertAgentSection(next)).toBe(next);
+  });
+
   it("the generated Android helper is valid JavaScript", () => {
-    const dir = mkdtempSync(join(tmpdir(), "intentcue-tpl-"));
+    const dir = mkdtempSync(join(tmpdir(), "scribui-tpl-"));
     const f = join(dir, "adb.mjs");
     writeFileSync(f, androidFlowHelper("com.example.app"));
     expect(() => execFileSync(process.execPath, ["--check", f])).not.toThrow();

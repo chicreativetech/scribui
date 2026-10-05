@@ -2,7 +2,7 @@ import { emitKeypressEvents } from "node:readline";
 import { createInterface } from "node:readline/promises";
 import { c, out } from "./ui.js";
 
-/** Small interactive prompts in the intentcue terminal style. Non-TTY: defaults are used. */
+/** Small interactive prompts in the ScribUI terminal style. Non-TTY: defaults are used. */
 
 export const interactive = () => !!process.stdin.isTTY && !!process.stdout.isTTY && !process.env.CI;
 

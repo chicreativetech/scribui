@@ -10,7 +10,7 @@ import { useStore } from "./store";
 
 (window as unknown as { __icClient: string }).__icClient = CLIENT_ID;
 // exposed for end-to-end tests and debugging from the console
-(window as unknown as { __intentcue: typeof useStore }).__intentcue = useStore;
+(window as unknown as { __scribui: typeof useStore }).__scribui = useStore;
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

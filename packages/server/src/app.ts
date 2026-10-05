@@ -6,7 +6,7 @@ import { createAdaptorServer } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { Hono, type Context } from "hono";
 import { WebSocketServer, type WebSocket } from "ws";
-import { Annotation, AnnotationsFile, PRODUCT } from "@intentcue/core";
+import { Annotation, AnnotationsFile, PRODUCT } from "@scribui/core";
 import { z } from "zod";
 import { isLoopback, lanAddress, LanAuth, parseCookies } from "./lan.js";
 import { qrSvg } from "./qr.js";
@@ -114,7 +114,7 @@ export function createApp(opts: ServerOptions) {
   };
   /** Start a capture in the background; throws if one is running or no runner exists. */
   const runCapture = (req: CaptureRequest): void => {
-    if (!opts.runner) throw new HttpError(501, "capture from the canvas needs `intentcue` or `intentcue open`");
+    if (!opts.runner) throw new HttpError(501, "capture from the canvas needs `scribui` or `scribui open`");
     if (capture.running) throw new HttpError(409, "a capture is already running");
     capture = { running: true, phase: req.build ? "building" : "capturing", trigger: req.trigger ?? "gui", log: [] };
     broadcast({ type: "capture-state", state: capture });
@@ -147,18 +147,18 @@ export function createApp(opts: ServerOptions) {
   app.use("*", async (c, next) => {
     if (isLoopback(remoteOf(c))) return next();
     if (!lanState.enabled) return c.text("forbidden", 403);
-    // pairing controls stay with the computer that runs intentcue
+    // pairing controls stay with the computer that runs ScribUI
     if (new URL(c.req.url).pathname.startsWith("/api/lan")) return c.text("forbidden", 403);
     const url = new URL(c.req.url);
     if (url.pathname === "/pair") return next();
     const cookies = parseCookies(c.req.header("cookie"));
     if (lan.valid(cookies[lan.cookieName])) return next();
-    return c.text("Not paired. On the computer running intentcue, click ▣ tablet and scan the new code.", 403);
+    return c.text("Not paired. On the computer running ScribUI, click ▣ tablet and scan the new code.", 403);
   });
 
   app.get("/pair", (c) => {
     const session = lan.redeem(c.req.query("token"));
-    if (!session) return c.text("Pairing link expired or already used. Show a new code with the ▣ tablet button in intentcue.", 403);
+    if (!session) return c.text("Pairing link expired or already used. Show a new code with the ▣ tablet button in ScribUI.", 403);
     c.header("Set-Cookie", `${lan.cookieName}=${session}; Path=/; HttpOnly; SameSite=Strict`);
     broadcast({ type: "lan-changed", enabled: true, paired: lan.paired });
     return c.redirect("/");
@@ -327,7 +327,7 @@ export function createApp(opts: ServerOptions) {
 
   app.get("/api/rules", async (c) => c.text((await store.readText("rules.md")) ?? ""));
 
-  /* ─────────── files from .intentcue (read-only) ─────────── */
+  /* ─────────── files from .scribui (read-only) ─────────── */
   app.get("/files/*", async (c) => {
     const rel = decodeURIComponent(new URL(c.req.url).pathname.slice("/files/".length));
     const p = store.safePath(rel);
@@ -338,7 +338,7 @@ export function createApp(opts: ServerOptions) {
 
   /* ─────────── canvas ─────────── */
   app.get("*", async (c) => {
-    if (!opts.canvasDir) return c.text("intentcue server running; canvas build not found", 200);
+    if (!opts.canvasDir) return c.text("ScribUI server running; canvas build not found", 200);
     const url = new URL(c.req.url);
     const p = resolve(opts.canvasDir, "." + decodeURIComponent(url.pathname));
     const inside = !relative(opts.canvasDir, p).startsWith("..");

@@ -1,4 +1,4 @@
-/** Terminal output in the intentcue style: quiet, monospace, one orange accent. */
+/** Terminal output in the ScribUI style: quiet, monospace, one orange accent. */
 
 const tty = process.stdout.isTTY && !process.env.NO_COLOR;
 const wrap = (open: string, close = "\x1b[0m") => (s: string | number) => (tty ? `${open}${s}${close}` : String(s));
@@ -16,7 +16,7 @@ export const c = {
 export const out = (s = "") => process.stdout.write(s + "\n");
 
 export function banner(sub?: string) {
-  out(`${c.accent("■")} ${c.bold("intentcue")}${sub ? c.dim(`  ·  ${sub}`) : ""}`);
+  out(`${c.accent("■")} ${c.bold("ScribUI")}${sub ? c.dim(`  ·  ${sub}`) : ""}`);
 }
 
 export const line = (label: string, value: string) => out(`  ${c.dim(label.padEnd(12))} ${value}`);

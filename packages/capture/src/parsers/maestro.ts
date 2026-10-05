@@ -1,4 +1,4 @@
-import type { RawElement } from "@intentcue/core";
+import type { RawElement } from "@scribui/core";
 import { androidType, iosType } from "./typeMaps.js";
 import { parseBoundsPair } from "./uiautomator.js";
 

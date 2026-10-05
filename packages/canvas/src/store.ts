@@ -9,7 +9,7 @@ import {
   type CompileOutput,
   type ScreenCapture,
   type UIElement,
-} from "@intentcue/core";
+} from "@scribui/core";
 import { api, type CaptureState, type LanState, type ProjectPayload, type RoundListItem, type RoundPayload, type ScreenInfo } from "./api";
 import { layoutBoard, type Camera, type GroupLayout, type TileLayout } from "./layout";
 
@@ -75,7 +75,7 @@ type State = {
   cursorPx: { screenId: string; x: number; y: number } | null;
   /** Capture started from the canvas / by the agent (this server). */
   captureState: CaptureState;
-  /** Capture running in another process (e.g. the agent ran `intentcue capture`), from status.json. */
+  /** Capture running in another process (e.g. the agent ran `scribui capture`), from status.json. */
   externalCapture: { round: number; total: number; done: number; current?: string; queue: string[] } | null;
   lan: LanState;
   lanOpen: boolean;
@@ -118,7 +118,7 @@ let toastSeq = 0;
 
 function loadTheme(): "dark" | "light" {
   try {
-    return (localStorage.getItem("intentcue:theme") as "dark" | "light") || "dark";
+    return (localStorage.getItem("scribui:theme") as "dark" | "light") || "dark";
   } catch {
     return "dark";
   }
@@ -177,7 +177,7 @@ export const useStore = create<Store>((set, get) => ({
     const round = s.round;
     if (!round || ids.length === 0) return;
     if (!round.canRecapture) {
-      s.toast({ text: "capturing from the canvas needs intentcue started with `intentcue`", tone: "warn" });
+      s.toast({ text: "capturing from the canvas needs ScribUI started with `scribui`", tone: "warn" });
       return;
     }
     if (readOnly(round)) return get().captureNext();

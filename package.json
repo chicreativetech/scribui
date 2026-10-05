@@ -1,5 +1,5 @@
 {
-  "name": "intentcue-monorepo",
+  "name": "scribui-monorepo",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.15.9",
@@ -7,15 +7,15 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "pnpm --filter @intentcue/canvas build && pnpm --filter intentcue build",
-    "dev:canvas": "pnpm --filter @intentcue/canvas dev",
+    "build": "pnpm --filter @scribui/canvas build && pnpm --filter scribui build",
+    "dev:canvas": "pnpm --filter @scribui/canvas dev",
     "test": "vitest run",
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
     "schemas": "tsx packages/core/scripts/gen-json-schema.ts",
     "test:update": "UPDATE_GOLDEN=1 vitest run",
-    "intentcue": "tsx packages/cli/src/cli.ts",
+    "scribui": "tsx packages/cli/src/cli.ts",
     "test:e2e": "pnpm build && playwright test"
   },
   "devDependencies": {

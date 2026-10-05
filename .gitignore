@@ -5,7 +5,7 @@ dist
 coverage
 test-results
 playwright-report
-.intentcue-tmp
+.scribui-tmp
 # generated review rounds in the examples
-examples/*/.intentcue/rounds
-examples/*/.intentcue/latest
+examples/*/.scribui/rounds
+examples/*/.scribui/latest

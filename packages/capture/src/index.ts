@@ -1,4 +1,4 @@
-import type { Platform } from "@intentcue/core";
+import type { Platform } from "@scribui/core";
 import { AndroidAdapter } from "./adapters/android.js";
 import { IosAdapter } from "./adapters/ios.js";
 import { WebAdapter } from "./adapters/web.js";

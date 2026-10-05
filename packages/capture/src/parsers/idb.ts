@@ -1,4 +1,4 @@
-import { area, containsRect, type RawElement } from "@intentcue/core";
+import { area, containsRect, type RawElement } from "@scribui/core";
 import { iosType } from "./typeMaps.js";
 
 type IdbItem = {

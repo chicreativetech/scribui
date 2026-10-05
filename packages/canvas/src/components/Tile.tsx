@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from "react";
-import { bboxOf, indexFor, renderAnnotationSvg, type Annotation, type Rect, type UIElement } from "@intentcue/core";
+import { bboxOf, indexFor, renderAnnotationSvg, type Annotation, type Rect, type UIElement } from "@scribui/core";
 import { quantize, type TileLayout } from "../layout";
 import { screenInfo, useCapturingScreens, useMarkers, useStore } from "../store";
 

@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { RawElement, ScreenCapture, ScreenEntry } from "@intentcue/core";
+import type { RawElement, ScreenCapture, ScreenEntry } from "@scribui/core";
 import { CaptureError } from "../exec.js";
 import { pngSize } from "../png.js";
 import type { CaptureAdapter, CaptureContext } from "../types.js";
@@ -28,7 +28,7 @@ const DEFAULT_VIEWPORT = { width: 390, height: 844, deviceScaleFactor: 2 };
  */
 const DOM_WALK = String.raw`(() => {
   const SKIP = new Set(["SCRIPT","STYLE","NOSCRIPT","TEMPLATE","META","LINK","HEAD","TITLE","BR","WBR"]);
-  const full = !!window.__intentcueFullPage;
+  const full = !!window.__scribuiFullPage;
   const vw = full ? document.documentElement.scrollWidth : window.innerWidth;
   const vh = full ? document.documentElement.scrollHeight : window.innerHeight;
   const sx = full ? 0 : window.scrollX, sy = full ? 0 : window.scrollY;
@@ -128,7 +128,7 @@ const SETTLE = String.raw`new Promise((resolve) => {
 
 /**
  * Playwright's chromium: from the project being reviewed first (works with a
- * global intentcue), then the shared install intentcue makes for projects
+ * global scribui), then the shared install ScribUI makes for projects
  * without package.json, then our own dependency.
  */
 export async function loadChromium(projectDir: string): Promise<unknown> {
@@ -139,7 +139,7 @@ export async function loadChromium(projectDir: string): Promise<unknown> {
     if (!c) throw new Error("no chromium export");
     return c;
   };
-  for (const base of [projectDir, join(homedir(), ".intentcue", "runtime")]) {
+  for (const base of [projectDir, join(homedir(), ".scribui", "runtime")]) {
     try {
       const req = createRequire(join(base, "package.json"));
       return await load(pathToFileURL(req.resolve("playwright")).href);
@@ -164,7 +164,7 @@ type LiveElement = { screenshot(o?: object): Promise<Uint8Array> };
  */
 export async function captureLiveFrame(opts: { frame: LiveFrame; element: LiveElement; screen: ScreenEntry; roundDir: string }): Promise<ScreenCapture> {
   const { frame, element, screen, roundDir } = opts;
-  await frame.evaluate(`window.__intentcueFullPage = false`);
+  await frame.evaluate(`window.__scribuiFullPage = false`);
   const png = await element.screenshot({ type: "png", animations: "disabled", caret: "hide" });
   const rel = `screens/${screen.id}.png`;
   await writePng(join(roundDir, rel), png);
@@ -192,7 +192,7 @@ export class WebAdapter implements CaptureAdapter {
     try {
       const c = await this.chromium();
       const { existsSync } = await import("node:fs");
-      if (!existsSync(c.executablePath())) problems.push("Chromium for Playwright is missing: npx playwright install chromium (or run intentcue to install it)");
+      if (!existsSync(c.executablePath())) problems.push("Chromium for Playwright is missing: npx playwright install chromium (or run scribui to install it)");
     } catch (e) {
       const ce = e as CaptureError;
       problems.push(`${ce.message}. Install: ${ce.detail ?? ""}`.trim());
@@ -258,7 +258,7 @@ export class WebAdapter implements CaptureAdapter {
     if (!this.page) await this.prepare(screen);
     const page = this.page!;
     const full = !!screen.viewport?.fullPage;
-    await page.evaluate(`window.__intentcueFullPage = ${full}`);
+    await page.evaluate(`window.__scribuiFullPage = ${full}`);
     const png = await page.screenshot({ type: "png", fullPage: full, animations: "disabled", caret: "hide" });
     const shot = screenshotPath(this.ctx, screen.id);
     await writePng(shot.abs, png);

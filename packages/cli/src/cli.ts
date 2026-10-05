@@ -3,12 +3,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cac } from "cac";
-import { createAdapter } from "@intentcue/capture";
-import { Platform, PRODUCT, ReviewJson } from "@intentcue/core";
-import { lanAddress, ReviewStore } from "@intentcue/server";
+import { createAdapter } from "@scribui/capture";
+import { Platform, PRODUCT, ReviewJson } from "@scribui/core";
+import { lanAddress, ReviewStore } from "@scribui/server";
 import { captureRound, describePlan, type CaptureEvent } from "./capture.js";
 import { findRunning, portRange, startOnFreePort } from "./instances.js";
 import { runMcp } from "./mcp.js";
+import { migrateHome, migrateProject } from "./migrate.js";
 import { makeRunner } from "./runner.js";
 import { detectProject } from "./setup.js";
 import { openBrowser, start } from "./start.js";
@@ -33,7 +34,7 @@ type Flags = {
 const storeFor = (f: Flags) => new ReviewStore(resolve(f.dir ?? process.cwd()));
 
 function requireInit(store: ReviewStore) {
-  if (!store.exists()) fail(`No ${PRODUCT.folder}/ folder in ${store.root}`, "Run: npx intentcue init");
+  if (!store.exists()) fail(`No ${PRODUCT.folder}/ folder in ${store.root}`, "Run: npx scribui init");
 }
 
 function platformFlag(f: Flags): Platform | undefined {
@@ -66,7 +67,7 @@ async function cmdInit(f: Flags) {
   if (created.length === 0) okLine("Already initialised. Nothing to do.");
   for (const p of created) okLine(p);
   out();
-  out(`  Next: run ${c.accent("intentcue")}; it walks you through the rest.`);
+  out(`  Next: run ${c.accent("scribui")}; it walks you through the rest.`);
   out();
 }
 
@@ -85,7 +86,7 @@ async function cmdDoctor(f: Flags) {
   const platform = platformFlag(f) ?? manifest.app.platform;
   const node = Number(process.versions.node.split(".")[0]);
   if (node >= 20) okLine(`node ${process.versions.node}`);
-  else errLine(`node ${process.versions.node}; intentcue needs Node 20+`);
+  else errLine(`node ${process.versions.node}; ScribUI needs Node 20+`);
 
   const adapter = createAdapter(platform, { reviewDir: store.dir, roundDir: store.dir, manifest, device: f.device ?? manifest.app.device });
   const r = await adapter.check();
@@ -122,7 +123,7 @@ async function cmdCapture(f: Flags): Promise<number | null> {
   }
   if (!result) {
     out();
-    out(c.dim("  Fix the problems above, then run capture again.  npx intentcue doctor"));
+    out(c.dim("  Fix the problems above, then run capture again.  npx scribui doctor"));
     out();
     process.exit(1);
   }
@@ -183,11 +184,11 @@ async function cmdOpen(f: Flags) {
   const store = storeFor(f);
   requireInit(store);
   const dir = canvasDir();
-  if (!dir) warnLine("canvas build not found; run `pnpm build` in the intentcue repo");
+  if (!dir) warnLine("canvas build not found; run `pnpm build` in the ScribUI repo");
   const port = f.port ?? PRODUCT.defaultPort;
   const running = await findRunning(store.root, port);
   if (running) {
-    okLine(`intentcue is already running for this project: ${c.accent(running)}`);
+    okLine(`scribui is already running for this project: ${c.accent(running)}`);
     if (f.open !== false) openBrowser(running);
     return;
   }
@@ -204,7 +205,7 @@ async function cmdOpen(f: Flags) {
   banner("open");
   if (latest === null) {
     out();
-    warnLine(`No rounds yet. Run ${c.accent("npx intentcue capture")} in another terminal; the canvas updates live.`);
+    warnLine(`No rounds yet. Run ${c.accent("npx scribui capture")} in another terminal; the canvas updates live.`);
   }
   out();
   line("canvas", c.accent(url));
@@ -245,7 +246,7 @@ async function cmdStatus(f: Flags) {
   out();
   if (n === null) {
     line("round", c.dim("none yet"));
-    out(`\n  Run ${c.accent("npx intentcue capture")}\n`);
+    out(`\n  Run ${c.accent("npx scribui capture")}\n`);
     return;
   }
   const s = await store.readStatus(n);
@@ -266,14 +267,14 @@ async function cmdStatus(f: Flags) {
 
 /* ─────────────────────────── wiring ─────────────────────────── */
 
-const cli = cac("intentcue");
+const cli = cac("scribui");
 const common = (cmd: ReturnType<typeof cli.command>) =>
   cmd
     .option("--dir <path>", "Project directory (default: current directory)")
     .option("--platform <platform>", "ios | android | web (default: from screens.json)")
     .option("--device <name>", "Simulator / emulator name, udid or serial");
 
-common(cli.command("init", "Create .intentcue/ and add the agent section to AGENTS.md"))
+common(cli.command("init", "Create .scribui/ and add the agent section to AGENTS.md"))
   .option("--name <name>", "App name for screens.json")
   .action((f: Flags) => cmdInit(f));
 
@@ -321,6 +322,8 @@ cli.version(VERSION);
 
 try {
   cli.parse(process.argv, { run: false });
+  await migrateHome();
+  await migrateProject(resolve((cli.options as Flags).dir ?? process.cwd()));
   await cli.runMatchedCommand();
 } catch (e) {
   fail((e as Error).message);

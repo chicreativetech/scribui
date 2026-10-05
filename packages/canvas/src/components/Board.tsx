@@ -11,7 +11,7 @@ import {
   type InkData,
   type InkStroke,
   type UIElement,
-} from "@intentcue/core";
+} from "@scribui/core";
 import { fitCamera, quantize, screenToWorld, type Camera, type TileLayout } from "../layout";
 import { isReadOnly, tileOf, useMarkers, useStore } from "../store";
 import { Overlay } from "./Overlay";

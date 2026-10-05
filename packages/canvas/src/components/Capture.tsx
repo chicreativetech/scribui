@@ -136,7 +136,7 @@ export function NextStepBanner() {
     status === "sent"
       ? mobile
         ? "Sent to your agent. When it's done, rebuild and reinstall the app, then recapture."
-        : "Sent to your agent. intentcue recaptures automatically when it marks the round applied."
+        : "Sent to your agent. ScribUI recaptures automatically when it marks the round applied."
       : mobile
         ? `The agent applied round ${pad(round.round)}. Rebuild and reinstall the app, then recapture.`
         : `The agent applied round ${pad(round.round)}.`;
@@ -243,7 +243,7 @@ export function LanDialog() {
             )}
             <div className="dim" style={{ fontSize: 11, marginTop: 8 }}>
               iPad, Android tablet, Surface or any other device with a modern browser. Devices stay paired until you unpair them or quit
-              intentcue.
+              ScribUI.
             </div>
             <div className="actions" style={{ justifyContent: "flex-start" }}>
               <button className="btn" onClick={() => void fresh()}>
