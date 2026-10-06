@@ -64,15 +64,15 @@ export const screenToWorld = (cam: Camera, sx: number, sy: number): [number, num
 
 export function fitCamera(
   rect: { x: number; y: number; w: number; h: number },
-  viewport: { w: number; h: number },
+  viewport: { x?: number; y?: number; w: number; h: number },
   pad = 64,
   maxZoom = 2,
 ): Camera {
   const zoom = Math.min(maxZoom, Math.max(0.02, Math.min((viewport.w - 2 * pad) / rect.w, (viewport.h - 2 * pad) / rect.h)));
   return {
     zoom,
-    x: rect.x + rect.w / 2 - viewport.w / 2 / zoom,
-    y: rect.y + rect.h / 2 - viewport.h / 2 / zoom,
+    x: rect.x + rect.w / 2 - ((viewport.x ?? 0) + viewport.w / 2) / zoom,
+    y: rect.y + rect.h / 2 - ((viewport.y ?? 0) + viewport.h / 2) / zoom,
   };
 }
 

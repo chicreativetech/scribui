@@ -7,22 +7,19 @@ import { focusTile, panToAnnotation } from "./Board";
 export function Inspector() {
   const open = useStore((s) => s.inspectorOpen);
   const tab = useStore((s) => s.inspectorTab);
-  const annotations = useStore((s) => s.annotations);
-  const count = annotations.filter((a) => !(a.kind === "comment" && a.attachedTo)).length;
   const set = useStore((s) => s.set);
-  const tabs: [typeof tab, string, ReactNode?][] = [
-    ["notes", "notes", count ? <span className="c">{count}</span> : null],
-    ["review", "review.md"],
-    ["tree", "tree"],
+  const tabs: [typeof tab, string][] = [
+    ["notes", "Notes"],
+    ["review", "Review.md"],
+    ["tree", "Tree"],
     ["rules", "rules.md"],
   ];
   return (
-    <aside className={`inspector ${open ? "" : "closed"}`}>
+    <aside className={`float inspector ${open ? "" : "closed"}`}>
       <div className="tabs" role="tablist">
-        {tabs.map(([k, label, extra]) => (
-          <button key={k} className={tab === k ? "on" : ""} onClick={() => set({ inspectorTab: k })} role="tab">
+        {tabs.map(([k, label]) => (
+          <button key={k} className={tab === k ? "on" : ""} onClick={() => set({ inspectorTab: k })} role="tab" aria-selected={tab === k}>
             {label}
-            {extra}
           </button>
         ))}
       </div>

@@ -1,188 +1,375 @@
-import { useMemo } from "react";
-import { TOOLS, isReadOnly, unresolvedCount, useStore } from "../store";
+import { useMemo, type ReactNode } from "react";
+import { TOOLS, isReadOnly, unresolvedCount, useStore, type Tool } from "../store";
 import { Spinner } from "./Capture";
 import { showLive } from "./Live";
+import selectIcon from "../assets/icons/select.png";
+import commentIcon from "../assets/icons/comment.png";
+import circleIcon from "../assets/icons/circle.png";
+import arrowIcon from "../assets/icons/arrow.svg";
+import removeIcon from "../assets/icons/remove.svg";
+import ruleIcon from "../assets/icons/rule.svg";
+import penIcon from "../assets/icons/pen.svg";
+import lineIcon from "../assets/icons/line.svg";
+import recaptureIcon from "../assets/icons/recapture.svg";
+import tabletIcon from "../assets/icons/tablet.svg";
+import panelIcon from "../assets/icons/panel.svg";
+import elementsIcon from "../assets/icons/elements.svg";
 
-/* ───────── top bar ───────── */
+const pad = (n: number) => String(n).padStart(3, "0");
 
-export function TopBar({ onSend }: { onSend: () => void }) {
+/* ───────── top bar: floating status pills ───────── */
+
+export function TopBar() {
   const round = useStore((s) => s.round);
   const rounds = useStore((s) => s.rounds);
   const annotations = useStore((s) => s.annotations);
-  const penMode = useStore((s) => s.penMode);
-  const showOutlines = useStore((s) => s.showOutlines);
-  const inspectorOpen = useStore((s) => s.inspectorOpen);
   const project = useStore((s) => s.project);
+  const view = useStore((s) => s.view);
   const unresolved = useMemo(() => unresolvedCount(annotations), [annotations]);
-  const captured = round?.screens.filter((s) => s.captured).length ?? 0;
   const failed = round?.screens.filter((s) => s.error).length ?? 0;
   const appName =
-    round?.app?.name ?? (project && "app" in project.manifest ? project.manifest.app.name : undefined) ?? "ScribUI";
-  const status = round?.status.status;
-  const ro = isReadOnly();
-  const count = annotations.filter((a) => !(a.kind === "comment" && a.attachedTo)).length;
-  const cs = useStore((s) => s.captureState);
-  const ext = useStore((s) => s.externalCapture);
-  const lan = useStore((s) => s.lan);
-  const canCapture = useStore((s) => !!s.project?.canCapture);
-  const platform = round?.app?.platform ?? (project && "app" in project.manifest ? project.manifest.app.platform : undefined);
+    round?.app?.name ??
+    (project && "app" in project.manifest ? project.manifest.app.name : undefined) ??
+    "ScribUI";
+  const platform =
+    round?.app?.platform ??
+    (project && "app" in project.manifest ? project.manifest.app.platform : undefined);
   const mobile = platform === "android" || platform === "ios";
-  const capturing = cs.running || !!ext;
-  const view = useStore((s) => s.view);
+  const status = round?.status.status;
+  const count = annotations.filter((a) => !(a.kind === "comment" && a.attachedTo)).length;
 
   return (
     <header className="bar">
-      <div className="seg brand">
-        <span className="sq" />
-        <span>ScribUI</span>
-      </div>
-      <div className="seg">
-        <span className="app-name">{appName}</span>
-        {mobile && (
-          <span className="pill beta" title="Mobile capture is in beta">
-            {platform} beta
-          </span>
+      <div className="pills">
+        <div className="float pill-box" title={appName}>
+          <span className="app-name">{appName}</span>
+          {mobile && (
+            <span className="badge beta" title={`${platform} capture is in beta`}>
+              Beta
+            </span>
+          )}
+        </div>
+        {round && (
+          <div className="float pill-box">
+            <select
+              className="round-select"
+              value={round.round}
+              onChange={(e) => useStore.getState().load(Number(e.target.value))}
+              title="round"
+            >
+              {[...rounds].reverse().map((r) => (
+                <option key={r.round} value={r.round}>
+                  R{pad(r.round)}
+                </option>
+              ))}
+            </select>
+            <span className={`badge ${status}`}>{status}</span>
+          </div>
+        )}
+        {round && (
+          <div className="float pill-box hide-sm">
+            <span>
+              {count} Note{count === 1 ? "" : "s"}
+            </span>
+            {unresolved > 0 && <span className="badge beta">{unresolved} unresolved</span>}
+            {failed > 0 && <span className="badge failed">{failed} failed</span>}
+          </div>
         )}
       </div>
       {platform === "web" && (
-        <div className="seg view-switch">
-          <button className={`toggle ${view === "board" ? "on" : ""}`} onClick={() => useStore.getState().set({ view: "board" })} title="review board (L)">
-            ▦ <span className="hide-sm">board</span>
-          </button>
-          <button className={`toggle ${view === "live" ? "on" : ""}`} onClick={showLive} title="your running app: browse and capture views (L)">
-            ◉ <span className="hide-sm">app</span>
-          </button>
-        </div>
-      )}
-      {round && (
-        <div className="seg">
-          <select
-            className="round-select"
-            value={round.round}
-            onChange={(e) => useStore.getState().load(Number(e.target.value))}
-            title="round"
+        <div className="float pill-box view-switch" role="tablist" aria-label="view">
+          <button
+            className={`item ${view === "live" ? "on" : ""}`}
+            onClick={showLive}
+            role="tab"
+            aria-selected={view === "live"}
+            title="your running app: browse and capture views (L)"
           >
-            {[...rounds].reverse().map((r) => (
-              <option key={r.round} value={r.round}>
-                R{String(r.round).padStart(3, "0")}
-              </option>
-            ))}
-          </select>
-          <span className={`pill ${status}`}>{status}</span>
+            App
+          </button>
+          <button
+            className={`item ${view === "board" ? "on" : ""}`}
+            onClick={() => useStore.getState().set({ view: "board" })}
+            role="tab"
+            aria-selected={view === "board"}
+            title="review board (L)"
+          >
+            Board
+          </button>
         </div>
       )}
-      {round && (
-        <div className="seg hide-sm">
-          <span>
-            {captured} <span className="dim">screen{captured === 1 ? "" : "s"}</span>
-          </span>
-          {failed > 0 && <span className="err">{failed} failed</span>}
-          <span className="faint">│</span>
-          <span>
-            {count} <span className="dim">note{count === 1 ? "" : "s"}</span>
-          </span>
-          {unresolved > 0 && <span className="warn">! {unresolved} unresolved</span>}
-        </div>
-      )}
-      <div className="seg grow">
-        <button
-          className={`toggle ${showOutlines ? "on" : ""}`}
-          onClick={() => useStore.getState().set({ showOutlines: !showOutlines })}
-          title="show all element outlines (E)"
-        >
-          ⌗ <span className="hide-sm">elements</span>
-        </button>
-        <button
-          className={`toggle ${penMode ? "on" : ""}`}
-          onClick={() => useStore.getState().set({ penMode: !penMode })}
-          title="pen mode: pen draws, touch pans (turns on with the first pen stroke)"
-        >
-          ✎ <span className="hide-sm">pen</span>
-        </button>
-        <button
-          className={`toggle ${lan.paired > 0 ? "on" : ""}`}
-          onClick={() => useStore.getState().set({ lanOpen: true })}
-          title="review on a tablet: show a pairing QR code"
-        >
-          ▣ <span className="hide-sm">tablet{lan.paired > 0 ? ` · ${lan.paired}` : ""}</span>
-        </button>
-        <button
-          className={`toggle ${inspectorOpen ? "on" : ""}`}
-          onClick={() => useStore.getState().set({ inspectorOpen: !inspectorOpen })}
-          title="inspector (tab)"
-        >
-          ▤ <span className="hide-sm">panel</span>
-        </button>
-      </div>
+    </header>
+  );
+}
+
+/* ───────── recapture & send ───────── */
+
+export function ActionBar({ onSend }: { onSend: () => void }) {
+  const round = useStore((s) => s.round);
+  const cs = useStore((s) => s.captureState);
+  const ext = useStore((s) => s.externalCapture);
+  const canCapture = useStore((s) => !!s.project?.canCapture);
+  const status = round?.status.status;
+  const ro = isReadOnly();
+  const capturing = cs.running || !!ext;
+
+  return (
+    <div className="float actions-float">
       {canCapture && (
         <button
-          className="recap-btn"
+          className="item recap-btn"
           onClick={() => void useStore.getState().captureNext()}
           disabled={capturing}
           title="capture the next round: only screens that changed are recaptured (:capture all for everything)"
         >
           {capturing ? (
             <>
-              <Spinner /> {cs.phase === "building" ? "building" : `capturing${(cs.total ?? ext?.total) ? ` ${cs.done ?? ext?.done ?? 0}/${cs.total ?? ext?.total}` : ""}`}
+              <Spinner />{" "}
+              {cs.phase === "building"
+                ? "building"
+                : `capturing${(cs.total ?? ext?.total) ? ` ${cs.done ?? ext?.done ?? 0}/${cs.total ?? ext?.total}` : ""}`}
             </>
           ) : (
-            <>↻ Recapture</>
+            <>
+              <img className="icon" src={recaptureIcon} width={12} height={12} alt="" />
+              Recapture
+            </>
           )}
         </button>
       )}
-      <button className="send-btn" onClick={onSend} disabled={!round || ro || status === "capturing" || capturing}>
+      <button
+        className="send-btn"
+        onClick={onSend}
+        disabled={!round || ro || status === "capturing" || capturing}
+        title={ro ? undefined : "send to agent (⌘⏎)"}
+      >
         {status === "sent" ? "Sent to agent" : status === "applied" ? "Applied" : "Send to agent"}
-        {!ro && <kbd>⌘⏎</kbd>}
       </button>
-    </header>
+    </div>
   );
 }
 
-/* ───────── tool rail ───────── */
+/* ───────── tool panel ───────── */
+
+const ICONS: Partial<Record<Tool, ReactNode>> = {
+  select: <img className="icon" src={selectIcon} width={12} height={12} alt="" />,
+  comment: <img className="icon" src={commentIcon} width={14} height={14} alt="" />,
+  arrow: <img className="icon" src={arrowIcon} width={14.938} height={14.938} alt="" />,
+  rectangle: (
+    <svg className="glyph-select-rect" width={12} height={12} viewBox="0 0 12 12" aria-hidden>
+      <rect x={1} y={1} width={10} height={10} strokeWidth={2} strokeDasharray="2 2" />
+    </svg>
+  ),
+  remove: <img className="icon" src={removeIcon} width={9} height={9} alt="" />,
+  circle: <img className="icon" src={circleIcon} width={14} height={14} alt="" />,
+  rule: <img className="icon" src={ruleIcon} width={16} height={16} alt="" />,
+  freehand: <img className="icon" src={penIcon} width={12} height={12} alt="" />,
+};
+
+const GUIDE: Tool[] = ["select", "comment", "arrow", "rectangle", "remove", "circle", "rule"];
+const SKETCH: Tool[] = ["freehand"];
+
+/** Sketch shapes from the design that the canvas can't record yet. */
+const SKETCH_SOON: { label: string; icon: ReactNode }[] = [
+  { label: "line", icon: <img className="icon" src={lineIcon} width={17} height={17} alt="" /> },
+  { label: "rectangle", icon: <span className="glyph-rect" /> },
+  { label: "ellipse", icon: <span className="glyph-ellipse" /> },
+  { label: "text", icon: <span className="glyph-text">T</span> },
+];
+
+function ToolButton({ tool, ro }: { tool: Tool; ro: boolean }) {
+  const active = useStore((s) => s.tool === tool);
+  const t = TOOLS.find((x) => x.tool === tool)!;
+  return (
+    <button
+      className={`item tool ${active ? "active" : ""}`}
+      onClick={() => useStore.getState().setTool(tool)}
+      disabled={ro && tool !== "select"}
+      aria-label={`${t.label} (${t.key})`}
+      aria-pressed={active}
+    >
+      {ICONS[tool]}
+      <span className="tip">
+        <b>{t.label}</b> <kbd>{t.key}</kbd> <span className="dim">— {t.hint}</span>
+      </span>
+    </button>
+  );
+}
+
+/** Curved undo/redo arrow; Inter's ↶ and ↷ glyphs are too thin at this size. */
+function HistoryArrow({ redo }: { redo?: boolean }) {
+  return (
+    <svg
+      className={`history-arrow ${redo ? "redo" : ""}`}
+      width={14}
+      height={14}
+      viewBox="0 0 14 14"
+      aria-hidden
+    >
+      <path d="M11.5 11 V8.5 A4.5 4.5 0 0 0 2.5 8.5 V10" />
+      <path d="M0.75 8.25 L2.5 10 L4.25 8.25" />
+    </svg>
+  );
+}
+
+function Toggle({
+  on,
+  icon,
+  label,
+  onClick,
+  title,
+}: {
+  on: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      className={`item wide ${on ? "on" : ""}`}
+      onClick={onClick}
+      title={title}
+      aria-pressed={on}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
 
 export function ToolRail() {
-  const tool = useStore((s) => s.tool);
-  const ro = useStore((s) => !s.round || s.round.status.status === "sent" || s.round.status.status === "applied");
+  const ro = useStore(
+    (s) => !s.round || s.round.status.status === "sent" || s.round.status.status === "applied",
+  );
+  const penMode = useStore((s) => s.penMode);
+  const showOutlines = useStore((s) => s.showOutlines);
+  const inspectorOpen = useStore((s) => s.inspectorOpen);
+  const lan = useStore((s) => s.lan);
+  const set = useStore((s) => s.set);
+
   return (
-    <nav className="rail" aria-label="tools">
-      {TOOLS.map((t, i) => (
-        <div key={t.tool}>
-          {i === 1 && <div className="sep" />}
-          <button
-            className={`tool ${tool === t.tool ? "active" : ""}`}
-            onClick={() => useStore.getState().setTool(t.tool)}
-            disabled={ro && t.tool !== "select"}
-            aria-label={`${t.label} (${t.key})`}
-          >
-            <span className="k">{t.key}</span>
-            <span className="l">{t.label}</span>
-            <span className="tip">
-              <b>{t.label}</b> <span className="dim">— {t.hint}</span>
-            </span>
-          </button>
+    <nav className="float rail" aria-label="tools">
+      <div className="logo">
+        <span className="logo-back" />
+        <span className="logo-front" />
+        <span className="logo-name">ScribUI</span>
+      </div>
+
+      <div className="history">
+        <button className="item tool" onClick={() => useStore.getState().undo()} aria-label="undo">
+          <HistoryArrow />
+          <span className="tip">
+            undo <kbd>⌘Z</kbd>
+          </span>
+        </button>
+        <button className="item tool" onClick={() => useStore.getState().redo()} aria-label="redo">
+          <HistoryArrow redo />
+          <span className="tip">
+            redo <kbd>⌘⇧Z</kbd>
+          </span>
+        </button>
+      </div>
+
+      <section className="tool-group">
+        <h4>Guide</h4>
+        <p>Tell the agent what to change</p>
+        <div className="toolbox">
+          {GUIDE.map((t) => (
+            <ToolButton key={t} tool={t} ro={ro} />
+          ))}
         </div>
-      ))}
-      <div className="sep" />
-      <button className="tool" onClick={() => useStore.getState().undo()} aria-label="undo">
-        <span className="k">↶</span>
-        <span className="l">undo</span>
-        <span className="tip">undo <kbd>⌘Z</kbd></span>
-      </button>
-      <button className="tool" onClick={() => useStore.getState().redo()} aria-label="redo">
-        <span className="k">↷</span>
-        <span className="l">redo</span>
-        <span className="tip">redo <kbd>⌘⇧Z</kbd></span>
-      </button>
-      <div style={{ flex: 1 }} />
-      <button className="tool" onClick={() => useStore.getState().set({ helpOpen: true })} aria-label="help">
-        <span className="k">?</span>
-        <span className="l">keys</span>
-      </button>
+      </section>
+
+      <section className="tool-group">
+        <h4>Sketch</h4>
+        <p>Show roughly what you want</p>
+        <div className="toolbox">
+          {SKETCH.map((t) => (
+            <ToolButton key={t} tool={t} ro={ro} />
+          ))}
+          {SKETCH_SOON.map((s) => (
+            <button
+              key={s.label}
+              className="item tool"
+              disabled
+              aria-label={`${s.label} (coming soon)`}
+            >
+              {s.icon}
+              <span className="tip">
+                <b>{s.label}</b> <span className="dim">— coming soon</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="toggles">
+        <Toggle
+          on={lan.paired > 0}
+          icon={<img className="icon" src={tabletIcon} width={12} height={12} alt="" />}
+          label={lan.paired > 0 ? `Tablet · ${lan.paired}` : "Tablet"}
+          onClick={() => set({ lanOpen: true })}
+          title="review on a tablet: show a pairing QR code"
+        />
+        <Toggle
+          on={inspectorOpen}
+          icon={<img className="icon" src={panelIcon} width={12} height={12} alt="" />}
+          label="Panel"
+          onClick={() => set({ inspectorOpen: !inspectorOpen })}
+          title="inspector (tab)"
+        />
+        <Toggle
+          on={showOutlines}
+          icon={<img className="icon" src={elementsIcon} width={7} height={10} alt="" />}
+          label="Elements"
+          onClick={() => set({ showOutlines: !showOutlines })}
+          title="show all element outlines (E)"
+        />
+        <Toggle
+          on={penMode}
+          icon={<img className="icon" src={penIcon} width={12} height={12} alt="" />}
+          label="Pen mode"
+          onClick={() => set({ penMode: !penMode })}
+          title="pen mode: pen draws, touch pans (turns on with the first pen stroke)"
+        />
+      </div>
     </nav>
   );
 }
 
 /* ───────── status line ───────── */
+
+/** Sun in dark mode, moon in light mode: the icon shows where a click takes you. */
+function ThemeSwitch() {
+  const theme = useStore((s) => s.theme);
+  const dark = theme === "dark";
+  return (
+    <button
+      className="theme-switch"
+      onClick={() => useStore.getState().set({ theme: dark ? "light" : "dark" })}
+      title={dark ? "switch to light mode" : "switch to dark mode"}
+      aria-label={dark ? "switch to light mode" : "switch to dark mode"}
+    >
+      {dark ? (
+        <svg width={14} height={14} viewBox="0 0 14 14" aria-hidden>
+          <circle cx={7} cy={7} r={2.75} />
+          <path
+            d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.76 2.76l1.06 1.06M10.18 10.18l1.06 1.06M2.76 11.24l1.06-1.06M10.18 3.82l1.06-1.06"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.4}
+            strokeLinecap="round"
+          />
+        </svg>
+      ) : (
+        <svg width={14} height={14} viewBox="0 0 14 14" aria-hidden>
+          <path d="M11.9 9.1A5.25 5.25 0 0 1 4.9 2.1a5.25 5.25 0 1 0 7 7z" />
+        </svg>
+      )}
+    </button>
+  );
+}
 
 export function StatusLine({ onCommand }: { onCommand: (cmd: string) => void }) {
   const tool = useStore((s) => s.tool);
@@ -197,15 +384,26 @@ export function StatusLine({ onCommand }: { onCommand: (cmd: string) => void }) 
   const capture = useStore((s) => s.capture);
   const ruleTargets = useStore((s) => s.ruleTargets);
   const focusId = useStore((s) => s.focusId);
-  const ro = useStore((s) => !s.round || s.round.status.status === "sent" || s.round.status.status === "applied");
+  const ro = useStore(
+    (s) => !s.round || s.round.status.status === "sent" || s.round.status.status === "applied",
+  );
   const el = hover ? hover.stack[hover.level] : null;
   const toolInfo = TOOLS.find((t) => t.tool === tool);
 
-  const mode = command !== null ? "COMMAND" : editor ? "INSERT" : ro ? "READ-ONLY" : penMode ? "PEN" : "NORMAL";
+  const mode =
+    command !== null
+      ? "COMMAND"
+      : editor
+        ? "INSERT"
+        : ro
+          ? "READ-ONLY"
+          : penMode
+            ? "PEN"
+            : "NORMAL";
   const modeCls = command !== null ? "cmd" : editor ? "insert" : ro ? "ro" : penMode ? "pen" : "";
 
   return (
-    <footer className="status">
+    <footer className="float status">
       <div className={`mode ${modeCls}`}>{mode}</div>
       {command !== null ? (
         <div className="cmdline">
@@ -234,11 +432,8 @@ export function StatusLine({ onCommand }: { onCommand: (cmd: string) => void }) 
           <div className="cell">
             <span className="v">{toolInfo?.label}</span>
             {tool === "rule" && ruleTargets.length > 0 && (
-              <span className="accent">
-                {ruleTargets.length} selected · ⏎ to write the rule
-              </span>
+              <span className="accent">{ruleTargets.length} selected · ⏎ to write the rule</span>
             )}
-            {tool !== "rule" && <span className="hide-sm">{toolInfo?.hint}</span>}
           </div>
           {focusId && (
             <div className="cell hide-sm">
@@ -253,17 +448,23 @@ export function StatusLine({ onCommand }: { onCommand: (cmd: string) => void }) 
             )}
             {el && (
               <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                <span className="faint">│</span> <span style={{ color: "var(--cyan)" }}>{el.type}</span>
+                <span className="faint">│</span>{" "}
+                <span style={{ color: "var(--cyan)" }}>{el.type}</span>
                 {el.idSource !== "generated" && <span className="v"> #{el.id}</span>}
                 {el.label && <span> "{el.label.slice(0, 40)}"</span>}
                 <span className="faint"> [{el.idSource}]</span>
-                {el.source && <span className="faint"> {el.source.component ?? ""} {el.source.file}</span>}
+                {el.source && (
+                  <span className="faint">
+                    {" "}
+                    {el.source.component ?? ""} {el.source.file}
+                  </span>
+                )}
               </span>
             )}
           </div>
           {capture && (
             <div className="cell">
-              <span className="warn">capturing R{String(capture.round).padStart(3, "0")}</span>
+              <span className="warn">capturing R{pad(capture.round)}</span>
               <span className="v">{capture.screens.length}</span>
             </div>
           )}
@@ -277,7 +478,10 @@ export function StatusLine({ onCommand }: { onCommand: (cmd: string) => void }) 
               <span className="dim">● saved</span>
             )}
           </div>
-          <div className="cell" title={connected ? "live: updates from the agent arrive instantly" : "disconnected"}>
+          <div
+            className="cell"
+            title={connected ? "live: updates from the agent arrive instantly" : "disconnected"}
+          >
             <span className={`dot ${connected ? "on" : ""}`} /> {connected ? "live" : "offline"}
           </div>
           <div className="cell hide-sm">
@@ -285,6 +489,7 @@ export function StatusLine({ onCommand }: { onCommand: (cmd: string) => void }) 
           </div>
         </>
       )}
+      <ThemeSwitch />
     </footer>
   );
 }
