@@ -1,4 +1,4 @@
-import type { Annotation, Device, ScreenCapture, ScreenManifest, StatusFile } from "@scribui/core";
+import type { Annotation, Device, ScreenCapture, ScreenManifest, StatusFile, VisionFile } from "@scribui/core";
 
 export type ScreenInfo = {
   id: string;
@@ -105,7 +105,19 @@ export const api = {
     fetch(`/api/rounds/${n}/screens/${encodeURIComponent(id)}`, { method: "DELETE" }).then((r) => json<{ removed: string; notes: number }>(r)),
   review: (n: number) => fetch(`/api/rounds/${n}/review`).then((r) => (r.ok ? r.text() : null)),
   rules: () => fetch("/api/rules").then((r) => r.text()),
+  vision: () => fetch("/api/vision").then((r) => json<VisionFile>(r)),
+  saveVision: (v: VisionFile) =>
+    fetch("/api/vision", {
+      method: "PUT",
+      headers: { "content-type": "application/json", "x-client-id": CLIENT_ID },
+      body: JSON.stringify(v),
+    }).then((r) => json<{ ok: true }>(r)),
+  uploadVisionImage: (blob: Blob) =>
+    fetch("/api/vision/images", { method: "POST", headers: { "content-type": blob.type }, body: blob }).then((r) => json<{ src: string }>(r)),
 };
+
+/** URL of an image placed on the vision board. */
+export const visionImageUrl = (src: string) => `/api/vision/${src}`;
 
 export type ServerEvent =
   | { type: "hello" }
@@ -120,7 +132,8 @@ export type ServerEvent =
   | { type: "capture-state"; state: CaptureState }
   | { type: "lan-changed"; enabled: boolean; paired: number }
   | { type: "status-changed"; round: number; status: string }
-  | { type: "annotations-changed"; round: number; by: string };
+  | { type: "annotations-changed"; round: number; by: string }
+  | { type: "vision-changed"; by: string };
 
 /** WebSocket with automatic reconnect. */
 export function connectEvents(onEvent: (e: ServerEvent) => void, onState: (connected: boolean) => void) {

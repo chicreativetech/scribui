@@ -19,7 +19,8 @@
         "rectangle",
         "remove",
         "freehand",
-        "rule"
+        "rule",
+        "sketch"
       ]
     },
     "geometry": {
@@ -274,6 +275,49 @@
         "status",
         "elements",
         "confirmedByUser"
+      ],
+      "additionalProperties": false
+    },
+    "sketch": {
+      "type": "object",
+      "properties": {
+        "shape": {
+          "type": "string",
+          "enum": [
+            "line",
+            "box",
+            "ellipse",
+            "text"
+          ]
+        },
+        "style": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "type": "string"
+            },
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "fill": {
+              "type": "string"
+            },
+            "size": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "color",
+            "width"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "shape",
+        "style"
       ],
       "additionalProperties": false
     }

@@ -9,6 +9,9 @@ import { CapturePanel, LanDialog, NextStepBanner } from "./components/Capture";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
 import { Inspector } from "./components/Inspector";
 import { LiveView, showLive, toggleView } from "./components/Live";
+import { ToolSettings } from "./components/ToolSettings";
+import { ImageImportDialog, VisionBoard, visionKey, zoomVision, fitVisionCamera } from "./components/Vision";
+import { useVision } from "./vision";
 
 const isWeb = () => {
   const p = useStore.getState().project;
@@ -34,11 +37,7 @@ export function App() {
     }
   }, [theme]);
 
-  // a web project with nothing captured yet starts on the app tab
-  const startLive = useStore((s) => !!s.project && "app" in s.project.manifest && s.project.manifest.app.platform === "web" && s.project.latest === null);
-  useEffect(() => {
-    if (startLive) showLive();
-  }, [startLive]);
+  const view = useStore((s) => s.view);
 
   useEffect(() => {
     void useStore.getState().load();
@@ -101,6 +100,10 @@ export function App() {
         } else if (e.type === "annotations-changed") {
           // another tab or device edited this round
           if (e.round === st.round?.round && e.by !== clientId()) void st.load(e.round);
+        } else if (e.type === "vision-changed") {
+          // another tab or device drew on the vision board
+          const v = useVision.getState();
+          if (e.by !== clientId() && !v.textEdit) void v.load();
         }
       },
       (connected) => useStore.getState().set({ connected }),
@@ -117,6 +120,21 @@ export function App() {
       if (!mod && !e.altKey && e.key.toLowerCase() === "l" && isWeb()) return toggleView();
       // the board's keys don't apply while the live app is shown
       if (st.view === "live") return;
+      if (st.view === "vision") {
+        if (visionKey(e)) return;
+        if (mod && e.key === "Enter") {
+          e.preventDefault();
+          if (!isReadOnly()) st.set({ sendOpen: true });
+        } else if (!mod && e.key === "Tab") {
+          e.preventDefault();
+          st.set({ inspectorOpen: !st.inspectorOpen });
+        } else if (e.key === "?") st.set({ helpOpen: true });
+        else if (e.key === ":") {
+          e.preventDefault();
+          st.set({ command: "" });
+        }
+        return;
+      }
 
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -227,10 +245,11 @@ export function App() {
     <div className={`app ${inspectorOpen ? "with-panel" : ""}`}>
       <main className="stage">
         <Board />
+        <VisionBoard />
         <NextStepBanner />
         <CapturePanel />
         <LiveView />
-        {!round && !loading && (
+        {!round && !loading && view === "board" && (
           <div className="empty-board">
             <div className="box">
               <h1>
@@ -290,6 +309,8 @@ export function App() {
       <SentDialog />
       <HelpDialog />
       <LanDialog />
+      <ToolSettings />
+      <ImageImportDialog />
     </div>
   );
 }
@@ -331,6 +352,7 @@ function runCommand(raw: string) {
       return;
     case "fit":
     case "f":
+      if (st.view === "vision") return useVision.getState().setCamera(fitVisionCamera());
       st.set({ focusId: null });
       return animateCamera(fitAll(st.tiles, st.groups, boardViewport()));
     case "focus": {
@@ -355,6 +377,7 @@ function runCommand(raw: string) {
     case "z": {
       const pct = Number(args[0]);
       if (!pct) return;
+      if (st.view === "vision") return zoomVision(pct / 100);
       const vp = boardViewport();
       return animateCamera(zoomAt(st.camera, vp.x + vp.w / 2, vp.y + vp.h / 2, pct / 100));
     }

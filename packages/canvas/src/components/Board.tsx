@@ -6,6 +6,7 @@ import {
   indexFor,
   newAnnotationId,
   renderAnnotationSvg,
+  renderShapeSvg,
   strokeOutlinePath,
   type Annotation,
   type InkData,
@@ -14,6 +15,7 @@ import {
 } from "@scribui/core";
 import { fitCamera, quantize, screenToWorld, type Camera, type TileLayout } from "../layout";
 import { isReadOnly, tileOf, useMarkers, useStore } from "../store";
+import { measureText } from "../vision";
 import { Overlay } from "./Overlay";
 import { Tile } from "./Tile";
 
@@ -23,6 +25,7 @@ type Drag =
   | { kind: "pan"; sx: number; sy: number; cam: Camera; moved: boolean; clickTile?: TileLayout; clickPx?: Pt }
   | { kind: "path"; tool: "circle" | "freehand"; tile: TileLayout; pts: Pt[] }
   | { kind: "rect"; tile: TileLayout; from: Pt; to: Pt }
+  | { kind: "sketch"; shape: "line" | "box" | "ellipse"; tile: TileLayout; from: Pt; to: Pt }
   | { kind: "arrow"; tile: TileLayout; from: Pt; toWorld: Pt }
   | { kind: "move"; id: string; tile: TileLayout; start: Pt; orig: Annotation; moved: boolean }
   | { kind: "pen"; tile: TileLayout; pts: [number, number, number][]; t0: number };
@@ -314,6 +317,28 @@ export function Board() {
       case "arrow":
         setDragBoth({ kind: "arrow", tile: t, from: px, toWorld: w });
         break;
+      case "line":
+      case "box":
+      case "ellipse":
+        setDragBoth({ kind: "sketch", shape: st.tool, tile: t, from: px, to: px });
+        break;
+      case "text": {
+        // sketch styles are set in points; annotations live in screenshot pixels
+        const style = st.toolStyles.text;
+        const size = (style.size ?? 32) * t.scale;
+        const box = measureText("", size);
+        st.add(
+          {
+            id: newAnnotationId(),
+            screenId: t.id,
+            kind: "sketch",
+            geometry: { type: "rect", x: px[0], y: Math.round(px[1] - size * 0.62), w: box.w, h: box.h },
+            sketch: { shape: "text", style: { ...style, size } },
+          },
+          { edit: true },
+        );
+        break;
+      }
     }
   };
 
@@ -376,6 +401,9 @@ export function Board() {
       case "rect":
         setDragBoth({ ...d, to: toPx(d.tile, w) });
         return;
+      case "sketch":
+        setDragBoth({ ...d, to: constrainPx(d.shape, d.from, toPx(d.tile, w), e.shiftKey) });
+        return;
       case "arrow":
         setDragBoth({ ...d, toWorld: w });
         return;
@@ -428,6 +456,20 @@ export function Board() {
         const r = normRect(d.from, d.to);
         if (r.w < 6 * d.tile.scale || r.h < 6 * d.tile.scale) return;
         st.add({ id: newAnnotationId(), screenId: d.tile.id, kind: "rectangle", geometry: { type: "rect", ...r } }, { edit: true });
+        return;
+      }
+      case "sketch": {
+        const t = d.tile;
+        const style = st.toolStyles[d.shape];
+        const sketch = { shape: d.shape, style: { ...style, width: style.width * t.scale } };
+        if (d.shape === "line") {
+          if (Math.hypot(d.to[0] - d.from[0], d.to[1] - d.from[1]) < 6 * t.scale) return;
+          st.add({ id: newAnnotationId(), screenId: t.id, kind: "sketch", geometry: { type: "path", points: [d.from, d.to] }, sketch }, { edit: true });
+          return;
+        }
+        const r = normRect(d.from, d.to);
+        if (r.w < 6 * t.scale || r.h < 6 * t.scale) return;
+        st.add({ id: newAnnotationId(), screenId: t.id, kind: "sketch", geometry: { type: "rect", ...r }, sketch }, { edit: true });
         return;
       }
       case "arrow": {
@@ -501,7 +543,8 @@ export function Board() {
 
   /* ───────── render ───────── */
 
-  const draftSvg = useMemo(() => renderDraft(drag, camera), [drag, camera]);
+  const toolStyles = useStore((s) => s.toolStyles);
+  const draftSvg = useMemo(() => renderDraft(drag, camera, toolStyles), [drag, camera, toolStyles]);
   const { markers } = useMarkers();
   const zq = quantize(camera.zoom);
   const crossArrows = useMemo(() => renderCrossArrows(annotations, tiles, zq, markers), [annotations, tiles, zq, markers]);
@@ -670,6 +713,20 @@ export function panToAnnotation(a: Annotation) {
   animateCamera({ zoom, x: cx - (vp.x + vp.w / 2) / zoom, y: cy - (vp.y + vp.h / 2) / zoom });
 }
 
+/** Shift: lines snap to 45°, boxes and ellipses become square. */
+function constrainPx(shape: "line" | "box" | "ellipse", from: Pt, to: Pt, shift: boolean): Pt {
+  if (!shift) return to;
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  if (shape === "line") {
+    const ang = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+    const len = Math.hypot(dx, dy);
+    return [from[0] + Math.cos(ang) * len, from[1] + Math.sin(ang) * len];
+  }
+  const m = Math.max(Math.abs(dx), Math.abs(dy));
+  return [from[0] + Math.sign(dx || 1) * m, from[1] + Math.sign(dy || 1) * m];
+}
+
 function normRect(a: Pt, b: Pt) {
   return {
     x: Math.min(a[0], b[0]),
@@ -732,7 +789,7 @@ export function annotationFromInk(
   }
 }
 
-function renderDraft(d: Drag | null, cam: Camera): string {
+function renderDraft(d: Drag | null, cam: Camera, styles: ReturnType<typeof useStore.getState>["toolStyles"]): string {
   if (!d) return "";
   const sw = 2 / cam.zoom;
   const style = `fill="none" stroke="${ACCENT}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"`;
@@ -753,6 +810,15 @@ function renderDraft(d: Drag | null, cam: Camera): string {
       const a = [x2 - L * Math.cos(ang - 0.45), y2 - L * Math.sin(ang - 0.45)];
       const b = [x2 - L * Math.cos(ang + 0.45), y2 - L * Math.sin(ang + 0.45)];
       return `<path d="M ${x1} ${y1} L ${x2} ${y2} M ${a[0]} ${a[1]} L ${x2} ${y2} L ${b[0]} ${b[1]}" ${style}/>`;
+    }
+    case "sketch": {
+      // world units are points, the unit sketch styles are set in
+      const t = d.tile;
+      const toW = (p: Pt): Pt => [t.x + p[0] / t.scale, t.y + p[1] / t.scale];
+      const style = styles[d.shape];
+      if (d.shape === "line") return renderShapeSvg({ shape: "line", from: toW(d.from), to: toW(d.to), style });
+      const r = normRect(toW(d.from), toW(d.to));
+      return renderShapeSvg({ shape: d.shape, rect: r, style });
     }
     case "pen": {
       const t = d.tile;

@@ -176,6 +176,49 @@ describe("http api", () => {
     expect((await app.request(`/api/rounds/${n}/screens/checkout-default`, { method: "DELETE" }, local)).status).toBe(409);
   });
 
+  it("keeps a project vision board and sends it as vision.md with a PNG per canvas", async () => {
+    const { dir, store, n } = await project();
+    const { app } = createApp({ projectDir: dir });
+    const local = { incoming: { socket: { remoteAddress: "127.0.0.1" } } };
+    const req = (path: string, init?: RequestInit) => app.request(path, init, local);
+
+    expect(await (await req("/api/vision")).json()).toEqual({ version: 1, canvases: [], items: [] });
+    const png = readFileSync(join(F, "web/checkout/screens/cart.png"));
+    const up = await req("/api/vision/images", { method: "POST", headers: { "content-type": "image/png" }, body: png });
+    const { src } = (await up.json()) as { src: string };
+    expect(src).toMatch(/^images\/[0-9a-f]{16}\.png$/);
+    expect((await req(`/api/vision/${src}`)).headers.get("content-type")).toBe("image/png");
+    expect((await req("/api/vision/images", { method: "POST", headers: { "content-type": "text/plain" }, body: "x" })).status).toBe(415);
+    expect((await req("/api/vision/images/..%2F..%2Fscreens.json")).status).toBe(404);
+
+    const style = { color: "#262626", width: 3 };
+    const vision = {
+      version: 1,
+      canvases: [
+        { id: "c1", x: 0, y: 0, w: 640, h: 400 },
+        { id: "c2", x: 800, y: 0, w: 640, h: 400 },
+      ],
+      items: [
+        { id: "t", type: "text", x: 40, y: 40, w: 300, h: 40, text: "Warm and calm", style: { ...style, size: 32 } },
+        { id: "i", type: "image", x: 100, y: 120, w: 120, h: 200, rotation: 10, src },
+      ],
+    };
+    expect((await req("/api/vision", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(vision) })).status).toBe(200);
+    expect((await req("/api/vision", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ version: 1, canvases: [], items: [{ type: "blob" }] }) })).status).toBe(400);
+
+    await sendRound(store, n);
+    const out = store.roundDir(n);
+    // the empty second canvas is left out
+    expect(readFileSync(join(out, "vision/canvas-1.png")).subarray(1, 4).toString()).toBe("PNG");
+    expect(existsSync(join(out, "vision/canvas-2.png"))).toBe(false);
+    const md = readFileSync(join(out, "vision.md"), "utf8");
+    expect(md).toContain("![Canvas 1](vision/canvas-1.png)");
+    expect(md).toContain('- "Warm and calm"');
+    expect(readFileSync(join(out, "review.md"), "utf8")).toContain("read vision.md first. It holds 1 canvas ");
+    // the board itself stays editable after the round is sent
+    expect((await req("/api/vision", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...vision, items: [] }) })).status).toBe(200);
+  });
+
   it("pairing tokens expire", () => {
     const lan = new LanAuth();
     const t = lan.issueToken(-1);

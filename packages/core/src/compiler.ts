@@ -1,5 +1,5 @@
 import { DEFAULT_CONFIG } from "./config.js";
-import { area, formatRect, intersect, isClosedPath } from "./geometry.js";
+import { area, bboxOf, formatRect, intersect, isClosedPath } from "./geometry.js";
 import { numberAnnotations } from "./numbering.js";
 import { indexFor } from "./resolver.js";
 import type {
@@ -24,6 +24,8 @@ export type CompileInput = {
   captures: Map<string, Pick<ScreenCapture, "screenId" | "root">>;
   /** Resolved annotations (run `resolveAll` first). */
   annotations: Annotation[];
+  /** Canvases in vision.md, sent alongside this review; review.md points to it. */
+  visionCanvases?: number;
 };
 
 export type CompileOutput = {
@@ -223,6 +225,7 @@ function buildInstruction(ctx: Ctx, a: Annotation, comments: Annotation[]): Inst
     rectangle: "add",
     freehand: "note",
     rule: "note",
+    sketch: "add",
   };
 
   if (res.status === "unresolved") return unresolvedInstr(kindAction[a.kind]);
@@ -296,10 +299,31 @@ function buildInstruction(ctx: Ctx, a: Annotation, comments: Annotation[]): Inst
       return unresolvedInstr("move");
     }
 
+    case "sketch": {
+      const g = a.geometry;
+      const box = res.region ?? (g.type === "rect" ? g : g.type === "path" ? bboxOf(g.points) : { x: 0, y: 0, w: 0, h: 0 });
+      const at = `in the area at ${formatRect(box)}${describeNeighbours(ctx, a.screenId, box)}`;
+      const shape = a.sketch?.shape ?? "box";
+      if (shape === "text") {
+        const words = (a.text ?? "").trim().replace(/\s+/g, " ");
+        const more = comments.map((c) => c.text?.trim()).filter(Boolean).join(" ");
+        return done("add", `Add the text "${words}" ${at}, as sketched at marker ${n}. ${more ? cap(sentence(more)) : ""} ${inkNote}`, {
+          destination: { region: box },
+        });
+      }
+      const what = text ? text.replace(/[.\s]+$/, "") : `the ${SHAPE_WORDS[shape]} sketched at marker ${n}`;
+      return done("add", `Add ${what} ${at}. ${inkNote}`, {
+        destination: { region: box },
+        ...(hasComment ? {} : { needsText: true }),
+      });
+    }
+
     case "rule":
       return unresolvedInstr("note");
   }
 }
+
+const SHAPE_WORDS = { line: "line", box: "box", ellipse: "ellipse" } as const;
 
 function screenName(ctx: Ctx, id: string): string {
   const title = ctx.titles.get(id);
@@ -354,6 +378,12 @@ function buildRule(ctx: Ctx, a: Annotation, n: number): RuleEntry {
 function renderMarkdown(ctx: Ctx, review: ReviewJson): string {
   const L: string[] = [];
   L.push(`# Design review, round ${review.round}`, "");
+  const canvases = ctx.input.visionCanvases ?? 0;
+  if (canvases > 0)
+    L.push(
+      `Visual direction: read vision.md first. It holds ${canvases} canvas${canvases === 1 ? "" : "es"} the user sketched as a design reference for this round.`,
+      "",
+    );
   L.push(`New rules added to rules.md: ${review.counts.rules}. Unresolved: ${review.counts.unresolved}.`, "");
   L.push(
     `App: ${review.app}. Implement every instruction below, in order. Ids are accessibility identifiers, testIDs or DOM ids you can search the code for; bounds are screenshot pixels. Instructions marked [UNRESOLVED] need a question to the user first.`,

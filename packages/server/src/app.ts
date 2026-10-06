@@ -6,7 +6,7 @@ import { createAdaptorServer } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { Hono, type Context } from "hono";
 import { WebSocketServer, type WebSocket } from "ws";
-import { Annotation, AnnotationsFile, PRODUCT } from "@scribui/core";
+import { Annotation, AnnotationsFile, PRODUCT, VisionFile } from "@scribui/core";
 import { z } from "zod";
 import { isLoopback, lanAddress, LanAuth, parseCookies } from "./lan.js";
 import { qrSvg } from "./qr.js";
@@ -58,7 +58,8 @@ export type ServerEvent =
   | { type: "capture-state"; state: CaptureState }
   | { type: "status-changed"; round: number; status: string }
   | { type: "lan-changed"; enabled: boolean; paired: number }
-  | { type: "annotations-changed"; round: number; by: string };
+  | { type: "annotations-changed"; round: number; by: string }
+  | { type: "vision-changed"; by: string };
 
 export type ServerOptions = {
   projectDir: string;
@@ -78,6 +79,8 @@ export type ServerOptions = {
 /** Hooks filled in by startServer once it is listening. */
 type Controls = { enableLan?: () => Promise<string | null> };
 
+const IMAGE_TYPES: Record<string, string> = { "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp" };
+
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -86,6 +89,10 @@ const MIME: Record<string, string> = {
   ".json": "application/json; charset=utf-8",
   ".md": "text/markdown; charset=utf-8",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
   ".svg": "image/svg+xml",
   ".woff": "font/woff",
   ".woff2": "font/woff2",
@@ -326,6 +333,29 @@ export function createApp(opts: ServerOptions) {
   });
 
   app.get("/api/rules", async (c) => c.text((await store.readText("rules.md")) ?? ""));
+
+  /* ─────────── vision board (project-wide) ─────────── */
+  app.get("/api/vision", async (c) => c.json(await store.readVision()));
+  app.put("/api/vision", async (c) => {
+    const v = VisionFile.parse(await c.req.json());
+    await store.writeVision(v);
+    broadcast({ type: "vision-changed", by: c.req.header("x-client-id") ?? "" });
+    return c.json({ ok: true, items: v.items.length });
+  });
+  app.post("/api/vision/images", async (c) => {
+    const type = (c.req.header("content-type") ?? "").split(";")[0]!.trim();
+    const ext = IMAGE_TYPES[type];
+    if (!ext) throw new HttpError(415, "images must be PNG, JPEG, GIF or WebP");
+    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    if (bytes.length === 0) throw new HttpError(400, "empty image");
+    if (bytes.length > 25 * 1024 * 1024) throw new HttpError(413, "images are limited to 25 MB");
+    return c.json({ src: await store.saveVisionImage(bytes, ext) });
+  });
+  app.get("/api/vision/images/:file", async (c) => {
+    const p = store.visionImagePath(`images/${c.req.param("file")}`);
+    if (!p) return c.text("not found", 404);
+    return sendFile(c, p, true);
+  });
 
   /* ─────────── files from .scribui (read-only) ─────────── */
   app.get("/files/*", async (c) => {

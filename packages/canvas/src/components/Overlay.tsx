@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 import { bboxOf, indexFor, type Annotation, type Rect } from "@scribui/core";
 import { worldToScreen, type TileLayout } from "../layout";
 import { describeElement, elementOf, isReadOnly, useCapturingScreens, useMarkers, useStore } from "../store";
+import { measureText } from "../vision";
 import { annotationFromInk, focusTile } from "./Board";
 
 type Pt = [number, number];
@@ -292,7 +293,8 @@ function Editor({
     done.current = true;
     const st = useStore.getState();
     const trimmed = text.trim();
-    const needsText = a.kind === "comment" || a.kind === "rule";
+    const isText = a.kind === "sketch" && a.sketch?.shape === "text";
+    const needsText = a.kind === "comment" || a.kind === "rule" || isText;
     if ((cancel && isNew && needsText && !a.ink) || (needsText && !trimmed && !a.ink)) {
       st.remove(a.id);
     } else if ((a.text ?? "") !== trimmed) {
@@ -300,6 +302,8 @@ function Editor({
         const n = { ...x };
         if (trimmed) n.text = trimmed;
         else delete n.text;
+        // sketched text: its box follows the words
+        if (isText && x.geometry.type === "rect") n.geometry = { ...x.geometry, ...measureText(trimmed, x.sketch?.style.size ?? 32) };
         return n;
       });
     }
@@ -319,7 +323,7 @@ function Editor({
     >
       <div className="head">
         <span>
-          <b>{num}</b> {a.kind === "rule" ? "rule for all screens" : a.kind}
+          <b>{num}</b> {a.kind === "rule" ? "rule for all screens" : a.kind === "sketch" ? `${a.sketch?.shape} sketch` : a.kind}
         </span>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{target}</span>
       </div>
@@ -327,7 +331,9 @@ function Editor({
         ref={ref}
         value={text}
         placeholder={
-          a.kind === "rule"
+          a.kind === "sketch" && a.sketch?.shape === "text"
+            ? "Text to add here"
+            : a.kind === "rule"
             ? "e.g. Primary buttons are full width, 48pt tall"
             : a.kind === "comment"
               ? "What should change?"
@@ -354,7 +360,7 @@ function Editor({
           <kbd>⇧⏎</kbd> newline
         </span>
         <span>
-          <kbd>esc</kbd> {isNew && (a.kind === "comment" || a.kind === "rule") ? "discard" : "close"}
+          <kbd>esc</kbd> {isNew && (a.kind === "comment" || a.kind === "rule" || (a.kind === "sketch" && a.sketch?.shape === "text")) ? "discard" : "close"}
         </span>
       </div>
     </div>

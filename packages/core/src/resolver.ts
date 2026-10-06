@@ -102,6 +102,12 @@ export function resolve(
       return resolveArrow(ctx, g.from, g.to, g.toScreenId, annotation.screenId);
     }
 
+    case "sketch": {
+      // new content: it goes where it was drawn
+      const b = g.type === "rect" ? g : g.type === "path" && g.points.length ? bboxOf(g.points) : null;
+      return b ? region({ x: b.x, y: b.y, w: b.w, h: b.h }) : unresolved();
+    }
+
     case "freehand": {
       if (g.type !== "path" || g.points.length === 0) return unresolved();
       const pts = g.points as Point[];

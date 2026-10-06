@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from "react";
-import { TOOLS, isReadOnly, unresolvedCount, useStore, type Tool } from "../store";
+import { TOOLS, VISION_HINTS, isReadOnly, unresolvedCount, useStore, type Tool } from "../store";
+import { useVision } from "../vision";
 import { Spinner } from "./Capture";
 import { showLive } from "./Live";
 import selectIcon from "../assets/icons/select.png";
@@ -76,8 +77,17 @@ export function TopBar() {
           </div>
         )}
       </div>
-      {platform === "web" && (
-        <div className="float pill-box view-switch" role="tablist" aria-label="view">
+      <div className="float pill-box view-switch" role="tablist" aria-label="view">
+        <button
+          className={`item ${view === "vision" ? "on" : ""}`}
+          onClick={() => showView("vision")}
+          role="tab"
+          aria-selected={view === "vision"}
+          title="vision: sketch the visual direction on blank canvases"
+        >
+          Vision
+        </button>
+        {platform === "web" && (
           <button
             className={`item ${view === "live" ? "on" : ""}`}
             onClick={showLive}
@@ -87,19 +97,26 @@ export function TopBar() {
           >
             App
           </button>
-          <button
-            className={`item ${view === "board" ? "on" : ""}`}
-            onClick={() => useStore.getState().set({ view: "board" })}
-            role="tab"
-            aria-selected={view === "board"}
-            title="review board (L)"
-          >
-            Board
-          </button>
-        </div>
-      )}
+        )}
+        <button
+          className={`item ${view === "board" ? "on" : ""}`}
+          onClick={() => showView("board")}
+          role="tab"
+          aria-selected={view === "board"}
+          title="review board: mark up the captured screens"
+        >
+          Board
+        </button>
+      </div>
     </header>
   );
+}
+
+/** Switch view; tools that don't exist in the new view fall back to select. */
+export function showView(view: "vision" | "board") {
+  const st = useStore.getState();
+  st.set({ view });
+  if (view === "vision" && !VISION_TOOLS.includes(st.tool)) st.setTool("select");
 }
 
 /* ───────── recapture & send ───────── */
@@ -166,20 +183,21 @@ const ICONS: Partial<Record<Tool, ReactNode>> = {
   freehand: <img className="icon" src={penIcon} width={12} height={12} alt="" />,
 };
 
-const GUIDE: Tool[] = ["select", "comment", "arrow", "rectangle", "remove", "circle", "rule"];
-const SKETCH: Tool[] = ["freehand"];
+ICONS.line = <img className="icon" src={lineIcon} width={17} height={17} alt="" />;
+ICONS.box = <span className="glyph-rect" />;
+ICONS.ellipse = <span className="glyph-ellipse" />;
+ICONS.text = <span className="glyph-text">T</span>;
 
-/** Sketch shapes from the design that the canvas can't record yet. */
-const SKETCH_SOON: { label: string; icon: ReactNode }[] = [
-  { label: "line", icon: <img className="icon" src={lineIcon} width={17} height={17} alt="" /> },
-  { label: "rectangle", icon: <span className="glyph-rect" /> },
-  { label: "ellipse", icon: <span className="glyph-ellipse" /> },
-  { label: "text", icon: <span className="glyph-text">T</span> },
-];
+const GUIDE: Tool[] = ["select", "comment", "arrow", "rectangle", "remove", "circle", "rule"];
+const SKETCH: Tool[] = ["freehand", "line", "box", "ellipse", "text"];
+/** The vision board has no guide tools: select plus the sketch tools. */
+export const VISION_TOOLS: Tool[] = ["select", ...SKETCH];
 
 function ToolButton({ tool, ro }: { tool: Tool; ro: boolean }) {
   const active = useStore((s) => s.tool === tool);
+  const vision = useStore((s) => s.view === "vision");
   const t = TOOLS.find((x) => x.tool === tool)!;
+  const hint = (vision && VISION_HINTS[tool]) || t.hint;
   return (
     <button
       className={`item tool ${active ? "active" : ""}`}
@@ -190,9 +208,19 @@ function ToolButton({ tool, ro }: { tool: Tool; ro: boolean }) {
     >
       {ICONS[tool]}
       <span className="tip">
-        <b>{t.label}</b> <kbd>{t.key}</kbd> <span className="dim">— {t.hint}</span>
+        <b>{t.label}</b> <kbd>{t.key}</kbd> <span className="dim">— {hint}</span>
       </span>
     </button>
+  );
+}
+
+function ImageGlyph() {
+  return (
+    <svg className="glyph-image" width={16} height={14} viewBox="0 0 16 14" aria-hidden>
+      <rect x={1} y={1} width={14} height={12} rx={1} />
+      <circle cx={5} cy={5} r={1.4} />
+      <path d="M1.5 11.5 L6 7.5 L9 10 L11 8.5 L14.5 11.5" />
+    </svg>
   );
 }
 
@@ -247,6 +275,9 @@ export function ToolRail() {
   const inspectorOpen = useStore((s) => s.inspectorOpen);
   const lan = useStore((s) => s.lan);
   const set = useStore((s) => s.set);
+  const vision = useStore((s) => s.view === "vision");
+  const undo = () => (vision ? useVision.getState().undo() : useStore.getState().undo());
+  const redo = () => (vision ? useVision.getState().redo() : useStore.getState().redo());
 
   return (
     <nav className="float rail" aria-label="tools">
@@ -257,13 +288,13 @@ export function ToolRail() {
       </div>
 
       <div className="history">
-        <button className="item tool" onClick={() => useStore.getState().undo()} aria-label="undo">
+        <button className="item tool" onClick={undo} aria-label="undo">
           <HistoryArrow />
           <span className="tip">
             undo <kbd>⌘Z</kbd>
           </span>
         </button>
-        <button className="item tool" onClick={() => useStore.getState().redo()} aria-label="redo">
+        <button className="item tool" onClick={redo} aria-label="redo">
           <HistoryArrow redo />
           <span className="tip">
             redo <kbd>⌘⇧Z</kbd>
@@ -271,36 +302,38 @@ export function ToolRail() {
         </button>
       </div>
 
-      <section className="tool-group">
-        <h4>Guide</h4>
-        <p>Tell the agent what to change</p>
-        <div className="toolbox">
-          {GUIDE.map((t) => (
-            <ToolButton key={t} tool={t} ro={ro} />
-          ))}
-        </div>
-      </section>
+      {!vision && (
+        <section className="tool-group">
+          <h4>Guide</h4>
+          <p>Tell the agent what to change</p>
+          <div className="toolbox">
+            {GUIDE.map((t) => (
+              <ToolButton key={t} tool={t} ro={ro} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="tool-group">
         <h4>Sketch</h4>
-        <p>Show roughly what you want</p>
+        <p>{vision ? "Draw the look you're after" : "Show roughly what you want"}</p>
         <div className="toolbox">
-          {SKETCH.map((t) => (
-            <ToolButton key={t} tool={t} ro={ro} />
+          {(vision ? VISION_TOOLS : SKETCH).map((t) => (
+            <ToolButton key={t} tool={t} ro={ro && !vision} />
           ))}
-          {SKETCH_SOON.map((s) => (
+          {vision && (
             <button
-              key={s.label}
               className="item tool"
-              disabled
-              aria-label={`${s.label} (coming soon)`}
+              onClick={() => useVision.getState().set({ importOpen: true })}
+              aria-label="import image (M)"
             >
-              {s.icon}
+              <ImageGlyph />
               <span className="tip">
-                <b>{s.label}</b> <span className="dim">— coming soon</span>
+                <b>image</b> <kbd>M</kbd>{" "}
+                <span className="dim">— import an image to move, resize and rotate</span>
               </span>
             </button>
-          ))}
+          )}
         </div>
       </section>
 
@@ -319,13 +352,15 @@ export function ToolRail() {
           onClick={() => set({ inspectorOpen: !inspectorOpen })}
           title="inspector (tab)"
         />
-        <Toggle
-          on={showOutlines}
-          icon={<img className="icon" src={elementsIcon} width={7} height={10} alt="" />}
-          label="Elements"
-          onClick={() => set({ showOutlines: !showOutlines })}
-          title="show all element outlines (E)"
-        />
+        {!vision && (
+          <Toggle
+            on={showOutlines}
+            icon={<img className="icon" src={elementsIcon} width={7} height={10} alt="" />}
+            label="Elements"
+            onClick={() => set({ showOutlines: !showOutlines })}
+            title="show all element outlines (E)"
+          />
+        )}
         <Toggle
           on={penMode}
           icon={<img className="icon" src={penIcon} width={12} height={12} alt="" />}
@@ -378,9 +413,14 @@ export function StatusLine({ onCommand }: { onCommand: (cmd: string) => void }) 
   const command = useStore((s) => s.command);
   const cursor = useStore((s) => s.cursorPx);
   const hover = useStore((s) => s.hover);
-  const zoom = useStore((s) => s.camera.zoom);
+  const vision = useStore((s) => s.view === "vision");
+  const boardZoom = useStore((s) => s.camera.zoom);
+  const visionZoom = useVision((s) => s.camera.zoom);
+  const zoom = vision ? visionZoom : boardZoom;
   const connected = useStore((s) => s.connected);
-  const saveState = useStore((s) => s.saveState);
+  const boardSave = useStore((s) => s.saveState);
+  const visionSave = useVision((s) => s.saveState);
+  const saveState = vision ? visionSave : boardSave;
   const capture = useStore((s) => s.capture);
   const ruleTargets = useStore((s) => s.ruleTargets);
   const focusId = useStore((s) => s.focusId);
@@ -390,17 +430,11 @@ export function StatusLine({ onCommand }: { onCommand: (cmd: string) => void }) 
   const el = hover ? hover.stack[hover.level] : null;
   const toolInfo = TOOLS.find((t) => t.tool === tool);
 
-  const mode =
-    command !== null
-      ? "COMMAND"
-      : editor
-        ? "INSERT"
-        : ro
-          ? "READ-ONLY"
-          : penMode
-            ? "PEN"
-            : "NORMAL";
-  const modeCls = command !== null ? "cmd" : editor ? "insert" : ro ? "ro" : penMode ? "pen" : "";
+  const textEdit = useVision((s) => !!s.textEdit);
+  const insert = vision ? textEdit : !!editor;
+  const locked = ro && !vision;
+  const mode = command !== null ? "COMMAND" : insert ? "INSERT" : locked ? "READ-ONLY" : penMode ? "PEN" : vision ? "VISION" : "NORMAL";
+  const modeCls = command !== null ? "cmd" : insert ? "insert" : locked ? "ro" : penMode ? "pen" : vision ? "vis" : "";
 
   return (
     <footer className="float status">

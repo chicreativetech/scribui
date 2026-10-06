@@ -6,6 +6,7 @@ export * from "./resolver.js";
 export * from "./numbering.js";
 export * from "./compiler.js";
 export * from "./render.js";
+export * from "./vision.js";
 export * from "./gestures.js";
 export * from "./agents.js";
 export * from "./capturePlan.js";

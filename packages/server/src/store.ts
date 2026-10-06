@@ -17,6 +17,7 @@ import {
   ScreenManifest,
   StatusFile,
   upsertAgentSection,
+  VisionFile,
   type Platform,
   type RoundState,
 } from "@scribui/core";
@@ -308,6 +309,42 @@ export class ReviewStore {
     }
     const file: AnnotationsFile = { version: 1, round: n, annotations };
     await writeJson(join(this.roundDir(n), "annotations.json"), file);
+  }
+
+  /* ─────────────── vision ─────────────── */
+
+  /** The project's vision board: shared by every round, never locked. */
+  visionDir(): string {
+    return this.path("vision");
+  }
+
+  async readVision(): Promise<VisionFile> {
+    const p = join(this.visionDir(), "vision.json");
+    if (!existsSync(p)) return { version: 1, canvases: [], items: [] };
+    return VisionFile.parse(JSON.parse(await readFile(p, "utf8")));
+  }
+
+  async writeVision(v: VisionFile) {
+    await mkdir(this.visionDir(), { recursive: true });
+    await writeJson(join(this.visionDir(), "vision.json"), v);
+  }
+
+  /** Store an image placed on the vision board; returns its `src` (relative to the vision folder). */
+  async saveVisionImage(bytes: Uint8Array, ext: string): Promise<string> {
+    const dir = join(this.visionDir(), "images");
+    await mkdir(dir, { recursive: true });
+    const name = `${createHash("sha1").update(bytes).digest("hex").slice(0, 16)}${ext}`;
+    const p = join(dir, name);
+    if (!existsSync(p)) await writeFile(p, bytes);
+    return `images/${name}`;
+  }
+
+  /** Absolute path of a vision image, or null if `src` escapes the images folder. */
+  visionImagePath(src: string): string | null {
+    const p = resolve(this.visionDir(), src);
+    const r = relative(join(this.visionDir(), "images"), p);
+    if (!r || r.startsWith("..") || resolve(r) === r) return null;
+    return p;
   }
 
   /* ─────────────── rules ─────────────── */
