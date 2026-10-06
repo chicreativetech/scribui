@@ -4,7 +4,7 @@ import { connectEvents } from "./api";
 import { fitCamera } from "./layout";
 import { TOOLS, isReadOnly, useStore } from "./store";
 import { animateCamera, Board, boardViewport, fitAll, focusTile, panToAnnotation, unfocus, zoomAt } from "./components/Board";
-import { StatusLine, ToolRail, TopBar } from "./components/Chrome";
+import { ActionBar, StatusLine, ToolRail, TopBar } from "./components/Chrome";
 import { CapturePanel, LanDialog, NextStepBanner } from "./components/Capture";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
 import { Inspector } from "./components/Inspector";
@@ -23,6 +23,7 @@ export function App() {
   const capture = useStore((s) => s.capture);
   const project = useStore((s) => s.project);
   const firstCapture = useStore((s) => s.captureState.running || !!s.externalCapture);
+  const inspectorOpen = useStore((s) => s.inspectorOpen);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -136,7 +137,7 @@ export function App() {
       if (mod && (e.key === "=" || e.key === "+" || e.key === "-")) {
         e.preventDefault();
         const vp = boardViewport();
-        st.setCamera((c) => zoomAt(c, vp.w / 2, vp.h / 2, c.zoom * (e.key === "-" ? 0.8 : 1.25)));
+        st.setCamera((c) => zoomAt(c, vp.x + vp.w / 2, vp.y + vp.h / 2, c.zoom * (e.key === "-" ? 0.8 : 1.25)));
         return;
       }
       if (mod || e.altKey) return;
@@ -212,7 +213,7 @@ export function App() {
       }
       if (e.key === "1") {
         const vp = boardViewport();
-        return animateCamera(zoomAt(st.camera, vp.w / 2, vp.h / 2, 1));
+        return animateCamera(zoomAt(st.camera, vp.x + vp.w / 2, vp.y + vp.h / 2, 1));
       }
       if (k === "N") return nextUnresolved();
     };
@@ -223,9 +224,7 @@ export function App() {
   const onSend = () => useStore.getState().set({ sendOpen: true });
 
   return (
-    <div className="app">
-      <TopBar onSend={onSend} />
-      <ToolRail />
+    <div className={`app ${inspectorOpen ? "with-panel" : ""}`}>
       <main className="stage">
         <Board />
         <NextStepBanner />
@@ -282,6 +281,9 @@ export function App() {
         )}
         <Toasts />
       </main>
+      <ToolRail />
+      <TopBar />
+      <ActionBar onSend={onSend} />
       <Inspector />
       <StatusLine onCommand={runCommand} />
       <SendDialog />
@@ -354,7 +356,7 @@ function runCommand(raw: string) {
       const pct = Number(args[0]);
       if (!pct) return;
       const vp = boardViewport();
-      return animateCamera(zoomAt(st.camera, vp.w / 2, vp.h / 2, pct / 100));
+      return animateCamera(zoomAt(st.camera, vp.x + vp.w / 2, vp.y + vp.h / 2, pct / 100));
     }
     case "next":
     case "n":

@@ -100,8 +100,7 @@ export function Board() {
     if (!round || !ref.current || tiles.length === 0) return;
     if (didInitialFit.current === round.round) return;
     didInitialFit.current = round.round;
-    const r = ref.current.getBoundingClientRect();
-    useStore.getState().setCamera(fitAll(tiles, groups, { w: r.width, h: r.height }));
+    useStore.getState().setCamera(fitAll(tiles, groups, boardViewport()));
   }, [round, tiles, groups]);
 
   /* ───────── wheel: pan, ctrl/⌘ + wheel or pinch: zoom ───────── */
@@ -587,7 +586,7 @@ export function zoomAt(c: Camera, sx: number, sy: number, zoom: number): Camera 
   return { zoom: z, x: wx - sx / z, y: wy - sy / z };
 }
 
-export function fitAll(tiles: TileLayout[], groups: { y: number }[], vp: { w: number; h: number }): Camera {
+export function fitAll(tiles: TileLayout[], groups: { y: number }[], vp: Viewport): Camera {
   if (!tiles.length) return { x: -80, y: -80, zoom: 0.5 };
   let minX = Infinity;
   let minY = Infinity;
@@ -625,10 +624,20 @@ export function animateCamera(to: Camera, ms = 240) {
   anim = requestAnimationFrame(step);
 }
 
-export function boardViewport(): { w: number; h: number } {
-  const el = document.querySelector(".board");
-  const r = el?.getBoundingClientRect();
-  return { w: r?.width ?? 1000, h: r?.height ?? 700 };
+type Viewport = { x: number; y: number; w: number; h: number };
+
+/** The part of the board not covered by the floating panels, relative to the board. */
+export function boardViewport(): Viewport {
+  const r = document.querySelector(".board")?.getBoundingClientRect();
+  if (!r) return { x: 0, y: 0, w: 1000, h: 700 };
+  const edge = (sel: string) => document.querySelector(sel)?.getBoundingClientRect();
+  const tools = edge(".rail");
+  const side = edge(".inspector:not(.closed)") ?? edge(".actions-float");
+  const top = edge(".bar");
+  const left = tools && tools.right < r.left + r.width / 2 ? tools.right - r.left : 0;
+  const right = side && side.left > r.left + r.width / 2 ? r.right - side.left : 0;
+  const y = top ? Math.max(0, top.bottom - r.top) : 0;
+  return { x: left, y, w: Math.max(200, r.width - left - right), h: Math.max(200, r.height - y) };
 }
 
 export function focusTile(id: string) {
@@ -658,7 +667,7 @@ export function panToAnnotation(a: Annotation) {
   const cx = t.x + (b.x + b.w / 2) / t.scale;
   const cy = t.y + (b.y + b.h / 2) / t.scale;
   const zoom = Math.max(st.camera.zoom, Math.min(1, (vp.h * 0.7) / t.h));
-  animateCamera({ zoom, x: cx - vp.w / 2 / zoom, y: cy - vp.h / 2 / zoom });
+  animateCamera({ zoom, x: cx - (vp.x + vp.w / 2) / zoom, y: cy - (vp.y + vp.h / 2) / zoom });
 }
 
 function normRect(a: Pt, b: Pt) {

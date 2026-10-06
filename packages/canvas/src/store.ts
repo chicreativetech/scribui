@@ -117,10 +117,11 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let toastSeq = 0;
 
 function loadTheme(): "dark" | "light" {
+  const system = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   try {
-    return (localStorage.getItem("scribui:theme") as "dark" | "light") || "dark";
+    return (localStorage.getItem("scribui:theme") as "dark" | "light") || system;
   } catch {
-    return "dark";
+    return system;
   }
 }
 
