@@ -22,6 +22,8 @@ const camera = (page: Page) => page.evaluate(() => (window as unknown as Win).__
 async function reset(page: Page) {
   await page.request.put("/api/rounds/1/annotations", { data: { annotations: [] } });
   await page.goto("/");
+  // the vision board is the first view; these tests are about the review board
+  await page.getByRole("tab", { name: "Board" }).click();
   await expect(page.locator(".tile img").first()).toBeVisible();
   await page.waitForFunction(() => (window as never as { __scribui?: unknown }).__scribui);
 }
@@ -244,6 +246,68 @@ test("command line and help", async ({ page }) => {
   await page.keyboard.press("?");
   await expect(page.locator(".modal h2")).toContainText("Point, don't describe");
   await page.keyboard.press("Escape");
+});
+
+test("vision: draws on the canvas, starts a new canvas off it, types text, undoes", async ({ page }) => {
+  await page.request.put("/api/vision", { data: { version: 1, canvases: [], items: [] } });
+  await page.getByRole("tab", { name: "Vision" }).click();
+  const canvas = (await page.locator(".vision-canvas").first().boundingBox())!;
+  const drag = async (from: [number, number], to: [number, number]) => {
+    await page.mouse.move(...from);
+    await page.mouse.down();
+    await page.mouse.move(...to, { steps: 8 });
+    await page.mouse.up();
+  };
+  // guide tools are gone, sketch tools and image import are there
+  await expect(page.getByRole("button", { name: /^comment/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^import image/ })).toBeVisible();
+
+  await page.keyboard.press("b");
+  await expect(page.locator(".tool-settings")).toContainText("Fill");
+  const mid: [number, number] = [canvas.x + canvas.width / 2, canvas.y + canvas.height / 2];
+  await drag([mid[0] - 40, mid[1] - 120], [mid[0] + 60, mid[1] - 40]);
+  await page.keyboard.press("t");
+  await page.mouse.click(mid[0] - 60, mid[1] + 100);
+  await expect(page.locator(".vision-text-edit")).toBeFocused();
+  await page.keyboard.type("Big hero photo");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("p");
+  await drag([canvas.x + canvas.width + 120, canvas.y + 50], [canvas.x + canvas.width + 220, canvas.y + 90]);
+  await expect(page.locator(".vision-canvas")).toHaveCount(2);
+
+  await expect(page.locator(".status")).toContainText("saved");
+  await page.waitForTimeout(450);
+  const v = (await (await page.request.get("/api/vision")).json()) as { canvases: unknown[]; items: { type: string; text?: string }[] };
+  expect(v.canvases).toHaveLength(2);
+  expect(v.items.map((i) => i.type)).toEqual(["box", "text", "stroke"]);
+  expect(v.items[1]!.text).toBe("Big hero photo");
+
+  await page.keyboard.press("Meta+z");
+  await expect(page.locator(".vision-canvas")).toHaveCount(1);
+  await page.request.put("/api/vision", { data: { version: 1, canvases: [], items: [] } });
+});
+
+test("board: sketch tools draw on screens only, with the tool's colour", async ({ page }) => {
+  await page.keyboard.press("q");
+  await page.locator(".tool-settings").getByRole("button", { name: "colour #3E63DD" }).click();
+  // off the screens nothing is drawn
+  const off = await at(page, "cart", -300, 200);
+  await page.mouse.move(...off);
+  await page.mouse.down();
+  await page.mouse.move(off[0] + 40, off[1] + 40, { steps: 4 });
+  await page.mouse.up();
+  expect(await annotations(page)).toHaveLength(0);
+
+  await page.mouse.move(...(await at(page, "cart", 100, 400)));
+  await page.mouse.down();
+  await page.mouse.move(...(await at(page, "cart", 500, 600)), { steps: 6 });
+  await page.mouse.up();
+  await page.keyboard.type("a round badge");
+  await page.keyboard.press("Enter");
+  const list = (await saved(page)) as (Ann & { sketch?: { shape: string; style: { color: string } } })[];
+  expect(list).toHaveLength(1);
+  expect(list[0]).toMatchObject({ kind: "sketch", text: "a round badge", sketch: { shape: "ellipse", style: { color: "#3E63DD" } } });
+  expect(list[0]!.resolution?.status).toBe("region");
 });
 
 test("send writes the review and locks the round", async ({ page }) => {

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { visionPages } from "@scribui/core";
 import { compileCurrent, useStore } from "../store";
+import { useVision } from "../vision";
 
 export function SendDialog() {
   const open = useStore((s) => s.sendOpen);
@@ -11,6 +13,8 @@ export function SendDialog() {
   // compileCurrent reads the store; `annotations` is here to recompile when they change
   const compiled = useMemo(() => (open ? compileCurrent() : null), [open, annotations]); // eslint-disable-line react-hooks/exhaustive-deps
   const sendRef = useRef<() => Promise<void>>(async () => {});
+  const visionDoc = useVision((s) => s.doc);
+  const canvases = useMemo(() => visionPages(visionDoc).length, [visionDoc]);
 
   useEffect(() => {
     if (open) setError(null);
@@ -102,6 +106,16 @@ export function SendDialog() {
             Writes <span style={{ color: "var(--fg)" }}>review.md</span>, <span style={{ color: "var(--fg)" }}>review.json</span> and
             annotated screenshots to <span style={{ color: "var(--fg)" }}>.scribui/rounds/{String(round.round).padStart(3, "0")}/</span>,
             appends rules, and locks the round.
+          </div>
+          <div className="dim" style={{ fontSize: 11.5, lineHeight: 1.6, marginTop: 6 }}>
+            {canvases > 0 ? (
+              <>
+                Vision: <span style={{ color: "var(--fg)" }}>vision.md</span> with {canvases} canvas{canvases === 1 ? "" : "es"} as a
+                design reference. The vision board stays editable.
+              </>
+            ) : (
+              <>Vision board is empty: nothing visual goes along.</>
+            )}
           </div>
           {error && <div className="err" style={{ marginTop: 10 }}>✗ {error}</div>}
           <div className="actions">
@@ -202,6 +216,16 @@ const KEYS: [string, [string, string][]][] = [
       ["X", "remove element"],
       ["P", "freehand"],
       ["U", "rule: shift-click elements, ⏎"],
+    ],
+  ],
+  [
+    "Sketch",
+    [
+      ["I / B / Q", "line / box / ellipse (shift: straight, square)"],
+      ["T", "text"],
+      ["M", "vision: import an image (or paste, or drop)"],
+      ["drag corners", "vision: resize; top handle rotates"],
+      ["arrows", "vision: nudge the selection (shift: 10)"],
     ],
   ],
   [

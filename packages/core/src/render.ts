@@ -1,6 +1,7 @@
 import { getStroke } from "perfect-freehand";
 import { bboxOf, type Point } from "./geometry.js";
 import type { Annotation, InkData, Rect } from "./schemas.js";
+import { renderShapeSvg } from "./vision.js";
 
 /**
  * SVG rendering of annotations, shared by the canvas (live) and the compiler
@@ -252,6 +253,23 @@ export function renderAnnotationSvg(a: Annotation, o: RenderOptions): string {
             ),
           );
         if (label) parts.push(badge(p[0] - s - 12 * u, p[1] - s - 24 * u, label, u, accent, o.warn));
+      }
+      break;
+    }
+
+    case "sketch": {
+      if (!a.sketch) break;
+      const { shape, style } = a.sketch;
+      if (shape === "line") {
+        const pts = g.type === "path" ? g.points : [];
+        if (pts.length < 2) break;
+        parts.push(renderShapeSvg({ shape, from: pts[0]!, to: pts[pts.length - 1]!, style }));
+      } else {
+        parts.push(renderShapeSvg({ shape, rect: bboxOfGeom(g), style, text: a.text }));
+      }
+      if (label) {
+        const bb = bboxOfGeom(g);
+        parts.push(badge(bb.x - 12 * u, bb.y - 24 * u, label, u, accent, o.warn));
       }
       break;
     }

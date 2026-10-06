@@ -8,12 +8,19 @@ import {
   type AnnotationKind,
   type CompileOutput,
   type ScreenCapture,
+  type SketchStyle,
   type UIElement,
 } from "@scribui/core";
 import { api, type CaptureState, type LanState, type ProjectPayload, type RoundListItem, type RoundPayload, type ScreenInfo } from "./api";
 import { layoutBoard, type Camera, type GroupLayout, type TileLayout } from "./layout";
 
-export type Tool = "select" | AnnotationKind;
+/** Drawing tools: on the board they sketch on screens, on the vision board they draw anywhere. */
+export type SketchTool = "line" | "box" | "ellipse" | "text";
+export type Tool = "select" | Exclude<AnnotationKind, "sketch"> | SketchTool;
+/** Tools whose look the settings box can change. */
+export type StyledTool = "freehand" | SketchTool;
+export const SKETCH_TOOLS: SketchTool[] = ["line", "box", "ellipse", "text"];
+export const isSketchTool = (t: Tool): t is SketchTool => (SKETCH_TOOLS as Tool[]).includes(t);
 
 export const TOOLS: { tool: Tool; key: string; label: string; hint: string }[] = [
   { tool: "select", key: "V", label: "select", hint: "click an element or annotation" },
@@ -24,7 +31,34 @@ export const TOOLS: { tool: Tool; key: string; label: string; hint: string }[] =
   { tool: "remove", key: "X", label: "remove", hint: "click an element to strike it out" },
   { tool: "freehand", key: "P", label: "draw", hint: "draw a free path" },
   { tool: "rule", key: "U", label: "rule", hint: "shift-click elements on any screens, then ⏎ and type" },
+  { tool: "line", key: "I", label: "line", hint: "drag a straight line" },
+  { tool: "box", key: "B", label: "box", hint: "drag a box; shift for a square" },
+  { tool: "ellipse", key: "Q", label: "ellipse", hint: "drag an ellipse; shift for a circle" },
+  { tool: "text", key: "T", label: "text", hint: "click where the text goes, then type" },
 ];
+
+/** Hints that differ on the vision board. */
+export const VISION_HINTS: Partial<Record<Tool, string>> = {
+  select: "click to select; drag to move; corners resize, the top handle rotates",
+  freehand: "draw freely; outside a canvas it starts a new one",
+};
+
+export const DEFAULT_STYLES: Record<StyledTool, SketchStyle> = {
+  freehand: { color: "#262626", width: 4 },
+  line: { color: "#262626", width: 3 },
+  box: { color: "#262626", width: 3 },
+  ellipse: { color: "#262626", width: 3 },
+  text: { color: "#262626", width: 1, size: 32 },
+};
+
+function loadStyles(): Record<StyledTool, SketchStyle> {
+  try {
+    const saved = JSON.parse(localStorage.getItem("scribui:tool-styles") ?? "{}") as Partial<Record<StyledTool, SketchStyle>>;
+    return { ...DEFAULT_STYLES, ...saved };
+  } catch {
+    return { ...DEFAULT_STYLES };
+  }
+}
 
 export type HoverInfo = { screenId: string; stack: UIElement[]; level: number; px: [number, number] } | null;
 
@@ -81,8 +115,10 @@ type State = {
   lanOpen: boolean;
   /** The "applied" banner was dismissed for this round. */
   appliedDismissed: number | null;
-  /** Web: the review board, or the running app embedded for capturing views by hand. */
-  view: "board" | "live";
+  /** The vision board (visual direction), the running app (web) or the review board. */
+  view: "vision" | "board" | "live";
+  /** Look of new drawings, per tool. */
+  toolStyles: Record<StyledTool, SketchStyle>;
   /** Once opened, the app tab stays mounted so switching views keeps the app's state. */
   liveVisited: boolean;
   /** The tile whose remove button is asking for confirmation. */
@@ -94,9 +130,9 @@ type Actions = {
   refreshRounds(): Promise<void>;
   setTool(t: Tool): void;
   setCamera(c: Camera | ((c: Camera) => Camera)): void;
-  commit(next: Annotation[], opts?: { select?: string | null }): void;
+  commit(next: Annotation[], opts?: { select?: string | null; coalesce?: string }): void;
   add(a: Annotation, opts?: { edit?: boolean }): void;
-  update(id: string, patch: Partial<Annotation> | ((a: Annotation) => Annotation)): void;
+  update(id: string, patch: Partial<Annotation> | ((a: Annotation) => Annotation), opts?: { coalesce?: string }): void;
   remove(id: string): void;
   undo(): void;
   redo(): void;
@@ -104,6 +140,7 @@ type Actions = {
   toast(t: Omit<Toast, "id">): void;
   dismissToast(id: number): void;
   set(p: Partial<State>): void;
+  setToolStyle(tool: StyledTool, patch: Partial<SketchStyle>): void;
   recapture(screenIds: string[]): Promise<void>;
   captureNext(opts?: { build?: boolean; all?: boolean }): Promise<void>;
   removeScreen(id: string): Promise<void>;
@@ -114,6 +151,7 @@ export type Store = State & Actions;
 const readOnly = (r: RoundPayload | null) => !r || r.status.status === "sent" || r.status.status === "applied";
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let lastCoalesce = { key: "", at: 0 };
 let toastSeq = 0;
 
 function loadTheme(): "dark" | "light" {
@@ -168,7 +206,9 @@ export const useStore = create<Store>((set, get) => ({
   lan: { enabled: false, paired: 0 },
   lanOpen: false,
   appliedDismissed: null,
-  view: "board",
+  // the vision board is where a review starts
+  view: "vision",
+  toolStyles: loadStyles(),
   liveVisited: false,
   removeAsk: null,
 
@@ -280,9 +320,12 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
     const resolved = resolveAll(next, s.trees);
+    // a run of changes with the same key (a slider being dragged) is one undo step
+    const merge = !!opts?.coalesce && lastCoalesce.key === opts.coalesce && Date.now() - lastCoalesce.at < 800;
+    lastCoalesce = { key: opts?.coalesce ?? "", at: Date.now() };
     set({
       annotations: resolved,
-      history: { past: [...s.history.past.slice(-199), s.annotations], future: [] },
+      history: merge ? { ...s.history, future: [] } : { past: [...s.history.past.slice(-199), s.annotations], future: [] },
       ...(opts && "select" in opts ? { selectedId: opts.select ?? null } : {}),
     });
     scheduleSave();
@@ -304,11 +347,11 @@ export const useStore = create<Store>((set, get) => ({
     if (opts?.edit) set({ editor: { annotationId: a.id, isNew: true } });
   },
 
-  update(id, patch) {
+  update(id, patch, opts) {
     const next = get().annotations.map((a) =>
       a.id === id ? (typeof patch === "function" ? patch(a) : { ...a, ...patch }) : a,
     );
-    get().commit(next);
+    get().commit(next, opts);
   },
 
   remove(id) {
@@ -360,6 +403,16 @@ export const useStore = create<Store>((set, get) => ({
 
   set(p) {
     set(p);
+  },
+
+  setToolStyle(tool, patch) {
+    const toolStyles = { ...get().toolStyles, [tool]: { ...get().toolStyles[tool], ...patch } };
+    set({ toolStyles });
+    try {
+      localStorage.setItem("scribui:tool-styles", JSON.stringify(toolStyles));
+    } catch {
+      /* storage blocked */
+    }
   },
 }));
 

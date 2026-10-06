@@ -153,6 +153,8 @@ export const AnnotationKind = z.enum([
   "remove",
   "freehand",
   "rule",
+  /** A drawn line, box, ellipse or text on a screen: new content, placed where it is drawn. */
+  "sketch",
 ]);
 export type AnnotationKind = z.infer<typeof AnnotationKind>;
 
@@ -179,6 +181,21 @@ export const InkData = z.object({
 });
 export type InkData = z.infer<typeof InkData>;
 
+/** Look of a drawn shape or text; shared by board sketches and vision items. */
+export const SketchStyle = z.object({
+  color: z.string(),
+  /** Stroke width in the item's pixel space. */
+  width: z.number().positive(),
+  /** Fill colour of boxes and ellipses; omitted: no fill. */
+  fill: z.string().optional(),
+  /** Font size of text. */
+  size: z.number().positive().optional(),
+});
+export type SketchStyle = z.infer<typeof SketchStyle>;
+
+export const SketchShape = z.enum(["line", "box", "ellipse", "text"]);
+export type SketchShape = z.infer<typeof SketchShape>;
+
 export const Resolution = z.object({
   status: z.enum(["resolved", "region", "unresolved"]),
   elements: z.array(z.string()),
@@ -202,6 +219,11 @@ export const Annotation = z.object({
   targets: z.array(z.string()).optional(),
   ink: InkData.optional(),
   resolution: Resolution.optional(),
+  /**
+   * Sketch annotations: the shape and its look. Lines use a two-point path,
+   * boxes and ellipses a rect, text a rect around it with the words in `text`.
+   */
+  sketch: z.object({ shape: SketchShape, style: SketchStyle }).optional(),
 });
 export type Annotation = z.infer<typeof Annotation>;
 
@@ -211,6 +233,52 @@ export const AnnotationsFile = z.object({
   annotations: z.array(Annotation),
 });
 export type AnnotationsFile = z.infer<typeof AnnotationsFile>;
+
+/* ─────────────────────────── vision ─────────────────────────── */
+
+/** A white artboard on the vision board, in world units. */
+export const VisionCanvas = z.object({
+  id: z.string(),
+  x: z.number(),
+  y: z.number(),
+  w: z.number().positive(),
+  h: z.number().positive(),
+});
+export type VisionCanvas = z.infer<typeof VisionCanvas>;
+
+const Box = { x: z.number(), y: z.number(), w: z.number(), h: z.number(), rotation: z.number().optional() };
+
+/**
+ * Something drawn or placed on the vision board, in world units. Items belong to
+ * the canvas their centre is on. `rotation` is in degrees around the box centre.
+ */
+export const VisionItem = z.discriminatedUnion("type", [
+  z.object({
+    id: z.string(),
+    type: z.literal("stroke"),
+    points: z.array(z.tuple([z.number(), z.number(), z.number()])),
+    style: SketchStyle,
+  }),
+  z.object({ id: z.string(), type: z.literal("line"), from: Pt, to: Pt, style: SketchStyle }),
+  z.object({ id: z.string(), type: z.literal("box"), ...Box, style: SketchStyle }),
+  z.object({ id: z.string(), type: z.literal("ellipse"), ...Box, style: SketchStyle }),
+  z.object({ id: z.string(), type: z.literal("text"), ...Box, text: z.string(), style: SketchStyle }),
+  z.object({
+    id: z.string(),
+    type: z.literal("image"),
+    ...Box,
+    /** Relative to `.scribui/vision/`, e.g. `images/i3k2l9.png`. */
+    src: z.string(),
+  }),
+]);
+export type VisionItem = z.infer<typeof VisionItem>;
+
+export const VisionFile = z.object({
+  version: z.literal(1),
+  canvases: z.array(VisionCanvas),
+  items: z.array(VisionItem),
+});
+export type VisionFile = z.infer<typeof VisionFile>;
 
 /* ─────────────────────────── review output ─────────────────────────── */
 
