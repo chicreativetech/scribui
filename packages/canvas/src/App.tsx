@@ -242,7 +242,7 @@ export function App() {
   const onSend = () => useStore.getState().set({ sendOpen: true });
 
   return (
-    <div className={`app ${inspectorOpen ? "with-panel" : ""}`}>
+    <div className={`app ${inspectorOpen ? "with-panel" : ""} ${view === "live" ? "live-view" : ""}`}>
       <main className="stage">
         <Board />
         <VisionBoard />

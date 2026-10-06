@@ -120,7 +120,7 @@ kbd {
   border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
   font: 500 10px/1 var(--sans); white-space: nowrap;
 }
-.item:hover:not(:disabled) { background: var(--surface-2); }
+.item:hover:not(:disabled):not(.on):not(.active) { background: var(--surface-2); }
 .item.on, .item.active { background: var(--accent); border-color: var(--on-border); color: var(--accent-ink); }
 .item.on .icon, .item.active .icon { filter: var(--icon-on-filter); }
 .item:disabled { cursor: default; }
@@ -182,6 +182,12 @@ kbd {
 .logo-front { position: absolute; left: 0; top: 0; width: 21px; height: 20px; background: var(--accent); }
 .logo-name { position: absolute; left: 35px; top: 4px; font: 300 16px/normal var(--sans); }
 :root[data-theme="dark"] .logo-back { background: #5a5a62; }
+/* app view: no tool panel; the logo sits in the top bar instead */
+.app.live-view { --left-space: var(--gap); }
+.app.live-view .rail { display: none; }
+.brand-pill { padding: 0 12px 0 9px; }
+.brand-pill .logo { display: block; width: 96px; height: 25px; margin: 0; zoom: 0.9; }
+.brand-pill .logo-name { top: 50%; transform: translateY(-50%); line-height: 1; }
 .history { display: flex; gap: 6px; margin-top: 15px; flex: none; }
 .history-arrow { display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .history-arrow.redo { transform: scaleX(-1); }
