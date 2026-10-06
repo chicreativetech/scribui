@@ -42,6 +42,15 @@ export function TopBar() {
   return (
     <header className="bar">
       <div className="pills">
+        {view === "live" && (
+          <div className="float pill-box brand-pill" aria-label="ScribUI">
+            <span className="logo">
+              <span className="logo-back" />
+              <span className="logo-front" />
+              <span className="logo-name">ScribUI</span>
+            </span>
+          </div>
+        )}
         <div className="float pill-box" title={appName}>
           <span className="app-name">{appName}</span>
           {mobile && (
