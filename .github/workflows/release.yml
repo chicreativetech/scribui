@@ -70,7 +70,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck && pnpm test
+      # once, on Linux (as the Desktop app workflow); the suite isn't run on Windows
+      - if: runner.os == 'Linux'
+        run: pnpm typecheck && pnpm test
       - run: pnpm --filter @scribui/canvas build
       - name: AXe (the iOS Simulator helper builds against it)
         if: runner.os == 'macOS'

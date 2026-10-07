@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { run, which } from "./exec.js";
 import { extractZip } from "./zip.js";
 
@@ -111,7 +111,8 @@ export function installPlan(id: InstallableTool, env: InstallEnv): InstallPlan {
             {
               kind: "admin",
               label: "xcode-select -s Xcode.app && xcodebuild -license accept && xcodebuild -runFirstLaunch",
-              script: `xcode-select -s ${shq(join(env.xcodeApp, "Contents/Developer"))} && xcodebuild -license accept && xcodebuild -runFirstLaunch`,
+              // a macOS path, whatever system builds the plan
+              script: `xcode-select -s ${shq(posix.join(env.xcodeApp, "Contents/Developer"))} && xcodebuild -license accept && xcodebuild -runFirstLaunch`,
             },
           ],
         };
