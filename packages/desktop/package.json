@@ -1,6 +1,6 @@
 {
   "name": "@scribui/desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "ScribUI desktop app: shows the app under review live and captures it exactly as it is.",
   "type": "module",
