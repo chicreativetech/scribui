@@ -32,7 +32,7 @@ export { captureAndroidLive, dumpTree, readKeyboard, readRotation, type AndroidL
 export { addKeyboard, parseInputShown, parseKeyboardFrame, parseRotation } from "./live/androidScreen.js";
 export { AndroidTarget, chunkText, parseAdbDevices, parseWm, type AndroidTargetOptions } from "./live/android.js";
 export * from "./live/session.js";
-export { IosTarget, bootSimulatorHeadless, listSimulatorsLive, type IosTargetOptions } from "./live/ios.js";
+export { IosTarget, bootSimulatorHeadless, listSimulatorsLive, listSimulatorsOrWhy, type IosTargetOptions } from "./live/ios.js";
 export { captureIosLive, simScreenshot, type IosLiveCapture } from "./live/iosCapture.js";
 export { HID_USAGE, parseDeviceProfile, parseSimctlDevices, simulatorDevices, toPortraitPoints, turnFor, uiOrientation, type SimOrientation } from "./live/iosScreen.js";
 export { NalGrouper, SimHelper } from "./live/simHelper.js";

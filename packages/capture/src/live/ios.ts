@@ -57,7 +57,13 @@ const REMOTE_GRID_POINTS = 25;
 const ORIENTATION_POLL_MS = 2000;
 
 export async function listSimulatorEntries(): Promise<SimulatorEntry[]> {
-  return (await readSimulatorEntries()).sims;
+  return (await listSimulatorsOrWhy()).sims;
+}
+
+/** The simulators, with one slower retry when simctl fails or times out; `error` says why when it still did. */
+export async function listSimulatorsOrWhy(): Promise<{ sims: SimulatorEntry[]; error: string | null }> {
+  const first = await readSimulatorEntries();
+  return first.error ? readSimulatorEntries(90_000) : first;
 }
 
 /** The simulators, or why simctl couldn't list them (it can take a while right after Xcode is switched or a simulator boots). */
@@ -101,8 +107,8 @@ export class IosTarget implements LiveTarget {
 
   async connect(udid: string, signal?: AbortSignal): Promise<LiveSession> {
     // one retry with more time: a failed or slow listing isn't "no such simulator"
-    let listed = await readSimulatorEntries();
-    if (listed.error || !listed.sims.some((s) => s.udid === udid)) listed = await readSimulatorEntries(60_000);
+    let listed = await listSimulatorsOrWhy();
+    if (!listed.error && !listed.sims.some((s) => s.udid === udid)) listed = await readSimulatorEntries(60_000);
     const sim = listed.sims.find((s) => s.udid === udid);
     if (!sim) throw new Error(listed.error ?? `no simulator ${udid} (simctl lists ${listed.sims.length}: ${listed.sims.slice(0, 5).map((s) => `${s.name} ${s.runtime} ${s.state}`).join(", ") || "none"})`);
     if (sim.state !== "Booted") throw new Error(`${sim.name} isn't booted (${sim.state.toLowerCase()})`);

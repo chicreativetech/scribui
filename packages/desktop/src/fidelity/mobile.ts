@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RawElement, ScreenCapture } from "@scribui/core";
 import { normalizeTree } from "@scribui/core";
-import { AndroidTarget, findTool, IosTarget, run, type LiveCapture, type LiveSession, type LiveTarget } from "@scribui/capture";
+import { AndroidTarget, findTool, IosTarget, listSimulatorsOrWhy, run, type LiveCapture, type LiveSession, type LiveTarget } from "@scribui/capture";
 import { announce, checkProbe, decode, findElement, flatten, markResolves, summary, type Check } from "./checks.js";
 import { PROBES, serveProbe, type ProbeServer } from "./pages.js";
 
@@ -141,7 +141,10 @@ export async function runMobileFidelity(platform: Platform) {
     const devices = await t.list();
     const want = arg("--device");
     const device = devices.find((d) => d.state === "ready" && (!want || d.id === want));
-    if (!device) throw new Error(`no ready ${platform === "ios" ? "simulator" : "device"}${want ? ` ${want}` : ""}: ${JSON.stringify(devices)}`);
+    if (!device) {
+      const why = platform === "ios" ? (await listSimulatorsOrWhy()).error : null;
+      throw new Error(`no ready ${platform === "ios" ? "simulator" : "device"}${want ? ` ${want}` : ""}: ${JSON.stringify(devices)}${why ? ` (${why})` : ""}`);
+    }
     report.device = device;
 
     at("opening the probe page");
