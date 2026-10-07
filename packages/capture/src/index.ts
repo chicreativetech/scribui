@@ -36,3 +36,5 @@ export { IosTarget, bootSimulatorHeadless, listSimulatorsLive, type IosTargetOpt
 export { captureIosLive, simScreenshot, type IosLiveCapture } from "./live/iosCapture.js";
 export { HID_USAGE, parseDeviceProfile, parseSimctlDevices, simulatorDevices, toPortraitPoints, turnFor, uiOrientation, type SimOrientation } from "./live/iosScreen.js";
 export { NalGrouper, SimHelper } from "./live/simHelper.js";
+export { installEnv, installPlan, runInstall, RUNTIME_DIR, TOOLS_DIR, PLATFORM_TOOLS_TERMS, type InstallableTool, type InstallEnv, type InstallPlan, type InstallStep } from "./install.js";
+export { extractZip, readZip } from "./zip.js";

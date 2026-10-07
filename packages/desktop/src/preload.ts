@@ -27,7 +27,7 @@ contextBridge.exposeInMainWorld("__scribuiCapture", (req?: Req) =>
 const box = (b: Box | null) => (b ? { x: +b.x, y: +b.y, width: +b.width, height: +b.height } : null);
 
 contextBridge.exposeInMainWorld("scribuiDesktop", {
-  version: 4,
+  version: 5,
   platform: process.platform,
   ...(config.surface === "view"
     ? {
@@ -67,6 +67,9 @@ contextBridge.exposeInMainWorld("scribuiDesktop", {
           onState: (cb: (s: unknown) => void) => listen("scribui:device-state", cb),
           onFrame: (cb: (f: unknown) => void) => listen("scribui:device-frame", cb),
           onProgress: (cb: (p: unknown) => void) => listen("scribui:device-progress", cb),
+          /** Install a tool the device list reported missing and installable (adb, AXe). */
+          install: (id: string) => ipcRenderer.invoke("scribui:device-install", String(id)),
+          onInstallLog: (cb: (line: unknown) => void) => listen("scribui:device-install-log", cb),
         },
       }
     : {}),

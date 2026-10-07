@@ -7,6 +7,7 @@ import { PRODUCT, type Platform } from "@scribui/core";
 import { ReviewStore } from "@scribui/server";
 import { hostProject, makeRunner, saveCapturedView } from "@scribui/project";
 import { liveInput } from "./deviceInput.js";
+import { installTool } from "./installs.js";
 import { DeviceView } from "./deviceView.js";
 import type { Rect, Size } from "./liveLayout.js";
 import { LiveView } from "./liveView.js";
@@ -37,7 +38,11 @@ export type Project = {
   close(): Promise<void>;
 };
 
-export type OpenResult = { ok: true; project: Project } | { ok: false; error: string; hint?: string };
+export type OpenResult =
+  | { ok: true; project: Project }
+  | { ok: false; error: string; hint?: string }
+  /** The folder isn't set up yet: the projects window walks through setup. */
+  | { ok: false; setup: true; dir: string; error: string };
 
 const byWindow = new Map<number, Project>();
 const byDir = new Map<string, Project>();
@@ -49,7 +54,14 @@ const CANVAS_DIR = app.isPackaged ? join(process.resourcesPath, "canvas") : reso
 export const openProjects = () => [...byDir.values()];
 
 /** Open a project's window, or bring it forward when it's open already. */
-export function openProject(dir: string, opts: { surface?: Project["surface"]; onOpened?: (p: Project) => void } = {}): Promise<OpenResult> {
+export type OpenOptions = {
+  surface?: Project["surface"];
+  onOpened?: (p: Project) => void;
+  /** Capture a first round right away (a mobile project just set up, its screens listed). */
+  captureFirst?: boolean;
+};
+
+export function openProject(dir: string, opts: OpenOptions = {}): Promise<OpenResult> {
   const root = resolve(dir);
   const open = byDir.get(root);
   if (open && !open.win.isDestroyed()) {
@@ -65,11 +77,10 @@ export function openProject(dir: string, opts: { surface?: Project["surface"]; o
   return p;
 }
 
-async function createProject(root: string, opts: { surface?: Project["surface"]; onOpened?: (p: Project) => void }): Promise<OpenResult> {
+async function createProject(root: string, opts: OpenOptions): Promise<OpenResult> {
   if (!existsSync(root)) return { ok: false, error: `${root} doesn't exist (moved or deleted?)` };
   const store = new ReviewStore(root);
-  if (!store.exists())
-    return { ok: false, error: `${root} isn't a ScribUI project yet.`, hint: `Set it up once from a terminal in that folder: npx scribui` };
+  if (!store.exists()) return { ok: false, setup: true, dir: root, error: `${root} isn't a ScribUI project yet.` };
   let manifest;
   try {
     manifest = await store.readManifest();
@@ -169,6 +180,13 @@ async function createProject(root: string, opts: { surface?: Project["surface"];
   });
   await win.loadURL(canvasUrl);
   opts.onOpened?.(project);
+  if (opts.captureFirst && srv) {
+    try {
+      srv.runCapture({ trigger: "desktop" });
+    } catch {
+      /* a capture is running already */
+    }
+  }
   void warnMissingTools(project);
   return { ok: true, project };
 }
@@ -182,7 +200,9 @@ async function warnMissingTools(p: Project) {
   const { response } = await dialog.showMessageBox(p.win, {
     type: "warning",
     message: `${p.platform === "ios" ? "iOS" : "Android"} capture needs ${missing.map((t) => t.name).join(" and ")}`,
-    detail: missing.map((t) => `${t.name}: ${t.detail}${t.install?.command ? `\nInstall: ${t.install.command}` : ""}`).join("\n\n"),
+    detail:
+      missing.map((t) => `${t.name}: ${t.detail}${t.install?.command ? `\nInstall: ${t.install.command}` : ""}`).join("\n\n") +
+      (missing.some((t) => t.install?.auto) ? "\n\nScribUI can install it for you: from the Device tab, or File → Projects…" : ""),
     buttons: commands.length ? ["Copy install command", "Later"] : ["OK"],
     defaultId: 0,
     cancelId: commands.length ? 1 : 0,
@@ -321,5 +341,14 @@ function registerDeviceApi() {
     return device.keep(p.save);
   });
   ipcMain.on("scribui:device-discard", (e) => quiet(() => senderDevice(e).device.discard()));
+  // the device tab installs what it reported missing (adb, AXe); its output goes back to that canvas
+  ipcMain.handle("scribui:device-install", (e, id: unknown) => {
+    senderDevice(e);
+    if (id !== "adb" && id !== "axe") throw new Error("not a tool the device tab installs");
+    const wc = e.sender;
+    return installTool(id, (line) => {
+      if (!wc.isDestroyed()) wc.send("scribui:device-install-log", line);
+    });
+  });
   ipcMain.on("scribui:device-cancel", (e) => quiet(() => senderDevice(e).device.cancelCapture()));
 }

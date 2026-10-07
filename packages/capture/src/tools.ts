@@ -1,12 +1,16 @@
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { Platform } from "@scribui/core";
 import { run, which } from "./exec.js";
+import { installEnv, installPlan, RUNTIME_DIR, TOOLS_DIR, type InstallEnv, type InstallPlan } from "./install.js";
 
 /**
  * Find a command-line tool on PATH or in the places its installer puts it
- * (Android Studio's SDK, ~/.maestro/bin), which are often not on PATH.
+ * (Android Studio's SDK, ~/.maestro/bin, ScribUI's own ~/.scribui/tools),
+ * which are often not on PATH.
  */
 export async function findTool(name: "adb" | "emulator" | "maestro" | "idb" | "idb_companion" | "axe" | "xcrun"): Promise<string | null> {
   const onPath = await which(name);
@@ -21,7 +25,7 @@ export async function findTool(name: "adb" | "emulator" | "maestro" | "idb" | "i
   ].filter((p): p is string => !!p);
   const exe = process.platform === "win32" ? ".exe" : "";
   const candidates: string[] = [];
-  if (name === "adb") candidates.push(...sdks.map((s) => join(s, `platform-tools/adb${exe}`)));
+  if (name === "adb") candidates.push(...sdks.map((s) => join(s, `platform-tools/adb${exe}`)), join(TOOLS_DIR, `platform-tools/adb${exe}`));
   if (name === "emulator") candidates.push(...sdks.map((s) => join(s, `emulator/emulator${exe}`)));
   if (name === "maestro") candidates.push(join(home, ".maestro/bin/maestro"));
   if (name === "idb") candidates.push(join(home, ".local/bin/idb"), "/opt/homebrew/bin/idb");
@@ -102,7 +106,7 @@ export async function bootSimulator(udid: string): Promise<boolean> {
 
 /* ─────────────────────────── tool report ─────────────────────────── */
 
-export type ToolId = "adb" | "emulator" | "xcode" | "axe";
+export type ToolId = "adb" | "emulator" | "xcode" | "axe" | "playwright";
 
 export type ToolStatus = {
   id: ToolId;
@@ -116,8 +120,11 @@ export type ToolStatus = {
   ok: boolean;
   /** Where it was found, or why it isn't usable. */
   detail: string;
-  /** How to install it on this system, when it's missing. */
-  install?: { command?: string; url?: string };
+  /**
+   * When it's missing: the command to copy, a page about it, and either
+   * what ScribUI's own install does (`auto`) or what to do instead (`note`).
+   */
+  install?: { command?: string; url?: string; auto?: { does: string; terms?: string; after?: string }; note?: string };
 };
 
 type Os = "darwin" | "win32" | "linux";
@@ -125,7 +132,8 @@ type Os = "darwin" | "win32" | "linux";
 /** AXe: the iOS Simulator's input, accessibility tree and (through its frameworks) the device view's stream. */
 export const AXE_INSTALL = "brew tap cameroncooke/axe; brew trust --formula cameroncooke/axe/axe; brew install cameroncooke/axe/axe";
 
-const INSTALL: Record<ToolId, Partial<Record<Os, { command?: string; url?: string }>>> = {
+/** The commands to copy, for a terminal (the app can install most of these itself, see `installPlan`). */
+const COMMANDS: Record<ToolId, Partial<Record<Os, { command?: string; url?: string }>>> = {
   adb: {
     darwin: { command: "brew install --cask android-platform-tools" },
     win32: { command: "winget install Google.PlatformTools" },
@@ -139,16 +147,29 @@ const INSTALL: Record<ToolId, Partial<Record<Os, { command?: string; url?: strin
   xcode: { darwin: { command: 'open "macappstore://apps.apple.com/app/xcode/id497799835"', url: "https://developer.apple.com/xcode/" } },
   // current Homebrew asks to trust a third-party formula before installing it
   axe: { darwin: { command: AXE_INSTALL, url: "https://github.com/cameroncooke/AXe" } },
+  playwright: {
+    darwin: { command: "npm i -D playwright && npx playwright install chromium", url: "https://playwright.dev" },
+    win32: { command: "npm i -D playwright && npx playwright install chromium", url: "https://playwright.dev" },
+    linux: { command: "npm i -D playwright && npx playwright install chromium", url: "https://playwright.dev" },
+  },
 };
 
+/** What a missing tool's report says about installing it: the command to copy, and the app's own install or why there's none. */
+export function installInfo(id: ToolId, env: InstallEnv): ToolStatus["install"] | undefined {
+  const manual = COMMANDS[id][env.os as Os] ?? {};
+  const plan: InstallPlan = installPlan(id, env);
+  if (plan.auto) return { ...manual, auto: { does: plan.does, ...(plan.terms ? { terms: plan.terms } : {}), ...(plan.after ? { after: plan.after } : {}) } };
+  const info = { ...manual, ...(plan.command ? { command: plan.command } : {}), ...(plan.url ? { url: plan.url } : {}), note: plan.reason };
+  return info;
+}
+
 /**
- * The device tools ScribUI uses, found or not, with the command that installs
- * each missing one on this system. iOS tools are only listed on macOS.
+ * The device tools ScribUI uses, found or not, with how to install each
+ * missing one on this system. iOS tools are only listed on macOS.
  */
-export async function detectTools(os: NodeJS.Platform = process.platform): Promise<ToolStatus[]> {
-  const install = (id: ToolId) => INSTALL[id][os as Os];
-  const found = (id: ToolId, path: string | null, missing: string) =>
-    path ? { ok: true, detail: path } : { ok: false, detail: missing, ...(install(id) ? { install: install(id) } : {}) };
+export async function detectTools(os: NodeJS.Platform = process.platform, env?: InstallEnv): Promise<ToolStatus[]> {
+  const ienv = env ?? (await installEnv(os));
+  const found = (id: ToolId, path: string | null, missing: string) => (path ? { ok: true, detail: path } : missingTool(id, missing, ienv));
 
   const [adb, emulator] = await Promise.all([findTool("adb"), findTool("emulator")]);
   const tools: ToolStatus[] = [
@@ -179,7 +200,7 @@ export async function detectTools(os: NodeJS.Platform = process.platform): Promi
       purpose: "runs the iOS Simulator",
       platforms: ["ios"],
       required: true,
-      ...(xcode.ok ? { ok: true, detail: xcode.detail } : { ok: false, detail: xcode.detail, install: install("xcode")! }),
+      ...(xcode.ok ? { ok: true, detail: xcode.detail } : missingTool("xcode", xcode.detail, ienv)),
     },
     {
       id: "axe",
@@ -193,11 +214,53 @@ export async function detectTools(os: NodeJS.Platform = process.platform): Promi
   return tools;
 }
 
+function missingTool(id: ToolId, detail: string, env: InstallEnv): { ok: false; detail: string; install?: ToolStatus["install"] } {
+  const install = installInfo(id, env);
+  return { ok: false, detail, ...(install ? { install } : {}) };
+}
+
 /** Full Xcode (not just the Command Line Tools): `simctl` only comes with Xcode. */
 async function xcodeStatus(): Promise<{ ok: boolean; detail: string }> {
   const dir = (await run("xcode-select", ["-p"], { timeoutMs: 5000 })).stdout.toString().trim();
   const simctl = await run("xcrun", ["simctl", "help"], { timeoutMs: 10_000 });
   if (simctl.code === 0) return { ok: true, detail: dir || "xcrun simctl" };
-  if (/CommandLineTools/.test(dir)) return { ok: false, detail: "only the Command Line Tools are selected; the Simulator needs Xcode (then: sudo xcode-select -s /Applications/Xcode.app)" };
+  if (/CommandLineTools/.test(dir)) return { ok: false, detail: "only the Command Line Tools are selected; the Simulator needs Xcode" };
   return { ok: false, detail: "not installed" };
+}
+
+/**
+ * Playwright and its Chromium, which recapture web screens on their own:
+ * from the project first, then ScribUI's shared install. Views captured in
+ * the desktop app's own browser don't need it.
+ */
+export async function playwrightStatus(projectDir?: string, env?: InstallEnv): Promise<ToolStatus> {
+  const base = {
+    id: "playwright" as const,
+    name: "Playwright",
+    purpose: "recaptures web screens on its own (views you capture in the app don't need it)",
+    platforms: ["web" as Platform],
+    required: false,
+  };
+  const ienv = env ?? (await installEnv());
+  let found: { dir: string; chromium: string | null } | null = null;
+  for (const dir of [projectDir, RUNTIME_DIR].filter((d): d is string => !!d)) {
+    try {
+      const entry = createRequire(join(dir, "package.json")).resolve("playwright");
+      type Mod = { chromium?: { executablePath(): string }; default?: { chromium?: { executablePath(): string } } };
+      const mod = (await import(pathToFileURL(entry).href)) as Mod;
+      let chromium: string | null = null;
+      try {
+        const p = (mod.chromium ?? mod.default?.chromium)?.executablePath();
+        chromium = p && existsSync(p) ? p : null;
+      } catch {
+        chromium = null;
+      }
+      found = { dir, chromium };
+      break;
+    } catch {
+      /* not there */
+    }
+  }
+  if (found?.chromium) return { ...base, ok: true, detail: found.dir === RUNTIME_DIR ? `${found.dir} (shared)` : found.dir };
+  return { ...base, ...missingTool("playwright", found ? "installed, but its Chromium isn't downloaded yet" : "not installed", ienv) };
 }

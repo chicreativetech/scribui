@@ -567,6 +567,7 @@ kbd {
 .device-empty { text-align: center; max-width: 460px; padding: 0 16px; color: var(--fg-dim); }
 .device-empty p { margin: 6px 0; }
 .device-empty code { font: 11.5px/1.4 var(--mono); background: var(--surface-2); border: 1px solid var(--line); padding: 2px 6px; }
+.device-install-log { font: 11px/1.4 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .device-avds { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px !important; }
 .device-error { position: absolute; left: 10px; bottom: 6px; font: 10.5px/1 var(--mono); }
 .device-unsettled {

@@ -369,6 +369,29 @@ Code: `packages/desktop/src/fidelity/` (`checks.ts` pure checks, `pages.ts` prob
 
 **Not verified yet:** the CI run of the new workflow (Linux web under xvfb, the Android emulator job, the iOS job on a hosted Mac: the first run will tell), Windows (manual pass described in `FIDELITY.md`), and the Windows packaging failure.
 
+### Phase 6 results: setup in the app (2026-10-07)
+
+Code: desktop `setup.ts` (folder checks, answers, screens state), `installs.ts` (one install per tool, output to whoever asked), `launcherWindow.ts` + `launcherPreload.ts` + `launcher/` (setup screens, Install buttons); capture `install.ts` (`installPlan`, `runInstall`), `zip.ts`, `playwrightStatus` and `installInfo` in `tools.ts`; project `detect.ts` (`detectProject`, `detectDevServers`, `pageTitle`, `reachable`, moved from the CLI); canvas `Device.tsx` (Install in the device tab).
+
+- **A folder that isn't a project opens setup** instead of an error, from "Open folder…", the recent list (its `.scribui` gone), the menu, a second launch and `scribui://` links. The projects window walks through **Platform** (detected one marked; iOS greyed out off a Mac) → **App** (web: dev servers that answer, this folder's own first via `lsof`, with page titles, or a port/URL; mobile: app id and build command from the project) → **Tools** (what the platform needs, with Install) → **Screens** (mobile: the prompt for the agent, then it waits for `screens.json`; "Capture and open" runs the first round when a device or simulator is up). Web projects open straight after Tools. It warns before setting up the home folder, a drive's root or a folder with no app files.
+- **The window only names folders the user chose**; the main process checks every answer again (`checkAnswers`: known platform, http(s) URL, app id shape, single-line build command) before `store.init`.
+- **Automated installs** (`installPlan` is pure and tested; the window sends only a tool id):
+
+| Tool | macOS | Windows | Linux |
+|---|---|---|---|
+| adb | Google's platform-tools zip into `~/.scribui/tools` (no package manager, no admin; `findTool` looks there) | same | same |
+| Android emulator | `brew install --cask android-studio` | `winget install Google.AndroidStudio` | command to copy (snap needs sudo) |
+| Xcode | App Store link; installed but not selected: one password prompt for `xcode-select -s`, licence and first launch | – | – |
+| AXe | Homebrew tap (+ `brew trust`, skipped where Homebrew lacks it) | – | – |
+| Playwright + Chromium | npm into `~/.scribui/runtime`, outside the project | same | same |
+
+  Output streams into the window (or the device tab), installs can be canceled and stop when the app quits. The CLI's first run installs adb the same way (it used Homebrew only).
+- **Device tab:** "The device view needs adb/AXe" now has an Install button.
+
+**Verified** on macOS (Apple Silicon), through the real app driven over DevTools: web setup of a fresh folder (own dev server found first with its title; Playwright found; files created; project window opened); Android setup from a second launch while another project was open (application id and `./gradlew installDebug` found; screens step noticed the agent's `screens.json`; "Capture and open" started round 1 with trigger `desktop` on the running emulator); the projects window with a scratch HOME: Playwright installed from its Install button (npm and the 94 MB Chromium download streamed, row turned green); adb downloaded and unpacked by `runInstall` (executable bits kept, `adb version` runs). 10 new unit tests (zip reader incl. modes and path escapes, install plans per OS, running steps, URL and answer checks, folder warnings, screens state). Typecheck, lint and all 183 tests pass.
+
+**Not verified:** Install for Android Studio, AXe and the Xcode password prompt (machine already has them), Cancel on a live install, the iOS setup path end to end, Windows and Linux (winget, the Windows zip and `adb.exe` replacement), and the light theme of the new screens.
+
 ### Then the product
 
 | # | Phase | Result | Prototype estimate |
@@ -378,7 +401,7 @@ Code: `packages/desktop/src/fidelity/` (`checks.ts` pure checks, `pages.ts` prob
 | 3 | Android | `LiveSession` for Android, device picker and frame, capture flow with progress and preview, reconnect handling | 6–8 days |
 | 4 | iOS Simulator | `LiveSession` for iOS, simulator picker and boot (done, with spike I: see above) | 4–5 days |
 | 5 | Fidelity suite | the capture-fidelity matrix in CI (Linux and macOS runners, Android emulator on Linux), manual pass on Windows (built, see above; first CI run pending) | 3–4 days |
-| 6 | Setup in the app | first-time project setup as screens; automated tool installation | 5–7 days |
+| 6 | Setup in the app | first-time project setup as screens; automated tool installation (done, see above) | 5–7 days |
 | 7 | Release | Mac signing and notarisation, Windows signing, auto-update, release notes, crash reporting | 3–4 days, plus accounts |
 | later | | tablet streaming, physical iPhone (Swift helper plus WebDriverAgent), mixed platforms per project, dropping Playwright for automatic web recaptures | |
 

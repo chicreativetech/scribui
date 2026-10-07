@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { app, BrowserWindow } from "electron";
 import { closeLauncher, explainFailure, launcherOpen, openAndRemember, registerLauncherApi, showLauncher } from "./launcherWindow.js";
+import { cancelAllInstalls } from "./installs.js";
 import { buildMenu } from "./menu.js";
 import { findOpenUrl, parseOpenUrl, PROTOCOL } from "./openUrl.js";
 import { openProjects, registerCanvasApi } from "./projectWindow.js";
@@ -93,7 +94,10 @@ function run() {
       }, 0);
     });
   });
-  app.on("before-quit", () => (quitting = true));
+  app.on("before-quit", () => {
+    quitting = true;
+    cancelAllInstalls();
+  });
   // only reached when the projects window itself was closed with no project open
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin" || harness) app.quit();
@@ -131,6 +135,6 @@ function run() {
     const results = await Promise.all(dirs.map((d) => openAndRemember(d)));
     for (const r of results) explainFailure(r);
     if (!results.some((r) => r.ok)) showLauncher();
-    else closeLauncher();
+    else if (!results.some((r) => !r.ok && "setup" in r)) closeLauncher();
   });
 }

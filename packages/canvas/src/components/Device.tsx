@@ -24,7 +24,12 @@ type DeviceState = {
   capabilities: Capabilities | null;
   message: string | null;
 };
-type DeviceList = { devices: DeviceInfo[]; startable: { id: string; name: string }[]; missing: { tool: string; install?: string } | null };
+type DeviceList = {
+  devices: DeviceInfo[];
+  startable: { id: string; name: string }[];
+  /** `installable`: the app can install it itself. */
+  missing: { tool: string; install?: string; installable?: "adb" | "axe" } | null;
+};
 type Frame = { config: boolean; key: boolean; pts: number; data: Uint8Array; codec?: string };
 type Progress = { step: "screenshot" | "elements" | "verifying" | "retrying"; attempt: number };
 type Saved = { round: number; screenId: string; title: string };
@@ -57,6 +62,9 @@ export type DesktopDevice = {
   onState(cb: (s: DeviceState) => void): () => void;
   onFrame(cb: (f: Frame) => void): () => void;
   onProgress(cb: (p: Progress) => void): () => void;
+  /** Install a missing tool the list marked `installable` (desktop 5+); its output comes through onInstallLog. */
+  install?(id: "adb" | "axe"): Promise<{ ok: true } | { ok: false; error: string }>;
+  onInstallLog?(cb: (line: string) => void): () => void;
 };
 
 export const deviceApi: DesktopDevice | null =
@@ -228,6 +236,9 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
   const [replace, setReplace] = useState("");
   const [progress, setProgress] = useState<Progress | null>(null);
   const [busy, setBusy] = useState(false);
+  /** A tool install from the empty state: its latest output line, and how it failed. */
+  const [installing, setInstalling] = useState<string | null>(null);
+  const [installError, setInstallError] = useState<string | null>(null);
   const [unsettled, setUnsettled] = useState<{ first: string; last: string; attempts: number; elements: boolean } | null>(null);
   const [room, setRoom] = useState({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -243,6 +254,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
 
   useEffect(() => api.onState(setState), [api]);
   useEffect(() => api.onProgress(setProgress), [api]);
+  useEffect(() => api.onInstallLog?.((line) => setInstalling(line)), [api]);
 
   // frames only flow while the tab shows
   useEffect(() => {
@@ -626,6 +638,26 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
             ) : list?.missing ? (
               <>
                 <p>The device view needs {list.missing.tool}.</p>
+                {list.missing.installable && api.install && (
+                  <p>
+                    <button
+                      className="live-capture"
+                      disabled={installing !== null}
+                      onClick={async () => {
+                        setInstallError(null);
+                        setInstalling("starting…");
+                        const r = await api.install!(list.missing!.installable!);
+                        setInstalling(null);
+                        if (!r.ok) setInstallError(r.error);
+                        else void refresh();
+                      }}
+                    >
+                      {installing !== null ? <><Spinner /> Installing {list.missing.tool}…</> : `Install ${list.missing.tool}`}
+                    </button>
+                  </p>
+                )}
+                {installing !== null && <p className="faint device-install-log">{installing}</p>}
+                {installError && <p className="err">Install failed: {installError}</p>}
                 {list.missing.install && (
                   <p>
                     <code>{list.missing.install}</code>{" "}
@@ -634,7 +666,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
                     </button>
                   </p>
                 )}
-                <p className="faint">Then look for devices again (⟳).</p>
+                <p className="faint">{list.missing.installable && api.install ? "Or install it from a terminal, then look for devices again (⟳)." : "Then look for devices again (⟳)."}</p>
               </>
             ) : (
               <>
