@@ -60,13 +60,19 @@ export const PROBE_PAGE = PAGE.replace(
  */
 export const STILL_PAGE = PAGE.replace("animation: spin 2s linear infinite;", "").replace("opacity: 0.2; transition: opacity 30s linear;", "");
 
-/** Still, but a box glides across for MOVING_MS after loading: a capture taken meanwhile must notice. */
+/**
+ * Still, but a box glides across for `ms` after loading: a capture taken
+ * meanwhile must notice. The suite sizes `ms` to the machine (`/moving?ms=`):
+ * on a slow one (CI) a capture's first screenshot can come seconds after load.
+ */
 export const MOVING_MS = 5000;
-export const MOVING_PAGE = STILL_PAGE.replace(
-  "</body>",
-  `<div id="mover" style="position:absolute;left:40px;top:400px;width:60px;height:60px;background:#808080;animation:glide ${MOVING_MS}ms linear 1 forwards"></div>
+export const movingPage = (ms = MOVING_MS) =>
+  STILL_PAGE.replace(
+    "</body>",
+    `<div id="mover" style="position:absolute;left:40px;top:400px;width:60px;height:60px;background:#808080;animation:glide ${ms}ms linear 1 forwards"></div>
 <style>@keyframes glide { to { transform: translateX(240px); } }</style></body>`,
-);
+  );
+export const MOVING_PAGE = movingPage();
 
 /** Serve the probe page on all interfaces (an Android emulator reaches the host at 10.0.2.2). */
 export type ProbeServer = {
@@ -82,7 +88,8 @@ export function serveProbe(host = "127.0.0.1"): Promise<ProbeServer> {
     const server = createServer((req, res) => {
       seen.push({ path: req.url ?? "/", at: Date.now() });
       res.writeHead(200, { "content-type": "text/html", "cache-control": "no-store" });
-      res.end(req.url?.startsWith("/still") ? STILL_PAGE : req.url?.startsWith("/moving") ? MOVING_PAGE : PROBE_PAGE);
+      const ms = Number(new URL(req.url ?? "/", "http://x").searchParams.get("ms")) || MOVING_MS;
+      res.end(req.url?.startsWith("/still") ? STILL_PAGE : req.url?.startsWith("/moving") ? movingPage(Math.min(120_000, Math.max(1000, ms))) : PROBE_PAGE);
     });
     const requested = async (path: string, since: number, ms: number) => {
       const until = Date.now() + ms;
