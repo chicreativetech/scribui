@@ -1,11 +1,13 @@
 import { resolve } from "node:path";
 import { app, BrowserWindow } from "electron";
 import { closeLauncher, explainFailure, launcherOpen, openAndRemember, registerLauncherApi, showLauncher } from "./launcherWindow.js";
+import { reviewCrashes, startCrashReporting } from "./crashes.js";
 import { cancelAllInstalls } from "./installs.js";
 import { buildMenu } from "./menu.js";
 import { findOpenUrl, parseOpenUrl, PROTOCOL } from "./openUrl.js";
 import { openProjects, registerCanvasApi } from "./projectWindow.js";
 import { loadShellPath } from "./shellPath.js";
+import { startUpdates } from "./updates.js";
 
 /**
  * ScribUI desktop: a projects window, one window per project with the
@@ -58,6 +60,7 @@ let quitting = false;
 
 function run() {
   if (!app.requestSingleInstanceLock()) return app.exit(0);
+  startCrashReporting();
 
   const open = (dir: string) => {
     if (app.isReady()) void openAndRemember(dir).then(explainFailure);
@@ -123,6 +126,9 @@ function run() {
     }
     registerLauncherApi();
     buildMenu();
+    void startUpdates();
+    // something crashed since the last launch: say so (once), before the windows open
+    await reviewCrashes();
     // packaged builds declare the scheme at install time; this also covers a moved app
     if (app.isPackaged || process.env.SCRIBUI_REGISTER_PROTOCOL === "1") {
       if (app.isPackaged) app.setAsDefaultProtocolClient(PROTOCOL);

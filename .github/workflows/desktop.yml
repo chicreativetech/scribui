@@ -82,7 +82,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -o pipefail
-          npx electron-builder ${{ matrix.target }} --publish never 2>&1 | tee package.log
+          npx electron-builder --config electron-builder.config.cjs ${{ matrix.target }} --publish never 2>&1 | tee package.log
       # the end of the log as annotations: readable on the run's page without opening the log
       - name: Why packaging failed
         if: failure()

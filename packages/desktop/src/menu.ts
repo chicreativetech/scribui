@@ -1,4 +1,6 @@
-import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
+import { app, BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from "electron";
+import { reportProblem, showCrashFiles } from "./crashes.js";
+import { checkNow, installNow, onUpdateState, RELEASES, updateState } from "./updates.js";
 import { openProjects } from "./projectWindow.js";
 import { explainFailure, openAndRemember, pickAndOpen, recent, showLauncher } from "./launcherWindow.js";
 
@@ -53,9 +55,27 @@ export function buildMenu() {
       ],
     },
     { role: "windowMenu" },
+    {
+      role: "help",
+      submenu: [
+        ...(updateState().status === "ready"
+          ? [{ label: `Restart to Update to ${(updateState() as { version: string }).version}`, click: () => installNow() }]
+          : []),
+        { label: "Check for Updates…", click: () => void checkNow(BrowserWindow.getFocusedWindow()) },
+        { label: "Release Notes", click: () => void shell.openExternal(`${RELEASES}/tag/v${app.getVersion()}`) },
+        { type: "separator" },
+        { label: "Report a Problem…", click: () => reportProblem() },
+        { label: "Show Logs and Crash Reports", click: () => showCrashFiles() },
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
+
+// a downloaded update adds "Restart to Update" to the Help menu
+onUpdateState((st) => {
+  if (st.status === "ready") refreshMenu();
+});
 
 /** Rebuild after the recent list changes. */
 export function refreshMenu() {

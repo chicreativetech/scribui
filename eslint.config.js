@@ -9,6 +9,8 @@ export default tseslint.config(
     plugins: { "react-hooks": reactHooks },
     rules: { "react-hooks/rules-of-hooks": "error", "react-hooks/exhaustive-deps": "warn" },
   },
+  // CommonJS files (electron-builder's config) load with require
+  { files: ["**/*.cjs"], rules: { "@typescript-eslint/no-require-imports": "off" } },
   {
     rules: {
       "@typescript-eslint/no-non-null-assertion": "off",

@@ -401,6 +401,22 @@ First fully green run of both workflows (`bf0e642`): typecheck and tests; packag
 - **iOS:** a slow `simctl list` right after boot made `connect` report "no simulator"; it retries with more time and says what simctl returned. The suite waits until Safari has fetched the probe page (a fresh simulator's first Safari launch is slow) and closes first-run tips over it, which hide the page from the accessibility tree.
 - **Android suite** removes its `adb reverse` tunnel; leftovers from many runs stopped Chrome's requests from arriving.
 
+### Phase 7 results: release (2026-10-07)
+
+Code: `.github/workflows/release.yml`, `scripts/release.mjs`, `CHANGELOG.md`, `RELEASING.md`; desktop `electron-builder.config.cjs` (replaces the YAML), `build/entitlements.mac.plist`, `scripts/changelog.mjs` + `release-notes.mjs`, `src/updates.ts`, `src/crashes.ts`, Help menu, the projects window's footer.
+
+Decided with the user: build signing now and turn it on with secrets later; releases on GitHub; crash reports stay local.
+
+- **Release = a tag.** `node scripts/release.mjs 0.2.0` sets the desktop and CLI versions, dates the changelog section, commits and tags (no push). The tag's workflow checks tag = app version and that the changelog has notes, creates one draft release first (so the three build jobs upload into it instead of racing), then builds, signs when it can, and uploads installers plus `latest*.yml`. Publishing the draft by hand releases it.
+- **Signing switches on by secret** (`RELEASING.md` lists them): macOS Developer ID with hardened runtime (entitlements: JIT, and library validation off for `scribui-sim`, which loads AXe's Homebrew frameworks) and notarisation when the Apple ID secrets are there too; Windows through Azure Trusted Signing. Without secrets: ad-hoc/unsigned as before. The config must be passed explicitly (`--config electron-builder.config.cjs`; electron-builder doesn't find a .cjs on its own).
+- **Updates** (electron-updater from GitHub Releases): Windows and AppImage download in the background and install on quit or Help → Restart to Update; a Mac build updates in place only when Developer-ID-signed (checked with `codesign` at launch), otherwise it says a new version is out with the release page; `.deb` the same; development runs don't check. Checks 10 s after launch and every 6 h; the projects window's footer shows the state. Release notes come from the changelog into `latest*.yml` and the update dialog.
+- **Crash reports stay local:** Electron's crash reporter without upload, a log (`~/Library/Logs/ScribUI/main.log` on macOS) of main-process exceptions, crashed pages and child processes, and a list of recent crashes. The next launch after a crash offers a prefilled GitHub issue (version, system, last errors; home folders as `~`, kept under 5,000 characters) or the files; Help has Report a Problem… and Show Logs and Crash Reports.
+- **Fixed on the way:** `executableName` (phase 5's Linux fix) also renamed the Mac app to `scribui.app`, which the CLI's "is the app installed" check (`/Applications/ScribUI.app`) would have missed; it's Linux-only now.
+
+**Verified** on macOS (Apple Silicon): config resolution unsigned / signed / notarised / Azure (tests); a packaged zip build carries `app-update.yml` (GitHub, chicreativetech/scribui) and `latest-mac.yml` with the changelog notes; the packaged app's background check against GitHub (no published release yet) ends quietly, the footer offering "Check for updates"; a crashed page is recorded and the next launch stops at the report dialog before opening windows. 8 new unit tests (update modes, issue link and its limits, crashes since the last launch, changelog sections, signing config).
+
+**Not verified:** the Release workflow itself (needs a tag: it creates a draft release on the public repo), a real update from one version to the next (needs two published releases; on macOS also a signed build), signing and notarisation (no certificates yet), the update and crash dialogs on Windows and Linux.
+
 ### Then the product
 
 | # | Phase | Result | Prototype estimate |
@@ -411,7 +427,7 @@ First fully green run of both workflows (`bf0e642`): typecheck and tests; packag
 | 4 | iOS Simulator | `LiveSession` for iOS, simulator picker and boot (done, with spike I: see above) | 4–5 days |
 | 5 | Fidelity suite | the capture-fidelity matrix in CI (Linux and macOS runners, Android emulator on Linux), manual pass on Windows (built, see above; first CI run pending) | 3–4 days |
 | 6 | Setup in the app | first-time project setup as screens; automated tool installation (done, see above) | 5–7 days |
-| 7 | Release | Mac signing and notarisation, Windows signing, auto-update, release notes, crash reporting | 3–4 days, plus accounts |
+| 7 | Release | Mac signing and notarisation, Windows signing, auto-update, release notes, crash reporting (done without accounts, see above) | 3–4 days, plus accounts |
 | later | | tablet streaming, physical iPhone (Swift helper plus WebDriverAgent), mixed platforms per project, dropping Playwright for automatic web recaptures | |
 
 **Estimates:** the spikes take about 2 weeks. The phases above add up to roughly 6–8 weeks for a working prototype on all three systems. A polished release across three operating systems, with dependable setup, device recovery and updates, realistically takes longer: plan on **10–14 weeks** in total, and re-estimate after the spikes.

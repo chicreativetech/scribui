@@ -1,0 +1,116 @@
+name: Release
+
+# A version tag (v0.2.0, made by scripts/release.mjs) builds the desktop app for
+# macOS, Windows and Linux and uploads it to a draft GitHub release with the
+# CHANGELOG.md section as its notes. Publishing the draft (by hand) is what
+# makes it the update the installed apps download. See RELEASING.md.
+#
+# Signing turns on when these repository secrets exist (unsigned without them):
+#   macOS:   MAC_CERT_P12_BASE64, MAC_CERT_PASSWORD; notarisation also APPLE_ID,
+#            APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
+#   Windows: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
+#            AZURE_SIGNING_ENDPOINT, AZURE_SIGNING_ACCOUNT, AZURE_SIGNING_PROFILE,
+#            AZURE_SIGNING_PUBLISHER
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: The tag matches the app's version, and the changelog has notes for it
+        id: v
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          app=$(node -p "require('./packages/desktop/package.json').version")
+          if [ "$version" != "$app" ]; then echo "::error::tag $GITHUB_REF_NAME but packages/desktop/package.json says $app"; exit 1; fi
+          node packages/desktop/scripts/release-notes.mjs "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      # one draft before the builds, so the three jobs upload into it instead of racing to create it
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --draft --title "ScribUI ${{ steps.v.outputs.version }}" \
+              --notes-file packages/desktop/build/release-notes.md $([[ "$GITHUB_REF_NAME" == *-* ]] && echo --prerelease)
+
+  build:
+    needs: draft
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: --mac
+            archs: arm64,x64
+          - os: windows-latest
+            target: --win
+            archs: x64
+          - os: ubuntu-latest
+            target: --linux
+            archs: x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck && pnpm test
+      - run: pnpm --filter @scribui/canvas build
+      - name: AXe (the iOS Simulator helper builds against it)
+        if: runner.os == 'macOS'
+        run: |
+          brew tap cameroncooke/axe
+          brew trust --formula cameroncooke/axe/axe || true
+          brew install cameroncooke/axe/axe
+      - name: Bundle the app
+        working-directory: packages/desktop
+        run: |
+          node scripts/fetch-scrcpy.mjs
+          node scripts/build-sim-helper.mjs
+          npx tsup
+          node scripts/stage-native.mjs --arch ${{ matrix.archs }}
+          node scripts/release-notes.mjs
+      - name: Package, sign when the secrets are there, and upload to the draft
+        working-directory: packages/desktop
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          SCRIBUI_AZURE_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          SCRIBUI_AZURE_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          SCRIBUI_AZURE_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          SCRIBUI_AZURE_PUBLISHER: ${{ secrets.AZURE_SIGNING_PUBLISHER }}
+        run: |
+          set -o pipefail
+          # empty secrets come through as empty strings; electron-builder treats a set CSC_LINK as a certificate
+          [ -n "$CSC_LINK" ] || unset CSC_LINK CSC_KEY_PASSWORD
+          npx electron-builder --config electron-builder.config.cjs ${{ matrix.target }} --publish always 2>&1 | tee package.log
+      - name: Why packaging failed
+        if: failure()
+        working-directory: packages/desktop
+        shell: bash
+        run: test -f package.log && echo "::error title=electron-builder::$(tail -n 40 package.log | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')" || true
