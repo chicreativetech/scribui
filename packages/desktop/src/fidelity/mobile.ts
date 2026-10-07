@@ -192,10 +192,18 @@ export async function runMobileFidelity(platform: Platform) {
 
     // a fresh browser shows first-run tips over the page, and the tree then has none of it
     // (CI's simulator is always fresh): close them, then measure
-    for (let i = 1; i <= 3; i++) {
-      const pre = await capture(`overlay-check-${i}`);
+    for (let i = 1; i <= 4; i++) {
+      const pre = await capture(`overlay-check-${i}`).catch((e: Error) => {
+        // a sheet can make even the plain tree unreadable for a moment
+        console.log(`overlay check ${i}: ${e.message}`);
+        return null;
+      });
+      if (!pre) {
+        await sleep(2000);
+        continue;
+      }
       if (findElement(pre.cap, PROBES.probe.match)) break;
-      const close = flatten(pre.cap.root).find((e) => /^(close|dismiss|not now|no thanks|continue|ok|done)$/i.test((e.label ?? "").trim()) && e.bounds.w > 0);
+      const close = flatten(pre.cap.root).find((e) => /^(close|dismiss|not now|no thanks|continue|ok|done|don.t allow)$/i.test((e.label ?? "").trim()) && e.bounds.w > 0);
       if (!close) break;
       at(`closing "${close.label}" over the page`);
       const x = (close.bounds.x + close.bounds.w / 2) / pre.img.width;

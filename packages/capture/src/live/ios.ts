@@ -387,15 +387,28 @@ class IosSession implements LiveSession {
  * The frontmost app's tree for a capture, web views included, from a fresh
  * `scribui-sim describe`: idb finds web content by hit-testing a grid of
  * points and skips what it found before for the rest of its process, so the
- * live helper can't be asked twice.
+ * live helper can't be asked twice. A system sheet over the screen makes the
+ * hit-testing fail ("No translation object…"): try once more, then read the
+ * tree without web content (the sheet's own buttons included) rather than
+ * fail the capture.
  */
 async function describeOnce(helper: string, udid: string, portrait: { width: number; height: number }): Promise<unknown> {
   // the grid covers the whole screen in the HID's portrait points (the app's frame is turned in landscape)
   const region = `0,0,${portrait.width},${portrait.height}`;
-  const r = await run(helper, ["describe", "--udid", udid, "--remote-step", String(REMOTE_GRID_POINTS), "--region", region], { timeoutMs: 60_000 });
-  if (r.code !== 0) throw new Error(`couldn't read the Simulator's elements: ${r.stderr.trim().split("\n").pop() ?? r.code}`);
+  const describe = (step: number) => run(helper, ["describe", "--udid", udid, "--remote-step", String(step), "--region", region], { timeoutMs: 60_000 });
+  const failure = (r: Awaited<ReturnType<typeof describe>>) => r.stderr.trim().split("\n").pop() || String(r.code);
+  let r = await describe(REMOTE_GRID_POINTS);
+  if (r.code !== 0 && HIT_TEST_FAILED.test(r.stderr)) {
+    await new Promise((done) => setTimeout(done, 1500));
+    r = await describe(REMOTE_GRID_POINTS);
+    if (r.code !== 0 && HIT_TEST_FAILED.test(r.stderr)) r = await describe(0);
+  }
+  if (r.code !== 0) throw new Error(`couldn't read the Simulator's elements: ${failure(r)}`);
   return JSON.parse(r.stdout.toString()) as unknown;
 }
+
+/** idb's hit-testing for web content found no on-screen point (a sheet or alert covers the screen). */
+export const HIT_TEST_FAILED = /No translation object returned|invalid or invisible/i;
 
 /** Put text on the simulator's pasteboard (for text the HID can't type). */
 function pbcopy(udid: string, text: string): Promise<void> {
