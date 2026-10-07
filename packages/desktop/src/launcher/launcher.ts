@@ -34,6 +34,12 @@ type SetupInfo = {
   ios?: { bundleId?: string; build?: string };
   warning: string | null;
 };
+type UpdateState =
+  | { status: "off" | "idle" | "checking" | "none"; current?: string }
+  | { status: "available"; version: string; auto: boolean }
+  | { status: "downloading"; version: string; percent: number }
+  | { status: "ready"; version: string }
+  | { status: "error"; message: string };
 type Server = { url: string; running: boolean; title: string | null };
 type ScreensState = { state: "starter" } | { state: "listed"; count: number } | { state: "invalid"; error: string };
 
@@ -53,6 +59,9 @@ declare global {
       openLink(url: string): Promise<void>;
       onChange(cb: () => void): void;
       onInstallLog(cb: (e: { id: string; line: string }) => void): void;
+      update(): Promise<UpdateState>;
+      updateAction(action: "install" | "check" | "open"): Promise<void>;
+      onUpdate(cb: (s: UpdateState) => void): void;
       setup: {
         info(dir: string): Promise<SetupInfo>;
         servers(dir: string): Promise<Server[]>;
@@ -638,7 +647,23 @@ async function finish(s: Setup, capture: boolean) {
 
 $("open").addEventListener("click", async () => handleOpen(await api.pick()));
 $("recheck").addEventListener("click", () => void renderTools());
-$("version").textContent = `ScribUI ${api.version}`;
+/** The footer: this version, and an update when there is one. */
+function renderUpdate(st: UpdateState) {
+  const foot = $("version");
+  const action = (label: string, what: "install" | "check" | "open") => {
+    const b = el("button", { className: "linkbtn", textContent: label });
+    b.addEventListener("click", () => void api.updateAction(what));
+    return b;
+  };
+  const parts: (Node | string)[] = [`ScribUI ${api.version}`];
+  if (st.status === "ready") parts.push(" · ", el("strong", { textContent: `${st.version} is ready` }), " ", action("Restart to update", "install"));
+  else if (st.status === "downloading") parts.push(` · downloading ${st.version} (${st.percent} %)`);
+  else if (st.status === "available") parts.push(` · ${st.version} is out `, st.auto ? "" : action("Download", "open"));
+  else if (st.status !== "off") parts.push(" · ", action("Check for updates", "check"));
+  foot.replaceChildren(...parts);
+}
+void api.update().then(renderUpdate);
+api.onUpdate(renderUpdate);
 api.onChange(() => void renderProjects());
 api.setup.onStart((dir) => void startSetup(dir));
 window.addEventListener("focus", () => {

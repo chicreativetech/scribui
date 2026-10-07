@@ -18,6 +18,10 @@ contextBridge.exposeInMainWorld("scribuiLauncher", {
   copy: (text: string) => call("copy", String(text)),
   openLink: (url: string) => call("openLink", String(url)),
   onChange: (cb: () => void) => void ipcRenderer.on("scribui:launcher:changed", () => cb()),
+  /** Updates: the state, and install (a downloaded one), check, or open (the release page of one to download by hand). */
+  update: () => call("update"),
+  updateAction: (action: string) => call("updateAction", String(action)),
+  onUpdate: (cb: (s: unknown) => void) => void ipcRenderer.on("scribui:launcher:update", (_e, v) => cb(v)),
   onInstallLog: (cb: (e: { id: string; line: string }) => void) => void ipcRenderer.on("scribui:launcher:install-log", (_e, v) => cb(v)),
   /** Setting up a folder that isn't a project yet (only folders the user chose). */
   setup: {

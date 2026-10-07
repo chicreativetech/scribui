@@ -10,6 +10,7 @@ import { cancelInstall, installTool, isInstallable } from "./installs.js";
 import { openProject, openProjects, type OpenOptions, type OpenResult } from "./projectWindow.js";
 import { refreshMenu } from "./menu.js";
 import { RecentProjects } from "./recent.js";
+import { checkNow, installNow, onUpdateState, updateState } from "./updates.js";
 import { checkAnswers, createProject, deviceReady, devServers, normalizeUrl, screensState, setupInfo } from "./setup.js";
 
 /**
@@ -169,6 +170,18 @@ export function registerLauncherApi() {
   handle("remove", (dir) => {
     if (typeof dir === "string") recent.remove(dir);
     return null;
+  });
+  handle("update", () => updateState());
+  handle("updateAction", (action) => {
+    if (action === "install") installNow();
+    else if (action === "check") void checkNow(win);
+    else if (action === "open") {
+      const st = updateState();
+      if (st.status === "available") void shell.openExternal(st.url);
+    }
+  });
+  onUpdateState((st) => {
+    if (win && !win.isDestroyed()) win.webContents.send("scribui:launcher:update", st);
   });
   handle("tools", async () => {
     const env = await installEnv();
