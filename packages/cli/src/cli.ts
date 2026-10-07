@@ -5,12 +5,10 @@ import { fileURLToPath } from "node:url";
 import { cac } from "cac";
 import { createAdapter } from "@scribui/capture";
 import { Platform, PRODUCT, ReviewJson } from "@scribui/core";
-import { lanAddress, ReviewStore } from "@scribui/server";
-import { captureRound, describePlan, type CaptureEvent } from "./capture.js";
-import { findRunning, portRange, startOnFreePort } from "./instances.js";
+import { lanAddress, ReviewStore, type CaptureState } from "@scribui/server";
+import { captureProject, describePlan, hostProject, makeRunner, portRange, saveCapturedView, type CaptureEvent, type Owner } from "@scribui/project";
 import { runMcp } from "./mcp.js";
 import { migrateHome, migrateProject } from "./migrate.js";
-import { makeRunner } from "./runner.js";
 import { detectProject } from "./setup.js";
 import { openBrowser, start } from "./start.js";
 import { banner, c, errLine, fail, line, okLine, out, warnLine } from "./ui.js";
@@ -115,12 +113,40 @@ async function cmdCapture(f: Flags): Promise<number | null> {
   out();
   const screens = f.screens ? String(f.screens).split(",").map((s) => s.trim()).filter(Boolean) : undefined;
   const t0 = Date.now();
-  let result;
+  let res;
   try {
-    result = await captureRound(store, { platform: platformFlag(f), device: f.device, screens, all: f.all, dryRun: f.dryRun, log: printEvent });
+    res = await captureProject(store, {
+      app: "cli",
+      ...(f.port ? { port: f.port } : {}),
+      platform: platformFlag(f),
+      device: f.device,
+      screens,
+      all: f.all,
+      dryRun: f.dryRun,
+      log: printEvent,
+      onWait: waitingFor,
+      onHandOver: (o) => line("server", `${c.accent(o.url ?? "")}  ${c.dim(`owns this project (${o.app}); the capture runs there`)}`),
+      onProgress: printProgress(),
+    });
   } catch (e) {
     fail((e as Error).message);
   }
+  if (res.via === "server") {
+    const r = res.result;
+    out();
+    if (r.skipped) {
+      okLine(`Nothing to capture: ${r.summary.replace(/^nothing to capture: /, "")}.`);
+      out(c.dim("    Recapture anyway with --all, or pick screens with --screens a,b"));
+      out();
+      return null;
+    }
+    for (const x of r.failed) errLine(`${x.screenId}: ${x.error}`);
+    line("round", `${c.accent(String(r.round).padStart(3, "0"))}  ${c.dim(`${r.summary}, ${r.failed.length} failed, ${((Date.now() - t0) / 1000).toFixed(1)}s`)}`);
+    out();
+    if (!r.ok?.length && !r.reused?.length) fail("No screen captured.");
+    return r.round;
+  }
+  const result = res.result;
   if (!result) {
     out();
     out(c.dim("  Fix the problems above, then run capture again.  npx scribui doctor"));
@@ -148,6 +174,23 @@ async function cmdCapture(f: Flags): Promise<number | null> {
   out();
   if (result.ok.length === 0 && result.reused.length === 0) fail("No screen captured.");
   return result.round;
+}
+
+/** Another process holds the project for a one-off capture. */
+function waitingFor(o: Owner) {
+  warnLine(`Another capture is running (${o.app}, pid ${o.pid}); waiting for it to finish…`);
+}
+
+/** Progress of a capture running on the project's server, as it reports it. */
+function printProgress() {
+  let last = "";
+  return (s: CaptureState) => {
+    const key = `${s.phase}:${s.done ?? 0}/${s.total ?? 0}:${s.current ?? ""}`;
+    if (key === last) return;
+    last = key;
+    if (s.phase === "building") out(`  ${c.dim("building…")}`);
+    else if (s.total) out(`  ${c.dim(`[${s.done ?? 0}/${s.total}]`)} ${s.current ?? ""}`);
+  };
 }
 
 function printEvent(e: CaptureEvent) {
@@ -186,20 +229,24 @@ async function cmdOpen(f: Flags) {
   const dir = canvasDir();
   if (!dir) warnLine("canvas build not found; run `pnpm build` in the ScribUI repo");
   const port = f.port ?? PRODUCT.defaultPort;
-  const running = await findRunning(store.root, port);
-  if (running) {
-    okLine(`scribui is already running for this project: ${c.accent(running)}`);
-    if (f.open !== false) openBrowser(running);
+  const hosted = await hostProject(store, {
+    app: "cli",
+    port,
+    server: {
+      canvasDir: dir,
+      lan: f.lan,
+      runner: makeRunner(store, { platform: platformFlag(f), device: f.device }, printEvent),
+      saveView: (req) => saveCapturedView(store, req),
+    },
+    onWait: waitingFor,
+  });
+  if (hosted.kind === "running") {
+    okLine(`scribui is already running for this project: ${c.accent(hosted.owner.url ?? "")}`);
+    if (f.open !== false && hosted.owner.url) openBrowser(hosted.owner.url);
     return;
   }
-  const srv = await startOnFreePort({
-    projectDir: store.root,
-    canvasDir: dir,
-    port,
-    lan: f.lan,
-    runner: makeRunner(store, { platform: platformFlag(f), device: f.device }, printEvent),
-  });
-  if (!srv) fail(`Ports ${portRange(port)} are all in use.`, "Pass --port <n>.");
+  if (hosted.kind === "no-port") fail(`Ports ${portRange(port)} are all in use.`, "Pass --port <n>.");
+  const srv = hosted.server;
   const url = `http://127.0.0.1:${srv.port}/`;
   const latest = await store.latestRound();
   banner("open");

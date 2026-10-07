@@ -39,6 +39,7 @@
   "devDependencies": {
     "@scribui/capture": "workspace:*",
     "@scribui/core": "workspace:*",
+    "@scribui/project": "workspace:*",
     "@scribui/server": "workspace:*",
     "tsup": "^8.5.1"
   }

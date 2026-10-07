@@ -12,9 +12,9 @@ export { parseIdb, buildByContainment } from "./parsers/idb.js";
 export { parseMaestro } from "./parsers/maestro.js";
 export { parseUiautomator } from "./parsers/uiautomator.js";
 export { iosType, androidType } from "./parsers/typeMaps.js";
-export { toCapture } from "./adapters/shared.js";
+export { toCapture, writePng } from "./adapters/shared.js";
 export { IosAdapter, AndroidAdapter, WebAdapter };
-export { captureLiveFrame, loadChromium } from "./adapters/web.js";
+export { readLiveFrame, loadChromium, LIVE_ISOLATE, LIVE_RESTORE } from "./adapters/web.js";
 
 export function createAdapter(platform: Platform, ctx: CaptureContext): CaptureAdapter {
   switch (platform) {
@@ -26,3 +26,6 @@ export function createAdapter(platform: Platform, ctx: CaptureContext): CaptureA
       return new WebAdapter(ctx);
   }
 }
+export { decodePng, pixelDifference, type DecodedPng } from "./png.js";
+export { ScrcpySession, SCRCPY_VERSION, MotionAction, KeyAction, Keycode, avcCodecString, type VideoPacket, type VideoSession } from "./live/scrcpy.js";
+export { captureAndroidLive, dumpTree, type AndroidLiveCapture, type AndroidCaptureStep } from "./live/androidCapture.js";

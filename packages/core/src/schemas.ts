@@ -112,11 +112,15 @@ export const ScreenEntry = z.object({
   /** Web: setup script (ES module exporting default async (page) => {}). */
   setup: z.string().optional(),
   /**
-   * Web: captured by hand from the canvas's app tab. Its state (login, open
-   * menus, form input) can't be reproduced from the url, so automatic captures
-   * carry it forward instead of recapturing it.
+   * Captured by hand (the canvas's app tab, or a live device): its state
+   * (login, open menus, form input) can't be reproduced from a url or flow, so
+   * automatic captures carry it forward instead of recapturing it.
    */
   live: z.boolean().optional(),
+  /** Mobile, captured by hand: the device it was captured on. */
+  device: z.string().optional(),
+  /** Mobile, captured by hand: which way the device was turned. */
+  orientation: z.enum(["portrait", "landscape"]).optional(),
   /**
    * Source globs that render this screen, relative to the project root, such as
    * "app/src/main/java/(double-star)/feature/shop/(double-star)". Used to recapture only screens whose code changed.

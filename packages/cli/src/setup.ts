@@ -17,6 +17,7 @@ import {
   type AndroidDevice,
 } from "@scribui/capture";
 import type { Platform } from "@scribui/core";
+import { buildEnv } from "@scribui/project";
 import { confirm, select, spinner } from "./prompts.js";
 import { c, errLine, okLine, out, warnLine } from "./ui.js";
 
@@ -345,28 +346,6 @@ async function ensureAndroidDevice(want?: string): Promise<AndroidDevice | null>
     (devices.find((d) => d.emulator) ?? devices[0]!).serial,
   );
   return devices.find((d) => d.serial === serial)!;
-}
-
-/**
- * Environment for build commands: Android Studio's bundled JDK when JAVA_HOME
- * is unset or older than 17 (current Gradle needs 17+), and the chosen device.
- */
-export function buildEnv(serial?: string): NodeJS.ProcessEnv {
-  const env = { ...process.env };
-  const jbr = [
-    "/Applications/Android Studio.app/Contents/jbr/Contents/Home",
-    join(homedir(), "Applications/Android Studio.app/Contents/jbr/Contents/Home"),
-  ].find((p) => existsSync(p));
-  if (jbr && (!env.JAVA_HOME || javaMajor(env.JAVA_HOME) < 17)) env.JAVA_HOME = jbr;
-  if (serial) env.ANDROID_SERIAL = serial;
-  return env;
-}
-
-/** Major Java version from a JDK's release file (0 when unknown). */
-function javaMajor(home: string): number {
-  const v = /JAVA_VERSION="(\d+)(?:\.(\d+))?/.exec(read(join(home, "release")));
-  if (!v) return 0;
-  return v[1] === "1" ? Number(v[2] ?? 0) : Number(v[1]);
 }
 
 /* ─────────────────────────── iOS ─────────────────────────── */

@@ -6,18 +6,24 @@ import { createAdaptorServer } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { Hono, type Context } from "hono";
 import { WebSocketServer, type WebSocket } from "ws";
-import { Annotation, AnnotationsFile, PRODUCT, VisionFile } from "@scribui/core";
+import { Annotation, AnnotationsFile, PRODUCT, VisionFile, type Device, type Platform, type RawElement } from "@scribui/core";
 import { z } from "zod";
 import { isLoopback, lanAddress, LanAuth, parseCookies } from "./lan.js";
 import { qrSvg } from "./qr.js";
 import { resolveRound, sendRound } from "./send.js";
+import { CaptureQueue, type Job } from "./queue.js";
 import { ReviewStore, RoundLockedError } from "./store.js";
 
 /** A capture run started from the canvas or triggered by the agent, as the canvas sees it. */
 export type CaptureState = {
   running: boolean;
   phase: "idle" | "building" | "capturing" | "done" | "failed";
-  trigger?: "gui" | "agent-applied";
+  /** Who started it: "gui", "agent-applied", or a process that handed it over ("cli", "mcp", "desktop"). */
+  trigger?: string;
+  /** The queue job of this capture. */
+  job?: string;
+  /** Captures waiting behind this one. */
+  queued?: number;
   round?: number;
   total?: number;
   done?: number;
@@ -41,10 +47,36 @@ export type CaptureRequest = {
   trigger?: CaptureState["trigger"];
 };
 
-export type CaptureRunner = (
-  req: CaptureRequest,
-  report: (patch: Partial<CaptureState>) => void,
-) => Promise<{ round: number | null; summary: string; failed: { screenId: string; error: string }[] }>;
+export type CaptureRunResult = {
+  round: number | null;
+  summary: string;
+  failed: { screenId: string; error: string }[];
+  ok?: string[];
+  reused?: string[];
+  /** Nothing needed capturing; `summary` says why. */
+  skipped?: boolean;
+};
+
+export type CaptureRunner = (req: CaptureRequest, report: (patch: Partial<CaptureState>) => void) => Promise<CaptureRunResult>;
+
+/** One view captured by hand (the app tab, the desktop app's device view), to be saved by the project's owner. */
+export type ViewSaveRequest = {
+  platform: Platform;
+  /** The view's name; defaults to the page title or path. */
+  title?: string;
+  /** Replace this screen instead of adding a new one. */
+  replace?: string;
+  /** Web: where the app was. */
+  url?: string;
+  /** Mobile: which way the device was turned. */
+  orientation?: "portrait" | "landscape";
+  device: Device;
+  png: Uint8Array;
+  /** Element tree in screenshot pixels. */
+  raw: RawElement;
+};
+export type ViewSaveResult = { round: number; screenId: string; title: string };
+export type ViewSaver = (req: ViewSaveRequest) => Promise<ViewSaveResult>;
 
 export type ServerEvent =
   | { type: "round-created"; round: number }
@@ -70,8 +102,10 @@ export type ServerOptions = {
   lan?: boolean;
   /** Poll interval for the round watcher (ms). */
   watchMs?: number;
-  /** Runs captures (provided by the CLI, which owns the capture adapters). Enables capture from the canvas. */
+  /** Runs captures (provided by the CLI or desktop app, which own the capture adapters). Enables capture from the canvas. */
   runner?: CaptureRunner;
+  /** Saves views captured by hand (provided with the runner). Enables `POST /api/views`. */
+  saveView?: ViewSaver;
   /** Web: recapture automatically when the agent marks a round applied (default true). */
   autoRecapture?: boolean;
 };
@@ -113,21 +147,26 @@ export function createApp(opts: ServerOptions) {
     for (const s of sockets) if (s.readyState === 1) s.send(msg);
   };
 
-  /* ─────────── captures started from the canvas or by the agent ─────────── */
+  /* ─────────── captures: one queue for rounds and single views ─────────── */
   let capture: CaptureState = { running: false, phase: "idle" };
+  const queue: CaptureQueue = new CaptureQueue(() => {
+    const queued = queue.pending().filter((j) => j.status === "queued").length;
+    if ((capture.queued ?? 0) !== queued) setCapture({ queued });
+  });
   const setCapture = (patch: Partial<CaptureState>) => {
     capture = { ...capture, ...patch };
     broadcast({ type: "capture-state", state: capture });
   };
-  /** Start a capture in the background; throws if one is running or no runner exists. */
-  const runCapture = (req: CaptureRequest): void => {
-    if (!opts.runner) throw new HttpError(501, "capture from the canvas needs `scribui` or `scribui open`");
-    if (capture.running) throw new HttpError(409, "a capture is already running");
-    capture = { running: true, phase: req.build ? "building" : "capturing", trigger: req.trigger ?? "gui", log: [] };
-    broadcast({ type: "capture-state", state: capture });
-    void opts
-      .runner(req, setCapture)
-      .then((r) => {
+  /** Queue a round capture; it starts when everything before it is done. */
+  const runCapture = (req: CaptureRequest): Job<CaptureRunResult> => {
+    const runner = opts.runner;
+    if (!runner) throw new HttpError(501, "capture from the canvas needs `scribui` or `scribui open`");
+    const trigger = req.trigger ?? "gui";
+    return queue.enqueue<CaptureRunResult>("round", trigger, async (job) => {
+      capture = { running: true, phase: req.build ? "building" : "capturing", trigger, job: job.id, queued: capture.queued, log: [] };
+      broadcast({ type: "capture-state", state: capture });
+      try {
+        const r = await runner(req, setCapture);
         setCapture({
           running: false,
           phase: r.failed.length && r.summary.startsWith("0 captured") ? "failed" : "done",
@@ -137,8 +176,21 @@ export function createApp(opts: ServerOptions) {
           queue: [],
         });
         if (r.round !== null) broadcast({ type: "status-changed", round: r.round, status: "open" });
-      })
-      .catch((e: Error) => setCapture({ running: false, phase: "failed", error: e.message, queue: [] }));
+        return r;
+      } catch (e) {
+        setCapture({ running: false, phase: "failed", error: (e as Error).message, queue: [] });
+        throw e;
+      }
+    });
+  };
+  /** Queue saving a view captured by hand; resolves once it is saved. */
+  const saveView = async (req: ViewSaveRequest, trigger = "gui"): Promise<ViewSaveResult> => {
+    const saver = opts.saveView;
+    if (!saver) throw new HttpError(501, "saving views needs `scribui` or the desktop app");
+    const job = queue.enqueue("view", trigger, () => saver(req));
+    const done = await queue.wait(job.id);
+    if (done.status === "failed") throw new HttpError(422, done.error ?? "could not save the view");
+    return done.result as ViewSaveResult;
   };
 
   const app = new Hono();
@@ -206,10 +258,41 @@ export function createApp(opts: ServerOptions) {
   app.get("/api/capture", (c) => c.json(capture));
   app.post("/api/capture", async (c) => {
     const body = z
-      .object({ screens: z.array(z.string()).optional(), all: z.boolean().optional(), build: z.boolean().optional() })
+      .object({
+        screens: z.array(z.string()).optional(),
+        all: z.boolean().optional(),
+        build: z.boolean().optional(),
+        trigger: z.enum(["gui", "cli", "mcp", "desktop"]).optional(),
+      })
       .parse(await c.req.json().catch(() => ({})));
-    runCapture({ ...body, trigger: "gui" });
-    return c.json(capture, 202);
+    const job = runCapture({ ...body, trigger: body.trigger ?? "gui" });
+    return c.json({ ...capture, job: job.id }, 202);
+  });
+  app.get("/api/capture/jobs/:id", (c) => {
+    const job = queue.get(c.req.param("id"));
+    if (!job) return c.json({ error: "no such capture job" }, 404);
+    return c.json({ job, capture: capture.job === job.id ? capture : null });
+  });
+
+  /* ─────────── views captured by hand, from another process ─────────── */
+  app.post("/api/views", async (c) => {
+    const body = z
+      .object({
+        platform: z.enum(["web", "ios", "android"]),
+        title: z.string().optional(),
+        replace: z.string().optional(),
+        url: z.string().optional(),
+        orientation: z.enum(["portrait", "landscape"]).optional(),
+        device: z.object({ name: z.string(), width: z.number(), height: z.number(), scale: z.number() }),
+        /** base64 PNG */
+        png: z.string().min(1),
+        tree: z.any(),
+        trigger: z.string().optional(),
+      })
+      .parse(await c.req.json());
+    const { png, tree, trigger, ...rest } = body;
+    const r = await saveView({ ...rest, png: Buffer.from(png, "base64"), raw: tree as RawElement }, trigger ?? "desktop");
+    return c.json(r);
   });
 
   /* ─────────── tablet pairing ─────────── */
@@ -283,8 +366,8 @@ export function createApp(opts: ServerOptions) {
   app.post("/api/rounds/:n/recapture", async (c) => {
     const n = roundParam(c);
     const body = z.object({ screens: z.array(z.string()).min(1) }).parse(await c.req.json());
-    runCapture({ into: n, screens: body.screens, trigger: "gui" });
-    return c.json(capture, 202);
+    const job = runCapture({ into: n, screens: body.screens, trigger: "gui" });
+    return c.json({ ...capture, job: job.id }, 202);
   });
 
   app.get("/api/rounds/:n/screens/:id", async (c) => {
@@ -376,7 +459,7 @@ export function createApp(opts: ServerOptions) {
     return sendFile(c, join(opts.canvasDir, "index.html"));
   });
 
-  return { app, store, lan, lanState, controls, sockets, lanSockets, broadcast, runCapture, getCapture: () => capture };
+  return { app, store, lan, lanState, controls, sockets, lanSockets, broadcast, runCapture, saveView, queue, getCapture: () => capture };
 }
 
 async function sendFile(c: Context, p: string, immutable = false) {
@@ -401,7 +484,7 @@ class HttpError extends Error {
  * Resolves once listening.
  */
 export async function startServer(opts: ServerOptions) {
-  const { app, store, lan, lanState, controls, sockets, lanSockets, broadcast, runCapture, getCapture } = createApp(opts);
+  const { app, store, lan, lanState, controls, sockets, lanSockets, broadcast, runCapture, saveView, queue } = createApp(opts);
   const port = opts.port ?? PRODUCT.defaultPort;
   const host = opts.host ?? (opts.lan ? "0.0.0.0" : "127.0.0.1");
 
@@ -449,15 +532,11 @@ export async function startServer(opts: ServerOptions) {
 
   // web: the agent marking a round applied triggers the next capture
   const onStatus = async (round: number, status: string) => {
-    if (status !== "applied" || !opts.runner || opts.autoRecapture === false || getCapture().running) return;
+    if (status !== "applied" || !opts.runner || opts.autoRecapture === false || queue.has("round")) return;
     const manifest = await store.readManifest().catch(() => null);
     if (manifest?.app.platform !== "web") return;
     setTimeout(() => {
-      try {
-        runCapture({ trigger: "agent-applied" });
-      } catch {
-        /* already running */
-      }
+      if (!queue.has("round")) runCapture({ trigger: "agent-applied" });
     }, 1500); // give the dev server a moment to hot-reload
     void round;
   };
@@ -471,6 +550,9 @@ export async function startServer(opts: ServerOptions) {
     broadcast,
     enableLan: () => controls.enableLan!(),
     runCapture,
+    /** Save a view captured by hand, in turn with every other capture. */
+    saveView,
+    queue,
     close: async () => {
       stopWatch();
       for (const s of sockets) s.close();

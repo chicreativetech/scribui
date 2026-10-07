@@ -96,6 +96,16 @@
           "live": {
             "type": "boolean"
           },
+          "device": {
+            "type": "string"
+          },
+          "orientation": {
+            "type": "string",
+            "enum": [
+              "portrait",
+              "landscape"
+            ]
+          },
           "sources": {
             "type": "array",
             "items": {

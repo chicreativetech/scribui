@@ -183,6 +183,7 @@ export function LiveView() {
           <iframe
             key={reloadKey}
             data-scribui-live=""
+            name="scribui-live"
             src={src}
             title="live app"
             style={frameStyle}

@@ -2,11 +2,9 @@ import { spawn } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
 import { Platform, PRODUCT, ScreenManifest, screensPrompt } from "@scribui/core";
 import type { ReviewStore } from "@scribui/server";
-import { captureRound, type CaptureEvent } from "./capture.js";
+import { captureProject, hostProject, makeRunner, portRange, saveCapturedView, type CaptureEvent } from "@scribui/project";
 import { input, interactive, select, waitFor } from "./prompts.js";
-import { findRunning, portRange, startOnFreePort } from "./instances.js";
 import { openLiveWindow, type LiveWindow } from "./live.js";
-import { makeRunner } from "./runner.js";
 import {
   BETA,
   copyToClipboard,
@@ -91,9 +89,17 @@ export async function start(store: ReviewStore, flags: StartFlags) {
 
   // non-interactive (an agent or CI ran plain `scribui`): capture and stop
   if (!interactive()) {
-    const r = await captureRound(store, { platform, ...(flags.device ? { device: flags.device } : {}), log: flags.printEvent });
+    const res = await captureProject(store, {
+      app: "cli",
+      platform,
+      ...(flags.device ? { device: flags.device } : {}),
+      log: flags.printEvent,
+      onWait: (o) => warnLine(`Another capture is running (${o.app}, pid ${o.pid}); waiting for it to finish…`),
+      onHandOver: (o) => line("server", `${o.url ?? ""} owns this project; the capture runs there`),
+    });
     out();
-    if (r && !r.skipped) okLine(`round ${pad(r.round)} captured. Open the canvas with: scribui`);
+    const r = res.result;
+    if (r && !r.skipped && r.round !== null) okLine(`round ${pad(r.round)} captured. Open the canvas with: scribui`);
     return;
   }
 
@@ -245,30 +251,35 @@ async function waitForScreens(store: ReviewStore, platform: Platform): Promise<b
 /** Start (or reuse) the server, open the canvas, capture first when there is no round yet. */
 async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, captureFirst: boolean) {
   const port = flags.port ?? PRODUCT.defaultPort;
-  const running = await findRunning(store.root, port);
-  if (running) {
-    okLine(`scribui is already running for this project: ${c.accent(running)}`);
-    if (platform === "web") out(c.dim("    Its canvas is in the Chrome window ScribUI opened; press o in that terminal to bring it back."));
-    else if (flags.open !== false) openBrowser(running);
+  const runner = makeRunner(store, { platform, ...(flags.device ? { device: flags.device } : {}) }, flags.printEvent, (l: string) =>
+    out(c.dim(`    ${l.slice(0, 160)}`)),
+  );
+  const hosted = await hostProject(store, {
+    app: "cli",
+    port,
+    server: { canvasDir: flags.canvasDir, lan: flags.lan, runner, saveView: (req) => saveCapturedView(store, req) },
+    onWait: (o) => warnLine(`Another capture is running (${o.app}, pid ${o.pid}); waiting for it to finish…`),
+  });
+  if (hosted.kind === "running") {
+    const running = hosted.owner.url ?? "";
+    okLine(`scribui is already running for this project${hosted.owner.app === "desktop" ? " in the desktop app" : ""}: ${c.accent(running)}`);
+    if (platform === "web" && hosted.owner.app !== "desktop") out(c.dim("    Its canvas is in the Chrome window ScribUI opened; press o in that terminal to bring it back."));
+    else if (flags.open !== false && running && hosted.owner.app !== "desktop") openBrowser(running);
     out();
     return;
   }
-
-  const runner = makeRunner(store, { platform, ...(flags.device ? { device: flags.device } : {}) }, flags.printEvent, (l) =>
-    out(c.dim(`    ${l.slice(0, 160)}`)),
-  );
-  const srv = await startOnFreePort({ projectDir: store.root, canvasDir: flags.canvasDir, port, lan: flags.lan, runner });
-  if (!srv) {
+  if (hosted.kind === "no-port") {
     errLine(`Ports ${portRange(port)} are all in use. Pass --port <n>.`);
     return process.exit(1);
   }
+  const srv = hosted.server;
   const url = `http://127.0.0.1:${srv.port}/`;
   out();
   line("canvas", c.accent(url));
   // web: the canvas opens in a Chrome window ScribUI controls, so its app tab can capture the app
   let live: LiveWindow | null = null;
   if (platform === "web" && flags.open !== false) {
-    live = await openLiveWindow(store, await liveCanvasUrl(store, srv.port), (msg) => warnLine(`Couldn't open the live window: ${msg}`));
+    live = await openLiveWindow(store, await liveCanvasUrl(store, srv.port), (req) => srv.saveView(req, "gui"), (msg) => warnLine(`Couldn't open the live window: ${msg}`));
     if (live) line("app tab", c.dim("browse your app in the canvas's app tab (L) and press Capture view"));
     else openBrowser(url);
   } else if (flags.open !== false) openBrowser(url);

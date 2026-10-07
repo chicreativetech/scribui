@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { RawElement, ScreenCapture, ScreenEntry } from "@scribui/core";
+import type { Device, RawElement, ScreenCapture, ScreenEntry } from "@scribui/core";
 import { CaptureError } from "../exec.js";
 import { pngSize } from "../png.js";
 import type { CaptureAdapter, CaptureContext } from "../types.js";
@@ -158,22 +158,41 @@ type LiveFrame = { evaluate<T>(fn: string): Promise<T> };
 type LiveElement = { screenshot(o?: object): Promise<Uint8Array> };
 
 /**
- * Capture what an embedded frame shows right now (the canvas's live tab):
- * no navigation and no waiting, so the user's state is kept exactly.
- * Writes `screens/<id>.png` into `roundDir`.
+ * What an embedded frame shows right now (the canvas's app tab): no
+ * navigation and no waiting, so the user's state is kept exactly. Returns the
+ * PNG, the element tree in screenshot pixels and the device; saving it is up
+ * to the project's owner (it queues it with every other capture).
  */
-export async function captureLiveFrame(opts: { frame: LiveFrame; element: LiveElement; screen: ScreenEntry; roundDir: string }): Promise<ScreenCapture> {
-  const { frame, element, screen, roundDir } = opts;
+export async function readLiveFrame(opts: { frame: LiveFrame; element: LiveElement }): Promise<{ png: Uint8Array; raw: RawElement; device: Device }> {
+  const { frame, element } = opts;
   await frame.evaluate(`window.__scribuiFullPage = false`);
   const png = await element.screenshot({ type: "png", animations: "disabled", caret: "hide" });
-  const rel = `screens/${screen.id}.png`;
-  await writePng(join(roundDir, rel), png);
   const px = pngSize(png);
   const css = await frame.evaluate<RawElement>(DOM_WALK);
   const scale = px.width / css.bounds.w;
   const device = { name: `Chrome ${Math.round(css.bounds.w)}×${Math.round(css.bounds.h)}`, width: Math.round(css.bounds.w), height: Math.round(css.bounds.h), scale };
-  return toCapture(screen, "web", device, rel, scaleTree(css, scale), px);
+  return { png, raw: scaleTree(css, scale), device };
 }
+
+/**
+ * For the moment of the screenshot, only the app: the canvas's own interface
+ * is hidden and the app is pinned to the window's top-left corner at its
+ * current size, so nothing of ScribUI (toolbar, panel, toasts, or a scroll
+ * area cutting the app off) ends up in the picture. The frame isn't moved in
+ * the DOM, so the app doesn't reload and keeps its state. Run in the canvas page.
+ */
+export const LIVE_ISOLATE = String.raw`(() => {
+  const f = document.querySelector("iframe[data-scribui-live]");
+  const r = f.getBoundingClientRect();
+  const st = document.createElement("style");
+  st.id = "scribui-capturing";
+  st.textContent = "html, body, body * { visibility: hidden !important; transition: none !important; }" +
+    "iframe[data-scribui-live] { visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important;" +
+    " margin: 0 !important; box-shadow: none !important; transform: none !important; z-index: 2147483647 !important;" +
+    " width: " + r.width + "px !important; height: " + r.height + "px !important; }";
+  document.head.appendChild(st);
+})()`;
+export const LIVE_RESTORE = `document.getElementById("scribui-capturing")?.remove()`;
 
 export class WebAdapter implements CaptureAdapter {
   readonly platform = "web" as const;

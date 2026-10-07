@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { PRODUCT } from "@scribui/core";
 import type { ReviewStore } from "@scribui/server";
-import { captureRound } from "./capture.js";
+import { captureProject } from "@scribui/project";
 
 /**
  * Minimal MCP server over stdio (JSON-RPC 2.0, newline-delimited).
@@ -52,10 +52,18 @@ export async function runMcp(store: ReviewStore) {
       return { rounds };
     }
     if (name === "request_review") {
-      const res = await captureRound(store, { screens: args["screens"] as string[] | undefined, all: args["all"] === true });
+      // handed to the project's server when one runs (the canvas or desktop app), otherwise run here
+      const got = await captureProject(store, { app: "mcp", screens: args["screens"] as string[] | undefined, all: args["all"] === true });
+      const next = "Ask the user to review with `npx scribui open`.";
+      if (got.via === "server") {
+        const r = got.result;
+        if (r.skipped) return { round: null, captured: [], note: r.summary };
+        return { round: r.round, captured: r.ok ?? [], reused: r.reused ?? [], failed: r.failed, next };
+      }
+      const res = got.result;
       if (!res) return { error: "capture tools not ready; run `npx scribui doctor`" };
       if (res.skipped) return { round: res.round, captured: [], note: `nothing to capture: ${res.plan.why}` };
-      return { round: res.round, captured: res.ok, reused: res.reused, failed: res.failed, next: "Ask the user to review with `npx scribui open`." };
+      return { round: res.round, captured: res.ok, reused: res.reused, failed: res.failed, next };
     }
     if (name === "get_feedback") {
       const n = await store.latestRound();
