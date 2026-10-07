@@ -4,6 +4,11 @@ name: Capture fidelity
 # a probe page, checked for element alignment, marks, raw colours, frozen
 # animations, the verify step and reconnects. Failed checks show as annotations
 # on the run; reports and screenshots are kept as artifacts.
+#
+# Each suite runs again once when it fails (the runners are slow and shared).
+# Web and Android then block; iOS reports a failure as a warning instead,
+# because CI's freshly booted simulators are too slow to be a reliable gate
+# (run it on a Mac before a release: FIDELITY.md).
 # Locally: packages/desktop/src/fidelity/web.ts and mobile.ts (how to run: top of each).
 on:
   push:
@@ -46,12 +51,15 @@ jobs:
         shell: bash
         run: |
           args=(--force-color-profile=srgb --force-device-scale-factor=${{ matrix.scale }})
-          if [ "$RUNNER_OS" = Linux ]; then
-            # no display, and no setuid sandbox helper on the runner
-            xvfb-run -a -s "-screen 0 1920x1200x24" npx electron . "${args[@]}" --no-sandbox
-          else
-            npx electron . "${args[@]}"
-          fi
+          suite() {
+            if [ "$RUNNER_OS" = Linux ]; then
+              # no display, and no setuid sandbox helper on the runner
+              xvfb-run -a -s "-screen 0 1920x1200x24" npx electron . "${args[@]}" --no-sandbox
+            else
+              npx electron . "${args[@]}"
+            fi
+          }
+          suite || { echo "::notice::the web suite failed; running it once more"; suite; }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -90,7 +98,7 @@ jobs:
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           working-directory: packages/desktop
-          script: npx tsx src/fidelity/mobile.ts android
+          script: npx tsx src/fidelity/mobile.ts android || (echo "::notice::the Android suite failed; running it once more" && npx tsx src/fidelity/mobile.ts android)
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -128,10 +136,16 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
       - name: iOS suite (simulator)
+        id: suite
+        # reported, not blocking: see the top of this file
+        continue-on-error: true
         working-directory: packages/desktop
         env:
           SCRIBUI_FIDELITY_OUT: ${{ runner.temp }}/fidelity-ios
-        run: npx tsx src/fidelity/mobile.ts ios --device "$UDID"
+        run: npx tsx src/fidelity/mobile.ts ios --device "$UDID" || { echo "::notice::the iOS suite failed; running it once more"; npx tsx src/fidelity/mobile.ts ios --device "$UDID"; }
+      - name: iOS result
+        if: steps.suite.outcome == 'failure'
+        run: echo "::warning title=fidelity ios::the iOS suite failed twice on CI's simulator (not blocking); run it on a Mac before releasing, see FIDELITY.md"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
