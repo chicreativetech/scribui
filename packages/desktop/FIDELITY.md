@@ -9,6 +9,10 @@ CI runs them on every push to `main` (`.github/workflows/fidelity.yml`): the web
 suite on Linux and macOS at scale factors 1 and 2, the Android suite on an
 emulator on Linux, the iOS suite on a simulator on macOS. Failed checks show
 as annotations on the run; `report.json` and the screenshots are artifacts.
+Each suite runs once more when it fails. Web and Android failures fail the
+run; an iOS failure only adds a warning, because CI's freshly booted simulators
+are slow enough that a capture takes ~13 s and idb's web-content scan is
+unreliable there. **Run the iOS suite on a Mac before a release** (below).
 
 ## What is checked
 
