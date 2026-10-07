@@ -235,7 +235,7 @@ Code: `packages/desktop/src`: `main.ts` (lifecycle, single instance, links), `pr
 
 Verified on macOS (Apple Silicon), dev and packaged, driven over DevTools: the app view placed on the canvas area; captures in fit and in a scaled 1440×900 (saved 2880×1800 at scale 2, probe pixel-exact in both, sRGB without a profile); a page sending `X-Frame-Options: DENY` shown; back/forward; the load-error state; the projects window in light and dark; open from the list → window, close → projects window back; annotated screenshots rendered in the packaged app (resvg); CLI handoff from a cold start and to the running app, and a repeat `open` finding the owner. 13 new unit tests (layout and exact zoom across sizes, links, recent list, PATH).
 
-**Not verified yet:** the Windows and Linux builds and their link registration (registry, `xdg-mime`) only run in CI, which hasn't run; installation from the DMG into /Applications (the handoff was tested with the built app registered in place).
+**Not verified yet:** the Windows and Linux builds and their link registration (registry, `xdg-mime`); installation from the DMG into /Applications (the handoff was tested with the built app registered in place). *(Correction, phase 5: CI had run; its Linux and Windows packaging failed from the start. Linux is fixed, see phase 5.)*
 
 **Open decision:** the plan limited the app view's navigation to the app's origin(s). Logins that redirect through another origin (OAuth, SSO) would break, so the view allows any http(s) page and blocks other schemes; it has no privileges either way. Narrow it if needed.
 
@@ -337,6 +337,38 @@ Code: capture `live/ios.ts` (`IosTarget`, session: reconnect, orientation, wheel
 
 **Not verified:** an iPad simulator, landscape-right and upside-down (mapped, not measured), the Intel build of the helper (built universal, not run), CI's macOS job with AXe (hasn't run), and a native app with a WKWebView (only Safari).
 
+### Phase 5 results: fidelity suite (2026-10-07)
+
+Code: `packages/desktop/src/fidelity/` (`checks.ts` pure checks, `pages.ts` probe pages, `web.ts` in the app, `mobile.ts` for Android and iOS), `FIDELITY.md` (what's checked, how to run, the Windows pass), `.github/workflows/fidelity.yml`.
+
+- **Probe page:** elements filled with pure colours found nowhere else (plain, rotated 12°, sticky header, below the fold), plus a 30 s transition, an infinite animation and a focused field; `/still` without motion (a device's picture can't be frozen, so a moving page rightly never settles), `/moving` with a box gliding for 5 s.
+- **Web suite** runs the product path: the canvas's size menu and `__scribuiCapture` against the app's `WebContentsView`, at fit, phone and 1440×900 (larger than the window), compared with the CLI's Playwright adapter at the same CSS size and scale. 39 checks per scale factor (alignment top and scrolled, marks, raw sRGB, frozen animations, pixels and bounds against Playwright).
+- **Mobile suite** (Node, no Electron) opens the probe page in Chrome or Safari, then: key frame, portrait and landscape alignment, marks, motion during capture, keyboard (Android), the stream killed mid-capture. 15–16 checks.
+- **CI:** web on Linux (xvfb) and macOS at scale 1 and 2, Android on a Linux emulator (API 34, KVM), iOS on a macOS simulator with AXe. Failed checks become annotations; reports and PNGs are artifacts. Each suite has a watchdog that fails with the step it was stuck in.
+
+**Bugs the suite found (fixed):**
+
+1. **Closing a project could hang** (1 run in 4): the server's `close()` waited for connections, and a request in flight at that moment left its keep-alive connection open, so the server, and the project's lock, never closed while the app ran. Now all connections are closed (with a test that hangs without the fix).
+2. **iOS: a capture right after a trackpad scroll could be wrong yet "settled":** the synthetic finger still held the page in overscroll, the screen stood still (both screenshots equal), but the accessibility tree leaves out the overscroll: every element 150 pt off. The session now lifts the finger before capturing, and the bounce back shows as motion.
+3. **iOS: trees with numeric values crashed the parser** (`AXValue` is a number for scroll bars and sliders in some states): affected the live capture and the CLI's idb/AXe path.
+4. **Linux packages never built:** the executable was named after the package (`@scribui/desktop`); now `scribui`. Windows packaging fails too, for a reason the public API doesn't show: the workflow now turns the end of electron-builder's log into annotations.
+
+**Measured** (macOS, Apple Silicon; iPhone 17 simulator iOS 26.3; Pixel 9a emulator API 37):
+
+| Suite | Result |
+|---|---|
+| web, scale 2 and 1 | 39/39 each, 6 runs in a row after fix 1 (~11 s a run); probes 0 px (rotated 1 px); Electron vs Playwright: 0.11–0.43 % of pixels differ, bounds identical |
+| iOS | 15/15, two runs of the final version; plain probes 0 px; rotated 4 px (WebKit's accessibility frames are whole points); moving page: retried, settled on attempt 3 |
+| Android | 16/16, two runs; plain probe 0 px; rotated 5 px (Chrome rounds transformed bounds out to whole CSS px); moving page: settled on attempt 2; keyboard in the tree |
+
+**Findings that change the plan**
+
+1. **Browser chrome meets the page's top on phones:** Safari paints a sticky header's colour behind the status bar and side safe areas; Chrome's toolbar shadow covers the top few pixels. Only the header's bottom edge is comparable there. What a user marks is unaffected (the tree is right), but a screenshot of web content on a phone shows more of the header colour than the element.
+2. **Tolerances on phones are one point**, not one pixel: whole-point frames (WebKit) and fractional pixel ratios (Chrome, 2.625). Fine for marks; the web path stays at 1 px.
+3. **Injected gestures differ from real ones:** scrcpy's wheel scrolls Chrome with no momentum, and a fast synthetic flick didn't fling Chrome; the motion check uses an animated page instead of a gesture.
+
+**Not verified yet:** the CI run of the new workflow (Linux web under xvfb, the Android emulator job, the iOS job on a hosted Mac: the first run will tell), Windows (manual pass described in `FIDELITY.md`), and the Windows packaging failure.
+
 ### Then the product
 
 | # | Phase | Result | Prototype estimate |
@@ -345,7 +377,7 @@ Code: capture `live/ios.ts` (`IosTarget`, session: reconnect, orientation, wheel
 | 2 | Desktop MVP | projects window, one window per project, chosen web surface, basic tool detection, CLI handoff; **packaged unsigned builds for macOS, Windows and Linux from CI from the start** | 5–7 days |
 | 3 | Android | `LiveSession` for Android, device picker and frame, capture flow with progress and preview, reconnect handling | 6–8 days |
 | 4 | iOS Simulator | `LiveSession` for iOS, simulator picker and boot (done, with spike I: see above) | 4–5 days |
-| 5 | Fidelity suite | the capture-fidelity matrix in CI (Linux and macOS runners, Android emulator on Linux), manual pass on Windows | 3–4 days |
+| 5 | Fidelity suite | the capture-fidelity matrix in CI (Linux and macOS runners, Android emulator on Linux), manual pass on Windows (built, see above; first CI run pending) | 3–4 days |
 | 6 | Setup in the app | first-time project setup as screens; automated tool installation | 5–7 days |
 | 7 | Release | Mac signing and notarisation, Windows signing, auto-update, release notes, crash reporting | 3–4 days, plus accounts |
 | later | | tablet streaming, physical iPhone (Swift helper plus WebDriverAgent), mixed platforms per project, dropping Playwright for automatic web recaptures | |

@@ -21,6 +21,9 @@ import { loadShellPath } from "./shellPath.js";
  */
 const SRGB = "--force-color-profile=srgb";
 
+/** A spike or fidelity harness runs instead of the app (no projects window, quits when done). */
+const harness = !!(process.env.SCRIBUI_SPIKE || process.env.SCRIBUI_FIDELITY);
+
 if (!process.argv.includes(SRGB)) relaunchInSrgb();
 else run();
 
@@ -85,7 +88,7 @@ function run() {
     win.on("closed", () => {
       setTimeout(() => {
         if (quitting || launcherOpen() || BrowserWindow.getAllWindows().length) return;
-        if (process.env.SCRIBUI_SPIKE) return;
+        if (harness) return;
         showLauncher();
       }, 0);
     });
@@ -93,7 +96,7 @@ function run() {
   app.on("before-quit", () => (quitting = true));
   // only reached when the projects window itself was closed with no project open
   app.on("window-all-closed", () => {
-    if (process.platform !== "darwin" || process.env.SCRIBUI_SPIKE) app.quit();
+    if (process.platform !== "darwin" || harness) app.quit();
   });
   app.on("activate", () => {
     if (!BrowserWindow.getAllWindows().length) showLauncher();
@@ -106,6 +109,10 @@ function run() {
     }
     await loadShellPath();
     registerCanvasApi();
+    if (process.env.SCRIBUI_FIDELITY === "web") {
+      const { runWebFidelity } = await import("./fidelity/web.js");
+      return runWebFidelity();
+    }
     if (process.env.SCRIBUI_SPIKE) {
       const { runSpike } = await import("./spike.js");
       return runSpike(projectFromArgs(process.argv) ?? (process.env.SCRIBUI_PROJECT ? resolve(process.env.SCRIBUI_PROJECT) : null));

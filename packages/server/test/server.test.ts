@@ -2,7 +2,8 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp, LanAuth, ReviewStore, sendRound } from "../src/index.js";
+import { createApp, LanAuth, ReviewStore, sendRound, startServer } from "../src/index.js";
+import { connect } from "node:net";
 
 const F = join(import.meta.dirname, "../../../fixtures");
 
@@ -223,5 +224,20 @@ describe("http api", () => {
     const lan = new LanAuth();
     const t = lan.issueToken(-1);
     expect(lan.redeem(t)).toBeNull();
+  });
+});
+
+describe("closing the server", () => {
+  it("doesn't wait for a request that's still on its way", async () => {
+    const { dir } = await project();
+    const srv = await startServer({ projectDir: dir, port: 0, watchMs: 60_000 });
+    // a client mid-request: headers sent, never finished
+    const sock = connect(srv.port, "127.0.0.1");
+    await new Promise<void>((r) => sock.once("connect", () => r()));
+    sock.write("GET /api/project HTTP/1.1\r\nHost: 127.0.0.1\r\n");
+    await new Promise((r) => setTimeout(r, 50));
+    const closed = await Promise.race([srv.close().then(() => "closed"), new Promise((r) => setTimeout(() => r("hung"), 3000))]);
+    sock.destroy();
+    expect(closed).toBe("closed");
   });
 });

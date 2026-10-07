@@ -75,11 +75,20 @@ jobs:
           node scripts/stage-native.mjs --arch ${{ matrix.archs }}
       - name: Package (unsigned)
         working-directory: packages/desktop
+        shell: bash
         env:
           # no Developer ID / Windows certificate yet: never look for one
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder ${{ matrix.target }} --publish never
+        run: |
+          set -o pipefail
+          npx electron-builder ${{ matrix.target }} --publish never 2>&1 | tee package.log
+      # the end of the log as annotations: readable on the run's page without opening the log
+      - name: Why packaging failed
+        if: failure()
+        working-directory: packages/desktop
+        shell: bash
+        run: test -f package.log && tail -n 25 package.log | sed -e 's/%/%25/g' -e 's/^/::error title=electron-builder::/' || true
       - uses: actions/upload-artifact@v4
         with:
           name: scribui-desktop-${{ runner.os }}
