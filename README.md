@@ -13,16 +13,28 @@ The tool never edits your app and has no AI inside. It supplies context; your ag
 
 ## Install
 
-ScribUI is not published to npm yet. Build it from this repo and install the CLI globally:
+### Desktop app
+
+Download it from [Releases](https://github.com/chicreativetech/scribui/releases): the `.dmg` for macOS (Apple Silicon or Intel), the `.exe` installer for Windows, the `.AppImage` or `.deb` for Linux. Open it, then **Open folder…** your app's folder; ScribUI sets the project up from there (see [The desktop app](#the-desktop-app)).
+
+Builds aren't signed yet, so each system asks once:
+
+- **macOS:** the first launch is blocked; open **System Settings → Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/ScribUI.app`).
+- **Windows:** SmartScreen says it protected your PC; click **More info → Run anyway**.
+- **Linux:** make the AppImage executable (`chmod +x ScribUI-*.AppImage`), or install the `.deb`.
+
+### Command line
+
+The `scribui` CLI works with or without the app: it sets projects up in the terminal, captures for your agent (`scribui capture`, MCP), and opens projects in the app when it's installed. It's not published to npm yet. Build it from this repo and install it globally:
 
 ```sh
 git clone <this repo> scribui && cd scribui
 pnpm install && pnpm build
-cd packages/cli && npm pack && npm install -g ./scribui-0.1.0.tgz
+cd packages/cli && npm pack && npm install -g ./scribui-*.tgz
 scribui --help
 ```
 
-To use it in one project only, run `npm install -D /path/to/scribui-0.1.0.tgz` there and call it with `npx scribui`. Node 20 or newer is required.
+To use it in one project only, run `npm install -D /path/to/scribui-<version>.tgz` there and call it with `npx scribui`. Node 20 or newer is required.
 
 You don't need to install anything else up front: `scribui` checks for the capture tools it needs and offers to install them.
 
@@ -51,8 +63,8 @@ ScribUI looks at the project to decide what it is. A folder without Android or i
 | --- | --- | --- | --- |
 | Runs on | macOS, Windows, Linux | macOS, Windows, Linux | **macOS only** |
 | Captures from | your local dev server | emulator or phone over USB | iOS Simulator |
-| ScribUI installs for you | Playwright + Chromium | adb (via Homebrew) | Maestro |
-| You install yourself | Node 20+ | Android Studio or the platform tools, if Homebrew isn't available | Xcode |
+| ScribUI installs for you | Playwright + Chromium | adb (Google's platform tools) | Maestro (terminal), AXe (desktop app) |
+| You install yourself | Node 20+ (terminal only) | an emulator (Android Studio) or a phone with USB debugging | Xcode |
 | Speed | about 1 s per screen | about 10 s per screen (beta) | about 10 s per screen (beta) |
 
 ### Web
@@ -90,7 +102,7 @@ Views captured in the app tab are never recaptured automatically: their state (a
 1. **Start the emulator or connect your phone,** with the app installed. If nothing is connected, ScribUI lists your emulators and offers to start one.
 2. **Run `scribui`** and pick **Android** (preselected when only an Android project is found). The first time, it:
    - creates `.scribui/`, a navigation helper for flows, and the `AGENTS.md` section;
-   - checks for **adb**. When it's missing, ScribUI offers to install the platform tools with Homebrew; without Homebrew, install Android Studio (or the platform tools alone);
+   - checks for **adb**. When it's missing, ScribUI offers to download Google's platform tools into `~/.scribui/tools` (no Homebrew or administrator needed);
    - recommends **Maestro** for faster navigation flows. It's optional: ScribUI's built-in adb helper works without it;
    - picks the device, asking when several are connected, and remembers the choice in `screens.json`;
    - reads your app id from `app/build.gradle(.kts)` and checks that the app is installed. If it isn't, it offers to build and install it with the detected command: `./gradlew installDebug`, `npx expo run:android`, `npx react-native run-android` or `flutter run -d android --debug`. When `JAVA_HOME` is missing or older than 17, the build uses Android Studio's bundled JDK.
@@ -125,9 +137,17 @@ Views captured in the app tab are never recaptured automatically: their state (a
 
 Run `scribui` in each project. Each one gets its own canvas on the next free port (4382, 4383, …) in its own browser tab, and its own `.scribui/` folder. Running `scribui` or `scribui open` again in a project that already has a canvas open reopens that canvas instead of starting a second one, also when it was started with `--port`.
 
-### The desktop app (preview)
+### The desktop app
 
-With the ScribUI desktop app installed, `scribui` and `scribui open` open the project there instead of a browser: the app runs the project's server, shows the canvas, and shows your web app in the App tab as a normal page (pages that refuse to be embedded work too). Pass `--no-desktop` to use the browser anyway. The app's projects window lists recent projects and which device tools (adb, the Android emulator, Xcode, idb) it found. Builds are unsigned for now: on macOS, open it once with **System Settings → Privacy & Security → Open Anyway**.
+The desktop app does everything the terminal and the browser canvas do, in one window per project, and shows the app you're reviewing live inside it.
+
+- **Setting up a project:** **Open folder…** on a folder that isn't a ScribUI project yet walks you through what `scribui` asks in the terminal: the platform (the detected one is marked), where the web app runs (running dev servers are listed with their page titles) or the mobile app's id and build command, the tools that platform needs, and for mobile, the line to paste into your agent while ScribUI waits for it to list the screens.
+- **Installing tools:** the projects window lists the capture tools on your computer and installs the missing ones with **Install**: adb (downloaded from Google), AXe and Android Studio (with Homebrew, or winget on Windows), Playwright, and Xcode's selection when only the Command Line Tools are active. The output shows as it runs.
+- **Web:** the **App** tab is your running app as a normal page, so logins, cookies and pages that refuse to be embedded all work. Size it to desktop, laptop, tablet or phone and press **Capture view**.
+- **Android and iOS:** mobile projects get a **Device** tab with the emulator, phone or simulator live in it. Use it with the mouse and keyboard (scrolling, typing, Back/Home, rotate) and press **Capture**: ScribUI freezes the picture, reads the elements and checks the screen held still. iOS needs a Mac with Xcode, plus AXe.
+- **With the CLI:** when the app is installed, `scribui` and `scribui open` open the project in it; `--no-desktop` keeps the browser. Only one process captures a project at a time, so the CLI and MCP hand their captures to the app while it has the project open.
+- **Updates:** the app checks [Releases](https://github.com/chicreativetech/scribui/releases) when it starts and every few hours. On Windows and with the Linux AppImage it downloads updates and installs them when you quit (or **Help → Restart to Update**). Until macOS builds are signed, and for the `.deb`, it tells you a new version is out and links to it. **Help → Check for Updates…** checks now; what changed is in [CHANGELOG.md](CHANGELOG.md).
+- **Crashes:** crash reports stay on your computer. After a crash, the next launch offers to open a GitHub issue with the version and error filled in (you see everything before sending) or to show the files. **Help → Report a Problem…** and **Help → Show Logs and Crash Reports** work any time.
 
 ### Annotate
 
@@ -223,6 +243,8 @@ Tools: `request_review` (captures a round), `get_feedback` (returns `waiting` or
 | Chips say `container 632×50` instead of a name | the element has no id or label; add an accessibility id or `data-testid` |
 | Mobile capture fails | `scribui doctor --device "iPhone 16"`; check that the simulator is booted and the flow runs with `maestro test <flow>` |
 | A screen looks out of date | it was reused (`↺` badge): click the badge, press `R` in the terminal, or run `scribui capture --all` |
+| The desktop app's Device tab says a tool is missing | press **Install** there, or in the projects window (**File → Projects…**) |
+| The desktop app crashed or misbehaves | **Help → Report a Problem…** opens a prefilled GitHub issue; the logs are under **Help → Show Logs and Crash Reports** |
 
 ## Keyboard reference
 
@@ -267,7 +289,7 @@ Flags: `--dir`, `--platform ios|android|web`, `--device`, `--screens a,b`, `--al
 
 | Platform | Navigation | Screenshot | Element tree | Needs |
 | --- | --- | --- | --- | --- |
-| iOS simulator (macOS only) | Maestro flow | `simctl io screenshot` | Maestro hierarchy or `idb ui describe-all` | Xcode, Maestro or idb |
+| iOS simulator (macOS only) | Maestro flow | `simctl io screenshot` | Maestro hierarchy, `idb ui describe-all` or AXe | Xcode, and Maestro, idb or AXe (the desktop app uses AXe) |
 | Android emulator or phone | Maestro flow or adb helper | `adb screencap` | `uiautomator dump` | adb; Maestro optional |
 | Web | `url` + optional setup script | Playwright | DOM walk | `playwright` + Chromium |
 
@@ -312,6 +334,8 @@ UPDATE_GOLDEN=1 pnpm test   # after an intended change to compiled output
 | `packages/canvas` | React + Vite canvas |
 | `packages/cli` | `scribui` entry point and MCP server; bundles the others and the built canvas into one npm package |
 | `packages/project` | Project ownership (lock), the capture queue's runner, saving captured views; shared by the CLI and the desktop app |
-| `packages/desktop` | Electron app: projects window, one window per project, the app view. `pnpm --filter @scribui/desktop start` runs it from the repo; `dist` packages it |
+| `packages/desktop` | Electron app: projects window and setup, one window per project, the app view and device view, updates and crash reports. `pnpm --filter @scribui/desktop start` runs it from the repo; `dist` packages it. Capture fidelity checks: [`FIDELITY.md`](packages/desktop/FIDELITY.md) |
+
+Releases are version tags built by CI into a draft GitHub release; how to make one, and the signing secrets, are in [RELEASING.md](RELEASING.md).
 
 Thresholds for the resolver and pen gestures live in one object: [`packages/core/src/config.ts`](packages/core/src/config.ts).
