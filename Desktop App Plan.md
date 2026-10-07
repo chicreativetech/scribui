@@ -392,6 +392,15 @@ Code: desktop `setup.ts` (folder checks, answers, screens state), `installs.ts` 
 
 **Not verified:** Install for Android Studio, AXe and the Xcode password prompt (machine already has them), Cancel on a live install, the iOS setup path end to end, Windows and Linux (winget, the Windows zip and `adb.exe` replacement), and the light theme of the new screens.
 
+### CI green (2026-10-07)
+
+First fully green run of both workflows (`bf0e642`): typecheck and tests; packaged builds for macOS, Windows and Linux; the web suite on Linux and macOS at scale 1 and 2; Android on the Linux emulator; iOS on a hosted Mac. What it took:
+
+- **Packaging:** `publish: null` in `electron-builder.yml`. With no publish target (no `repository` field), electron-builder put `null` in its publish list and crashed writing update info (`latest-linux.yml`; Windows went green with the same change, its error had been cut off: GitHub keeps 10 annotations per step, so the log's end is now one annotation and the full log an artifact).
+- **Web captures hide scrollbars** for the shot (`Emulation.setScrollbarsHidden`, as Playwright does). Where scrollbars take room (Linux, Windows, macOS without a trackpad, including this Mac by now) the page was laid out 15 px narrower and the body stayed in the tree as an extra container, so trees didn't match Playwright's.
+- **iOS:** a slow `simctl list` right after boot made `connect` report "no simulator"; it retries with more time and says what simctl returned. The suite waits until Safari has fetched the probe page (a fresh simulator's first Safari launch is slow) and closes first-run tips over it, which hide the page from the accessibility tree.
+- **Android suite** removes its `adb reverse` tunnel; leftovers from many runs stopped Chrome's requests from arriving.
+
 ### Then the product
 
 | # | Phase | Result | Prototype estimate |
