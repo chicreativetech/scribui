@@ -28,6 +28,10 @@ protocols:
   - name: ScribUI project
     schemes: [scribui]
 mac:
+  extraResources:
+    # the iOS Simulator's live view (scripts/build-sim-helper.mjs); runs on AXe's frameworks
+    - from: vendor/scribui-sim
+      to: scribui-sim
   target:
     - target: dmg
       arch: [arm64, x64]

@@ -8,7 +8,7 @@ import { run, which } from "./exec.js";
  * Find a command-line tool on PATH or in the places its installer puts it
  * (Android Studio's SDK, ~/.maestro/bin), which are often not on PATH.
  */
-export async function findTool(name: "adb" | "emulator" | "maestro" | "idb" | "idb_companion" | "xcrun"): Promise<string | null> {
+export async function findTool(name: "adb" | "emulator" | "maestro" | "idb" | "idb_companion" | "axe" | "xcrun"): Promise<string | null> {
   const onPath = await which(name);
   if (onPath) return onPath;
   const home = homedir();
@@ -26,6 +26,7 @@ export async function findTool(name: "adb" | "emulator" | "maestro" | "idb" | "i
   if (name === "maestro") candidates.push(join(home, ".maestro/bin/maestro"));
   if (name === "idb") candidates.push(join(home, ".local/bin/idb"), "/opt/homebrew/bin/idb");
   if (name === "idb_companion") candidates.push("/opt/homebrew/bin/idb_companion", "/usr/local/bin/idb_companion");
+  if (name === "axe") candidates.push("/opt/homebrew/bin/axe", "/usr/local/bin/axe");
   return candidates.find((p) => existsSync(p)) ?? null;
 }
 
@@ -101,7 +102,7 @@ export async function bootSimulator(udid: string): Promise<boolean> {
 
 /* ─────────────────────────── tool report ─────────────────────────── */
 
-export type ToolId = "adb" | "emulator" | "xcode" | "idb";
+export type ToolId = "adb" | "emulator" | "xcode" | "axe";
 
 export type ToolStatus = {
   id: ToolId;
@@ -121,6 +122,9 @@ export type ToolStatus = {
 
 type Os = "darwin" | "win32" | "linux";
 
+/** AXe: the iOS Simulator's input, accessibility tree and (through its frameworks) the device view's stream. */
+export const AXE_INSTALL = "brew tap cameroncooke/axe; brew trust --formula cameroncooke/axe/axe; brew install cameroncooke/axe/axe";
+
 const INSTALL: Record<ToolId, Partial<Record<Os, { command?: string; url?: string }>>> = {
   adb: {
     darwin: { command: "brew install --cask android-platform-tools" },
@@ -133,7 +137,8 @@ const INSTALL: Record<ToolId, Partial<Record<Os, { command?: string; url?: strin
     linux: { command: "sudo snap install android-studio --classic", url: "https://developer.android.com/studio" },
   },
   xcode: { darwin: { command: 'open "macappstore://apps.apple.com/app/xcode/id497799835"', url: "https://developer.apple.com/xcode/" } },
-  idb: { darwin: { command: "brew install facebook/fb/idb-companion && pipx install fb-idb", url: "https://fbidb.io" } },
+  // current Homebrew asks to trust a third-party formula before installing it
+  axe: { darwin: { command: AXE_INSTALL, url: "https://github.com/cameroncooke/AXe" } },
 };
 
 /**
@@ -166,7 +171,7 @@ export async function detectTools(os: NodeJS.Platform = process.platform): Promi
   ];
   if (os !== "darwin") return tools;
 
-  const [xcode, idb, companion] = await Promise.all([xcodeStatus(), findTool("idb"), findTool("idb_companion")]);
+  const [xcode, axe] = await Promise.all([xcodeStatus(), findTool("axe")]);
   tools.push(
     {
       id: "xcode",
@@ -177,14 +182,12 @@ export async function detectTools(os: NodeJS.Platform = process.platform): Promi
       ...(xcode.ok ? { ok: true, detail: xcode.detail } : { ok: false, detail: xcode.detail, install: install("xcode")! }),
     },
     {
-      id: "idb",
-      name: "idb",
-      purpose: "mirrors and controls the iOS Simulator",
+      id: "axe",
+      name: "AXe",
+      purpose: "shows, controls and reads the iOS Simulator",
       platforms: ["ios"],
-      required: false,
-      ...(idb && companion
-        ? { ok: true, detail: idb }
-        : { ok: false, detail: idb ? "idb_companion is missing" : "not found", install: install("idb")! }),
+      required: true,
+      ...found("axe", axe, "not found"),
     },
   );
   return tools;

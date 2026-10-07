@@ -3,7 +3,11 @@ import { join, resolve } from "node:path";
 import { app, type WebContents } from "electron";
 import {
   AndroidTarget,
+  AXE_INSTALL,
+  bootSimulatorHeadless,
   findTool,
+  IosTarget,
+  listSimulatorsLive,
   listAvds,
   run,
   SCRCPY_VERSION,
@@ -41,9 +45,9 @@ export type DeviceState = {
 
 export type DeviceList = {
   devices: DeviceInfo[];
-  /** Emulators that can be started (not running). */
-  avds: string[];
-  /** adb is missing: what to run to get it. */
+  /** Emulators (AVD names) or simulators (UDIDs) that can be started: not running. */
+  startable: { id: string; name: string }[];
+  /** A tool the device view needs is missing (adb; AXe or the helper on iOS): what to run to get it. */
   missing: { tool: string; install?: string } | null;
 };
 
@@ -60,6 +64,18 @@ export function scrcpyServerJar(): string | null {
   ].filter((p): p is string => !!p);
   return candidates.find((p) => existsSync(p)) ?? null;
 }
+
+/** The iOS Simulator helper: next to the app when packaged, vendor/ in the repo (scripts/build-sim-helper.mjs). */
+export function simHelperPath(): string | null {
+  const candidates = [
+    process.env.SCRIBUI_SIM_HELPER,
+    app.isPackaged ? join(process.resourcesPath, "scribui-sim") : resolve(__dirname, "../vendor/scribui-sim"),
+  ].filter((p): p is string => !!p);
+  return candidates.find((p) => existsSync(p)) ?? null;
+}
+
+/** AXe's frameworks, which scribui-sim runs on (Homebrew, Apple Silicon or Intel). */
+const axeFrameworks = () => ["/opt/homebrew/opt/axe/libexec/Frameworks", "/usr/local/opt/axe/libexec/Frameworks"].some((p) => existsSync(join(p, "FBSimulatorControl.framework")));
 
 /** SCRIBUI_DEBUG_DEVICE=<file>: the scrcpy server's log, visibility and key frames, appended to that file (stdout is lost in the sRGB relaunch). */
 const debugFile = process.env.SCRIBUI_DEBUG_DEVICE;
@@ -95,7 +111,12 @@ export class DeviceView {
 
   private async getTarget(): Promise<LiveTarget> {
     if (this.target) return this.target;
-    if (this.platform !== "android") throw new Error("the iOS Simulator's device view comes in a later version");
+    if (this.platform === "ios") {
+      const helper = simHelperPath();
+      if (!helper) throw new Error("scribui-sim is missing from the app (run scripts/build-sim-helper.mjs)");
+      this.target = new IosTarget({ helper, ...(debug ? { log: debug } : {}) });
+      return this.target;
+    }
     const jar = scrcpyServerJar();
     if (!jar) throw new Error(`scrcpy-server ${SCRCPY_VERSION} is missing from the app (run scripts/fetch-scrcpy.mjs)`);
     const adb = await findTool("adb");
@@ -104,17 +125,26 @@ export class DeviceView {
   }
 
   async list(): Promise<DeviceList> {
-    if (this.platform !== "android") return { devices: [], avds: [], missing: null };
+    if (this.platform === "ios") return this.listSimulators();
     if (!(await findTool("adb"))) {
       const install = { darwin: "brew install --cask android-platform-tools", win32: "winget install Google.PlatformTools", linux: "sudo apt install adb" }[
         process.platform as "darwin"
       ];
-      return { devices: [], avds: [], missing: { tool: "adb", ...(install ? { install } : {}) } };
+      return { devices: [], startable: [], missing: { tool: "adb", ...(install ? { install } : {}) } };
     }
     const target = await this.getTarget();
     const [devices, avds] = await Promise.all([target.list(), listAvds().catch(() => [])]);
     const running = new Set(devices.filter((d) => d.kind === "emulator").map((d) => d.name.replace(/ /g, "_")));
-    return { devices, avds: avds.filter((a) => !running.has(a)), missing: null };
+    return { devices, startable: avds.filter((a) => !running.has(a)).map((a) => ({ id: a, name: a.replace(/_/g, " ") })), missing: null };
+  }
+
+  private async listSimulators(): Promise<DeviceList> {
+    const none = (tool: string, install?: string): DeviceList => ({ devices: [], startable: [], missing: { tool, ...(install ? { install } : {}) } });
+    if (process.platform !== "darwin") return none("a Mac (the iOS Simulator only runs on macOS)");
+    if (!(await findTool("axe")) || !axeFrameworks()) return none("AXe", AXE_INSTALL);
+    if (!simHelperPath()) return none("scribui-sim, built with the app", "pnpm --filter @scribui/desktop exec node scripts/build-sim-helper.mjs");
+    const { devices, startable } = await listSimulatorsLive();
+    return { devices, startable, missing: null };
   }
 
   async connect(id: string) {
@@ -189,11 +219,30 @@ export class DeviceView {
 
   async input(ev: LiveInput) {
     if (!this.session || this.capturing) return;
+    // only the keys this device has (iOS: no Back or Recents)
+    if (ev.type === "key" && !this.session.capabilities.keys.includes(ev.key)) return;
     await this.session.input(ev);
   }
 
-  /** Start an emulator, wait for it to boot, and show it. */
-  async startEmulator(avd: string) {
+  /** Start an emulator or boot a simulator, wait until it's up, and show it. */
+  async start(id: string) {
+    if (this.platform === "ios") return this.bootSimulator(id);
+    return this.startEmulator(id);
+  }
+
+  private async bootSimulator(udid: string) {
+    const known = (await listSimulatorsLive()).startable.find((s) => s.id === udid);
+    if (!known) throw new Error("no shut-down simulator with that id");
+    await this.disconnect();
+    this.set({ status: "connecting", device: { id: udid, name: `${known.name} (starting)` }, message: null });
+    if (!(await bootSimulatorHeadless(udid))) {
+      this.set({ status: "lost", message: `${known.name} didn't finish starting` });
+      return this.state;
+    }
+    return this.connect(udid);
+  }
+
+  private async startEmulator(avd: string) {
     const known = await listAvds();
     if (!known.includes(avd)) throw new Error(`no emulator named ${avd}`);
     await this.disconnect();
@@ -269,9 +318,10 @@ export class DeviceView {
     });
   }
 
-  /** A name for the view from the activity in front ("…/.wifi.WifiSettingsActivity" → "Wifi Settings"). */
+  /** A name for the view from what's in front: the session's own (the iOS app), or the Android activity ("…/.wifi.WifiSettingsActivity" → "Wifi Settings"). */
   private async foregroundTitle(): Promise<string | null> {
     const id = this.state.device?.id;
+    if (this.session?.foregroundTitle) return this.session.foregroundTitle().catch(() => null);
     if (!id || this.platform !== "android") return null;
     const adb = (await findTool("adb")) ?? "adb";
     const r = await run(adb, ["-s", id, "shell", "dumpsys", "activity", "activities"], { timeoutMs: 8000 });

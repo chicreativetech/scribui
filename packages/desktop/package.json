@@ -7,9 +7,9 @@
   "main": "dist/main.cjs",
   "scripts": {
     "build": "tsup",
-    "start": "node scripts/fetch-scrcpy.mjs && tsup && electron .",
+    "start": "node scripts/fetch-scrcpy.mjs && node scripts/build-sim-helper.mjs && tsup && electron .",
     "icon": "node scripts/icon.mjs",
-    "dist": "node scripts/fetch-scrcpy.mjs && tsup && node scripts/stage-native.mjs && electron-builder --publish never",
+    "dist": "node scripts/fetch-scrcpy.mjs && node scripts/build-sim-helper.mjs && tsup && node scripts/stage-native.mjs && electron-builder --publish never",
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {},

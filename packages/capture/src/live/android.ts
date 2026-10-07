@@ -44,6 +44,7 @@ const CAPABILITIES: Capabilities = {
   pointer: true,
   scroll: true,
   text: true,
+  physicalKeys: false,
   keys: ["back", "home", "recents", "lock"],
   rotate: true,
   orientation: "auto",
@@ -275,8 +276,9 @@ class AndroidSession implements LiveSession {
       case "edit":
         return s.press(EDIT[ev.key]);
       case "text":
+      case "physical":
         // scrcpy takes up to 300 bytes per message
-        for (const part of chunkText(ev.text, 300)) s.text(part);
+        for (const part of chunkText(ev.text, 300)) if (part) s.text(part);
         return;
       case "rotate": {
         // portrait ↔ landscape, locked: auto-rotate goes off, as with Android's own rotate button

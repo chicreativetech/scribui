@@ -8,6 +8,9 @@ describe("device tab input from the canvas", () => {
     expect(liveInput({ type: "edit", key: "backspace" })).toEqual({ type: "edit", key: "backspace" });
     expect(liveInput({ type: "text", text: "wifi" })).toEqual({ type: "text", text: "wifi" });
     expect(liveInput({ type: "rotate", extra: "ignored" })).toEqual({ type: "rotate" });
+    expect(liveInput({ type: "physical", code: "Digit2", alt: true, text: "@" })).toEqual({ type: "physical", code: "Digit2", shift: false, alt: true, text: "@" });
+    // a dead key types nothing on the computer; the device composes it
+    expect(liveInput({ type: "physical", code: "Equal", shift: false, alt: false, text: "" })).toEqual({ type: "physical", code: "Equal", shift: false, alt: false, text: "" });
   });
 
   it("clamps scroll amounts to scrcpy's range", () => {
@@ -26,6 +29,8 @@ describe("device tab input from the canvas", () => {
       { type: "text", text: "" },
       { type: "text", text: "x".repeat(2001) },
       { type: "shell", cmd: "reboot" },
+      { type: "physical", code: "Key A", text: "a" },
+      { type: "physical", code: "KeyA", text: "x".repeat(9) },
       { type: "scroll", x: 0.5, y: 0.5, dx: Number.NaN, dy: 1 },
     ])
       expect(liveInput(bad)).toBeNull();

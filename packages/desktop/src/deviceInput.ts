@@ -29,6 +29,10 @@ export function liveInput(v: unknown): LiveInput | null {
       return EDIT_KEYS.has(o.key as string) ? { type: "edit", key: o.key as "enter" } : null;
     case "text":
       return typeof o.text === "string" && o.text.length > 0 && o.text.length <= 2000 ? { type: "text", text: o.text } : null;
+    case "physical":
+      return typeof o.code === "string" && /^[A-Za-z0-9]{1,24}$/.test(o.code) && typeof o.text === "string" && o.text.length <= 8
+        ? { type: "physical", code: o.code, shift: o.shift === true, alt: o.alt === true, text: o.text }
+        : null;
     case "rotate":
       return { type: "rotate" };
   }

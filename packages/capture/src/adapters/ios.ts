@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RawElement, ScreenCapture, ScreenEntry } from "@scribui/core";
 import { CaptureError, run, which } from "../exec.js";
-import { findTool } from "../tools.js";
+import { AXE_INSTALL, findTool } from "../tools.js";
 import { parseIdb } from "../parsers/idb.js";
 import { parseMaestro } from "../parsers/maestro.js";
 import { pngSize } from "../png.js";
@@ -14,15 +14,16 @@ type SimDevice = { udid: string; name: string; state: string };
 
 /**
  * iOS simulator: Maestro flows for navigation, `simctl` for screenshots,
- * Maestro hierarchy (or idb) for the element tree.
+ * Maestro hierarchy (or AXe, or idb: the same nested JSON) for the element tree.
  */
 export class IosAdapter implements CaptureAdapter {
   readonly platform = "ios" as const;
   private sim: SimDevice | null = null;
-  private tree: "maestro" | "idb" | null = null;
+  private tree: "maestro" | "axe" | "idb" | null = null;
   private booted: SimDevice[] = [];
   private maestroPath: string | null = null;
   private idbPath: string | null = null;
+  private axePath: string | null = null;
 
   constructor(private ctx: CaptureContext) {}
 
@@ -44,18 +45,20 @@ export class IosAdapter implements CaptureAdapter {
     }
     const maestro = await findTool("maestro");
     const idb = await findTool("idb");
+    const axe = await findTool("axe");
     this.maestroPath = maestro;
     this.idbPath = idb;
-    if (!maestro && !idb)
+    this.axePath = axe;
+    if (!maestro && !axe && !idb)
       problems.push(
-        "Neither maestro nor idb found (needed for the element tree).\n" +
+        "Neither maestro nor AXe found (needed for the element tree).\n" +
           "  Install Maestro: curl -fsSL https://get.maestro.mobile.dev | bash\n" +
-          "  or idb:          brew tap facebook/fb && brew install idb-companion && pip3 install fb-idb",
+          `  or AXe:          ${AXE_INSTALL}`,
       );
     const needsMaestro = this.ctx.manifest.screens.some((s) => /\.ya?ml$/i.test(s.flow ?? ""));
     if (needsMaestro && !maestro)
       problems.push("screens.json uses Maestro flows but maestro is not installed: curl -fsSL https://get.maestro.mobile.dev | bash");
-    this.tree = maestro ? "maestro" : idb ? "idb" : null;
+    this.tree = maestro ? "maestro" : axe ? "axe" : idb ? "idb" : null;
     return { ok: problems.length === 0, problems };
   }
 
@@ -108,6 +111,13 @@ export class IosAdapter implements CaptureAdapter {
       const probe = parseMaestro(out, "ios", 1);
       return { points: probe.bounds, tree: (s: number): RawElement => parseMaestro(out, "ios", s) };
     }
+    if (this.tree === "axe") {
+      const r = await run(this.axePath ?? "axe", ["describe-ui", "--udid", udid], { timeoutMs: 60_000 });
+      if (r.code !== 0) throw new CaptureError("axe describe-ui failed", r.stderr);
+      const out = r.stdout.toString();
+      const probe = parseIdb(out, 1);
+      return { points: probe.bounds, tree: (s: number): RawElement => parseIdb(out, s) };
+    }
     if (this.tree === "idb") {
       const r = await run(this.idbPath ?? "idb", ["ui", "describe-all", "--udid", udid, "--json", "--nested"], { timeoutMs: 60_000 });
       let out = r.stdout.toString();
@@ -119,6 +129,6 @@ export class IosAdapter implements CaptureAdapter {
       const probe = parseIdb(out, 1);
       return { points: probe.bounds, tree: (s: number): RawElement => parseIdb(out, s) };
     }
-    throw new CaptureError("no element tree tool available (maestro or idb)", `screenshot is ${pxWidth}px wide`);
+    throw new CaptureError("no element tree tool available (maestro or AXe)", `screenshot is ${pxWidth}px wide`);
   }
 }
