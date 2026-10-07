@@ -225,20 +225,27 @@ export async function runMobileFidelity(platform: Platform) {
     check("portrait: a circle around the probe resolves to it", mark.ok, mark);
     check("portrait: the screenshot is sRGB without a profile", !p.img.hasColourProfile);
 
+    /** Rotate, and wait until the session reports the new orientation (seconds on a slow CI Mac), then let the UI settle. */
+    const turn = async (landscape: boolean) => {
+      await s.input({ type: "rotate" });
+      for (let i = 0; i < 100 && s.size.width > s.size.height !== landscape; i++) await sleep(200);
+      await sleep(2000);
+    };
+
     // landscape
     at("rotating");
-    await s.input({ type: "rotate" });
-    await sleep(3500);
+    await turn(true);
     const l = await capture("landscape");
     check("landscape: saved turned (wider than tall)", l.c.orientation === "landscape" && l.img.width > l.img.height, { size: [l.img.width, l.img.height], device: l.c.device });
     probes("landscape", l, ["probe", "header"]);
-    await s.input({ type: "rotate" });
-    await sleep(3500);
+    await turn(false);
 
     // Capture while something on the page still moves: either the capture waits for the screen to
     // settle or it says it didn't
     at("capturing while the page moves");
-    await openProbe(platform, device.id, probe, "/moving", 0);
+    // the box moves for longer than this machine's portrait capture took, so the first screenshot catches it
+    const moveMs = Math.max(5000, Math.round(p.ms * 1.5));
+    await openProbe(platform, device.id, probe, `/moving?ms=${moveMs}`, 0);
     await sleep(1200);
     const m = await capture("moving");
     const moved = m.c.attempts > 1 || !m.c.settled;
