@@ -13,6 +13,8 @@ import { run } from "../exec.js";
  * text) to it, over an `adb forward` tunnel.
  */
 export const SCRCPY_VERSION = "4.1";
+/** SHA-256 of scrcpy-server-v4.1 from the scrcpy release (packages/desktop/scripts/fetch-scrcpy.mjs). */
+export const SCRCPY_SERVER_SHA256 = "deacb991ed2509715160ffdc7907e47b4160eb30d1566217e9047fd5b8850cae";
 const DEVICE_JAR = "/data/local/tmp/scribui-scrcpy-server.jar";
 const DEVICE_NAME_LENGTH = 64;
 
@@ -32,11 +34,11 @@ export type ScrcpyOptions = {
 };
 
 /** Control message types (app/src/control_msg.h, scrcpy 4.1). */
-const MSG = { injectKeycode: 0, injectText: 1, injectTouch: 2, backOrScreenOn: 4, rotateDevice: 11, resetVideo: 17 } as const;
+const MSG = { injectKeycode: 0, injectText: 1, injectTouch: 2, injectScroll: 3, backOrScreenOn: 4, rotateDevice: 11, resetVideo: 17 } as const;
 export const MotionAction = { down: 0, up: 1, move: 2 } as const;
 export const KeyAction = { down: 0, up: 1 } as const;
 /** android.view.KeyEvent key codes used by the device view. */
-export const Keycode = { home: 3, back: 4, appSwitch: 187, power: 26, enter: 66, del: 67 } as const;
+export const Keycode = { home: 3, back: 4, appSwitch: 187, power: 26, enter: 66, del: 67, forwardDel: 112, tab: 61, escape: 111, up: 19, down: 20, left: 21, right: 22, moveHome: 122, moveEnd: 123 } as const;
 /** SC_POINTER_ID_GENERIC_FINGER: a finger, not a mouse (a mouse pointer would hover). */
 const FINGER = 0xfffffffffffffffen;
 
@@ -48,6 +50,10 @@ export class ScrcpySession extends EventEmitter {
   private server: ChildProcess | null = null;
   private port = 0;
   private closed = false;
+
+  get isClosed() {
+    return this.closed;
+  }
 
   private constructor(private opts: ScrcpyOptions) {
     super();
@@ -63,7 +69,13 @@ export class ScrcpySession extends EventEmitter {
   /** Push the server, start it and connect: resolves once the device has sent its name. */
   static async start(opts: ScrcpyOptions): Promise<ScrcpySession> {
     const s = new ScrcpySession(opts);
-    await s.open();
+    try {
+      await s.open();
+    } catch (e) {
+      // no server or forward left behind on the device
+      s.close((e as Error).message);
+      throw e;
+    }
     return s;
   }
 
@@ -119,8 +131,13 @@ export class ScrcpySession extends EventEmitter {
     void this.readVideo(reader);
   }
 
+  /**
+   * The server answers once it has started its encoder: about half a second
+   * normally, much longer on a busy or memory-starved emulator (40 s seen).
+   * Wait up to 45 s; a server that exits ends the wait at once (`close`).
+   */
   private async connectFirst(): Promise<{ socket: Socket; rest: Buffer }> {
-    const deadline = Date.now() + 15_000;
+    const deadline = Date.now() + 45_000;
     let last = "";
     while (Date.now() < deadline && !this.closed) {
       try {
@@ -201,6 +218,27 @@ export class ScrcpySession extends EventEmitter {
     b[0] = MSG.injectText;
     b.writeUInt32BE(utf8.length, 1);
     utf8.copy(b, 5);
+    this.send(b);
+  }
+
+  /**
+   * A scroll at (x, y) in video pixels; amounts in notches, -16…16 (positive:
+   * content moves right / down, as a mouse wheel turned towards the user).
+   * ControlMessageReader.parseInjectScrollEvent: i16 fixed point over ±16.
+   */
+  scroll(x: number, y: number, h: number, v: number) {
+    const vid = this.video;
+    if (!vid) throw new Error("no video yet");
+    const fp = (n: number) => Math.max(-0x8000, Math.min(0x7fff, Math.round((Math.max(-16, Math.min(16, n)) / 16) * 0x8000)));
+    const b = Buffer.alloc(21);
+    b[0] = MSG.injectScroll;
+    b.writeInt32BE(Math.round(x), 1);
+    b.writeInt32BE(Math.round(y), 5);
+    b.writeUInt16BE(vid.width, 9);
+    b.writeUInt16BE(vid.height, 11);
+    b.writeInt16BE(fp(h), 13);
+    b.writeInt16BE(fp(v), 15);
+    b.writeUInt32BE(0, 17); // buttons
     this.send(b);
   }
 

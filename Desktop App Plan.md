@@ -239,6 +239,42 @@ Verified on macOS (Apple Silicon), dev and packaged, driven over DevTools: the a
 
 **Open decision:** the plan limited the app view's navigation to the app's origin(s). Logins that redirect through another origin (OAuth, SSO) would break, so the view allows any http(s) page and blocks other schemes; it has no privileges either way. Narrow it if needed.
 
+### Phase 3 results: Android (2026-10-07)
+
+Code: `capture/src/live/session.ts` (`LiveTarget`, `LiveSession`, capabilities, input and capture types, platform-neutral), `capture/src/live/android.ts` (`AndroidTarget` and its session: device list with states, reconnect), `capture/src/live/androidScreen.ts` (rotation and on-screen keyboard from `dumpsys`); desktop `deviceView.ts` (one session per project window, video to the canvas, capture flow), `deviceInput.ts` (checks every input from the canvas), `scripts/fetch-scrcpy.mjs`; canvas `components/Device.tsx` (the device tab).
+
+- **Device tab:** mobile projects in the desktop app get a "Device" tab (`L`) in place of "App". Picker with emulators, USB phones (unauthorized / offline say why), and "start <AVD>" for emulators that aren't running; it connects to the last device used or the only one connected. Missing adb shows the install command to copy. The screen sits in a device frame, fitted or at 100/75/50 %.
+- **Use:** mouse as a finger (one move per frame), wheel and trackpad scrolling (scrcpy's scroll message: i16 fixed point over ±16, 21 bytes, read from the 4.1 sources), typing and paste as text, Enter/Backspace/arrows as keys; Back, Home, Recents, Power and Rotate from the session's capabilities. Rotate flips portrait ↔ landscape and locks it, turning auto-rotate off (as Android's own rotate button does). The main process accepts only well-formed input (points 0–1, known keys, text up to 2,000 characters).
+- **Video:** WebCodecs in the canvas; a config packet reconfigures the decoder and is merged into the next key frame, deltas before a key frame are dropped, a decoder error asks the device for a fresh key frame. Frames only go to the canvas while the tab shows; showing it again asks for a key frame. Without a secure context or WebCodecs the tab says so instead of staying black.
+- **Capture:** the picture freezes when Capture is pressed; progress (screenshot, elements, checking the screen held still, retrying) with Cancel. Settled: saved, named from the activity in front (`…/.wifi.WifiSettingsActivity` → "Wifi Settings") unless named. Still changing after every try: both frames side by side, "Try again" or "Keep first frame" (saved with the status reason "…element positions may be off"; `unsettled` travels through `POST /api/views` too).
+- **Screens that never stop (a running timer, a video, a spinner):** `uiautomator dump` doesn't return a stale tree there, it fails ("could not get idle state", about 10 s a try), so before this the capture failed after six tries (68 s). After two such failures (about 20 s) the capture goes to the same choice with the two frames and says why; keeping it saves the screenshot with only the screen as its tree (notes become regions) and the reason "…it has no elements…". Pausing what moves and trying again gives the elements.
+- **Keyboard in the tree (spike A, finding 3):** when `mInputShown=true`, the keyboard's area comes from its window's touchable region (or its frame below the content inset; API 37 prints `frame=`, older releases `mFrame=`, which is why the spike's parser found none). It's added on top as "On-screen keyboard"; app elements it hides are dropped and ones it half hides are cut back. Tested with a mark: around the keyboard it now resolves to the keyboard, where before it resolved to the app's hidden row.
+- **Reconnect:** a lost stream shows "reconnecting" over the dimmed last frame and retries for 60 s while adb sees the device (300 ms → 3 s); then "lost" with "Try again".
+- **Pinned server:** `fetch-scrcpy.mjs` downloads scrcpy-server 4.1 from the release, checks its SHA-256 (also pinned in the client; the script refuses when they disagree) and its licence into `vendor/` (git-ignored); `start`, `dist` and CI run it, and packaged builds carry both files as resources. `SCRCPY_SERVER` points at another jar for testing.
+- **Fixed on the way:** scrcpy's rotate message freezes the new rotation and then thaws auto-rotate again, so with auto-rotate on the sensor turned the screen straight back (and turning auto-rotate off first races with Android applying a stale `user_rotation`): rotation is set with `user_rotation` from the display's actual rotation instead. A failed `ScrcpySession.start` left the server and the `adb forward` behind; the wait for the server is 45 s (a memory-starved emulator took 40 s to start it) and ends at once if the server exits; a session reports live only once the video's size is known.
+- `SCRIBUI_DEBUG_DEVICE=<file>` logs the server's output, visibility and key frames (stdout is lost in the sRGB relaunch).
+
+**Verified** on macOS against the Pixel 9a emulator (API 37, cold-booted), driven over DevTools:
+
+| Check | Result |
+|---|---|
+| Connect, picture in the frame | live in 2.2 s with the last or only device; size known before "live" |
+| Mouse | a tap on a Settings row opens it; Back; wheel scrolling (picture matches `screencap` once the fling ends) |
+| Settled capture through the button | progress steps shown; saved into R001 as "Settings Homepage" (from the activity) with device, orientation, viewport |
+| Keyboard | "wifi" typed through the view lands in the field; the capture's tree has "On-screen keyboard" at 0,1541 1080×883 |
+| Capture during swipes | the verify step saw the motion, retried, settled on attempt 2 |
+| Stopwatch running | ~23 s; dialog with two different frames and the no-elements text; "Keep first frame" saves it with the reason in status.json |
+| Stopwatch paused through the view | settled, 45 elements |
+| Rotate button | auto-rotate off, 2424×1080 at 90°, decoder follows (1280×570), landscape capture with a 2424×1080 tree; back to portrait |
+| Server killed, 3 times | noticed in ~48 ms, dimmed "reconnecting to Pixel 9a…", live again in ~445 ms; taps work after |
+| Packaged app (`electron-builder --dir`, arm64) | jar and licence in Resources, used from there; connects and captures |
+
+18 new unit tests (keyboard and rotation parsing on real API 37 dumps, the tree surgery and the mark, scroll clamping, input checks, device list, text chunks, naming). Typecheck, lint and all 155 tests pass.
+
+While testing, the Mac ran out of memory (16 GB, 14 GB swapped) and the emulator's System UI stopped responding: connects took 15–60 s and the server once took 40 s to start, which is why the wait is now 45 s. Worth a "the device is very slow" hint in the UI later.
+
+**Not verified:** a physical phone over USB (none at hand), and Windows and Linux (CI only). The end-to-end driver was a scratch script; it should become a harness like spike A's, run on CI's Android emulator in phase 5.
+
 ### Then the product
 
 | # | Phase | Result | Prototype estimate |

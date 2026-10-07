@@ -27,5 +27,8 @@ export function createAdapter(platform: Platform, ctx: CaptureContext): CaptureA
   }
 }
 export { decodePng, pixelDifference, type DecodedPng } from "./png.js";
-export { ScrcpySession, SCRCPY_VERSION, MotionAction, KeyAction, Keycode, avcCodecString, type VideoPacket, type VideoSession } from "./live/scrcpy.js";
-export { captureAndroidLive, dumpTree, type AndroidLiveCapture, type AndroidCaptureStep } from "./live/androidCapture.js";
+export { ScrcpySession, SCRCPY_VERSION, SCRCPY_SERVER_SHA256, MotionAction, KeyAction, Keycode, avcCodecString, type VideoPacket, type VideoSession } from "./live/scrcpy.js";
+export { captureAndroidLive, dumpTree, readKeyboard, readRotation, type AndroidLiveCapture, type AndroidCaptureStep } from "./live/androidCapture.js";
+export { addKeyboard, parseInputShown, parseKeyboardFrame, parseRotation } from "./live/androidScreen.js";
+export { AndroidTarget, chunkText, parseAdbDevices, parseWm, type AndroidTargetOptions } from "./live/android.js";
+export * from "./live/session.js";

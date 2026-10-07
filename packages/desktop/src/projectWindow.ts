@@ -6,6 +6,8 @@ import { detectTools } from "@scribui/capture";
 import { PRODUCT, type Platform } from "@scribui/core";
 import { ReviewStore } from "@scribui/server";
 import { hostProject, makeRunner, saveCapturedView } from "@scribui/project";
+import { liveInput } from "./deviceInput.js";
+import { DeviceView } from "./deviceView.js";
 import type { Rect, Size } from "./liveLayout.js";
 import { LiveView } from "./liveView.js";
 import { captureFromCanvas, LIVE_FRAME, saveViaServer, type SaveView } from "./webCapture.js";
@@ -30,6 +32,8 @@ export type Project = {
   /** "view": the app in its own view (the product); "iframe": inside the canvas (spike W's harness). */
   surface: "view" | "iframe";
   live: LiveView;
+  /** Mobile projects: the device tab's live session. */
+  device: DeviceView | null;
   close(): Promise<void>;
 };
 
@@ -146,11 +150,13 @@ async function createProject(root: string, opts: { surface?: Project["surface"];
     guest,
     surface,
     live,
+    device: manifest.app.platform === "web" ? null : new DeviceView(wc, manifest.app.platform),
     save: srv ? (req) => srv.saveView(req, "desktop") : saveViaServer(canvasUrl),
     close: async () => {
       byWindow.delete(wc.id);
       if (byDir.get(store.root) === project) byDir.delete(store.root);
       live.dispose();
+      project.device?.dispose();
       await srv?.close();
     },
   };
@@ -238,9 +244,10 @@ function size(v: unknown): Size | null {
 export function registerCanvasApi() {
   ipcMain.on("scribui:config", (e) => {
     try {
-      e.returnValue = { surface: senderProject(e).surface };
+      const p = senderProject(e);
+      e.returnValue = { surface: p.surface, device: p.device ? p.platform : null };
     } catch {
-      e.returnValue = { surface: null };
+      e.returnValue = { surface: null, device: null };
     }
   });
 
@@ -258,6 +265,8 @@ export function registerCanvasApi() {
     }
   });
 
+  registerDeviceApi();
+
   ipcMain.handle("scribui:live-go", (e, action: unknown, url: unknown) => {
     const live = senderProject(e).live;
     if (action === "navigate" && typeof url === "string") live.navigate(url);
@@ -266,4 +275,51 @@ export function registerCanvasApi() {
     else if (action === "forward") live.forward();
     else if (action === "devtools") live.openDevTools();
   });
+}
+
+/* ─────────────────────────── device tab ─────────────────────────── */
+
+function senderDevice(e: Sender): { p: Project; device: DeviceView } {
+  const p = senderProject(e);
+  if (!p.device) throw new Error("this project has no device view");
+  return { p, device: p.device };
+}
+
+function registerDeviceApi() {
+  const quiet = (fn: () => void) => {
+    try {
+      fn();
+    } catch {
+      /* not the canvas, or no device view */
+    }
+  };
+  ipcMain.handle("scribui:device-state", (e) => senderDevice(e).device.getState());
+  ipcMain.handle("scribui:device-list", (e) => senderDevice(e).device.list());
+  ipcMain.handle("scribui:device-connect", (e, id: unknown) => {
+    if (typeof id !== "string" || !/^[\w.:\-]{1,128}$/.test(id)) throw new Error("bad device id");
+    return senderDevice(e).device.connect(id);
+  });
+  ipcMain.handle("scribui:device-disconnect", (e) => senderDevice(e).device.disconnect());
+  ipcMain.handle("scribui:device-emulator", (e, avd: unknown) => {
+    if (typeof avd !== "string" || !/^[\w.\-]{1,128}$/.test(avd)) throw new Error("bad emulator name");
+    return senderDevice(e).device.startEmulator(avd);
+  });
+  ipcMain.on("scribui:device-visible", (e, v: unknown) => quiet(() => senderDevice(e).device.setVisible(v === true)));
+  ipcMain.on("scribui:device-reset", (e) => quiet(() => senderDevice(e).device.resetVideo()));
+  ipcMain.on("scribui:device-input", (e, v: unknown) =>
+    quiet(() => {
+      const ev = liveInput(v);
+      if (ev) void senderDevice(e).device.input(ev).catch(() => {});
+    }),
+  );
+  ipcMain.handle("scribui:device-capture", (e, req: { title?: unknown; replace?: unknown }) => {
+    const { p, device } = senderDevice(e);
+    return device.capture({ ...(str(req?.title) ? { title: str(req?.title) } : {}), ...(str(req?.replace) ? { replace: str(req?.replace) } : {}) }, p.save);
+  });
+  ipcMain.handle("scribui:device-keep", (e) => {
+    const { p, device } = senderDevice(e);
+    return device.keep(p.save);
+  });
+  ipcMain.on("scribui:device-discard", (e) => quiet(() => senderDevice(e).device.discard()));
+  ipcMain.on("scribui:device-cancel", (e) => quiet(() => senderDevice(e).device.cancelCapture()));
 }
