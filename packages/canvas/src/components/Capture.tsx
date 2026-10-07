@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
+import { hasLiveTab, showLive } from "./Live";
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const pad = (n: number) => String(n).padStart(3, "0");
@@ -129,30 +130,46 @@ export function NextStepBanner() {
 
   const platform = round.app?.platform;
   const mobile = platform === "android" || platform === "ios";
-  const build = round.app?.build;
   const canCapture = !!round.canRecapture;
 
+  if (mobile) {
+    // Android and iOS screens are captured by hand: say which ones changed, and where to capture them
+    const changed = round.status.changedScreens;
+    const titles =
+      changed === "all"
+        ? "every screen"
+        : (changed ?? []).map((id) => round.screens.find((x) => x.id === id)?.title ?? id).join(", ");
+    const device = hasLiveTab(platform);
+    const text =
+      status === "sent"
+        ? "Sent to your agent. When it's done, rebuild and reinstall the app, then capture the screens it changed again."
+        : `The agent applied round ${pad(round.round)}${titles ? ` and changed ${titles}` : ""}. Rebuild and reinstall the app, then capture ${titles ? "them" : "the changed screens"} again${device ? " in the Device tab" : " in the ScribUI desktop app"}. Pick replace "…" next to Capture view to update a screen in place.`;
+    return (
+      <div className={`next-banner ${status}`}>
+        <span className={status === "applied" ? "ok" : "accent"}>●</span>
+        <span>{text}</span>
+        {device && status === "applied" && (
+          <button className="btn primary" onClick={() => showLive()}>
+            Open the Device tab
+          </button>
+        )}
+        <button className="x" onClick={() => st.set({ appliedDismissed: round.round })} aria-label="dismiss">
+          ✕
+        </button>
+      </div>
+    );
+  }
+
   const text =
-    status === "sent"
-      ? mobile
-        ? "Sent to your agent. When it's done, rebuild and reinstall the app, then recapture."
-        : "Sent to your agent. ScribUI recaptures automatically when it marks the round applied."
-      : mobile
-        ? `The agent applied round ${pad(round.round)}. Rebuild and reinstall the app, then recapture.`
-        : `The agent applied round ${pad(round.round)}.`;
+    status === "sent" ? "Sent to your agent. ScribUI recaptures automatically when it marks the round applied." : `The agent applied round ${pad(round.round)}.`;
 
   return (
     <div className={`next-banner ${status}`}>
       <span className={status === "applied" ? "ok" : "accent"}>●</span>
       <span>{text}</span>
-      {canCapture && mobile && build && (
-        <button className="btn primary" onClick={() => void st.captureNext({ build: true })} title={build}>
-          Rebuild &amp; recapture
-        </button>
-      )}
       {canCapture && (
-        <button className={`btn ${mobile && build ? "" : "primary"}`} onClick={() => void st.captureNext()}>
-          ↻ Recapture{status === "sent" && !mobile ? " now" : ""}
+        <button className="btn primary" onClick={() => void st.captureNext()}>
+          ↻ Recapture{status === "sent" ? " now" : ""}
         </button>
       )}
       <button className="x" onClick={() => st.set({ appliedDismissed: round.round })} aria-label="dismiss">

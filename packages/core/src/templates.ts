@@ -58,54 +58,20 @@ export default async function (page) {
 \`\`\`
 `;
   }
-  if (platform === "android") {
-    return `${common}
-## Android
+  // Android and iOS: nothing to list; the user captures screens by hand
+  return `# .scribui/screens.json on ${platform === "ios" ? "iOS" : "Android"}
 
-Each screen has a \`flow\`: a script in \`.scribui/flows/\` that opens the app and navigates to the screen.
-The easiest is a shell script using the bundled helper (no extra tools needed):
+The user captures this app's screens by hand in the ScribUI desktop app (its Device tab):
+they move through the app on the ${platform === "ios" ? "simulator" : "emulator or phone"} and press Capture. ScribUI adds each one
+to \`screens.json\` itself, so there is nothing to list here.
 
-\`\`\`sh
-#!/bin/sh
-# .scribui/flows/shop-category.sh (make it executable: chmod +x)
-set -e; cd "$(dirname "$0")"
-node adb.mjs launch                        # restart the app on its first screen
-node adb.mjs tap "Shop"                    # tap the element whose text or content description matches
-node adb.mjs tap "Stress & recovery"
-\`\`\`
-
-\`\`\`json
-{ "id": "shop-category", "title": "Shop category", "group": "Shop", "flow": "flows/shop-category.sh",
-  "sources": ["app/src/main/java/**/feature/shop/**"] }
-\`\`\`
-
-- \`app.bundleId\` is the application id${opts.appId ? ` (\`${opts.appId}\`)` : ""}.
-- \`app.build\` (optional) is the command that rebuilds and installs the app, e.g. \`./gradlew installDebug\` (on Windows: \`gradlew.bat installDebug\`).
-- Maestro flows (\`.yaml\`) work too and are faster for long paths.
-- Compose: \`Modifier.testTag("payButton")\` plus \`testTagsAsResourceId = true\` makes elements show up by id.
-`;
-  }
-  return `${common}
-## iOS (simulator)
-
-Each screen has a Maestro \`flow\` in \`.scribui/flows/\` that opens the app and navigates to the screen:
-
-\`\`\`yaml
-# .scribui/flows/checkout.yaml
-appId: ${opts.appId ?? "com.example.app"}
----
-- launchApp
-- tapOn: "Cart"
-- tapOn: "Checkout"
-\`\`\`
-
-\`\`\`json
-{ "id": "checkout", "title": "Checkout", "group": "Purchase flow", "flow": "flows/checkout.yaml" }
-\`\`\`
-
-- \`app.bundleId\` is the bundle identifier.
-- \`app.build\` (optional) is the command that rebuilds and installs the app on the simulator.
-- Set \`accessibilityIdentifier\` (SwiftUI \`.accessibilityIdentifier("payButton")\`, React Native \`testID\`) so elements show up by id.
+- \`app.bundleId\` is the ${platform === "ios" ? "bundle identifier" : "application id"}${opts.appId ? ` (\`${opts.appId}\`)` : ""}.
+- \`app.build\` (optional) is the command that rebuilds and installs the app${platform === "android" ? ", e.g. \`./gradlew installDebug\`" : " on the simulator"}.
+- Give elements stable ids so review instructions can name them: ${
+    platform === "ios"
+      ? "SwiftUI \`.accessibilityIdentifier(\"payButton\")\`, React Native \`testID\`"
+      : "Compose \`Modifier.testTag(\"payButton\")\` with \`testTagsAsResourceId = true\`, views \`android:id\`, React Native \`testID\`"
+  }.
 `;
 }
 
@@ -187,7 +153,7 @@ export function androidFlowScript(taps: string[]): string {
   return ["#!/bin/sh", "set -e", 'cd "$(dirname "$0")"', "node adb.mjs launch", ...taps.map((t) => `node adb.mjs tap ${JSON.stringify(t)}`), ""].join("\n");
 }
 
-/** Starter manifest written on first run; the agent replaces the screens. */
+/** Starter manifest written on first run: the agent replaces the web screens; mobile screens come from captures by hand. */
 export function starterManifest(platform: Platform, name: string, opts: { baseUrl?: string; appId?: string; build?: string } = {}): ScreenManifest {
   if (platform === "web") {
     return {
@@ -198,11 +164,14 @@ export function starterManifest(platform: Platform, name: string, opts: { baseUr
   }
   const app: ScreenManifest["app"] = { name, platform, bundleId: opts.appId ?? "com.example.app" };
   if (opts.build) app.build = opts.build;
-  return {
-    version: 1,
-    app,
-    screens: [
-      { id: "home", title: "Home", group: "Main", flow: platform === "android" ? "flows/home.sh" : "flows/home.yaml" },
-    ],
-  };
+  // screens arrive as the user captures them in the desktop app's Device tab
+  return { version: 1, app, screens: [] };
 }
+
+/** Android and iOS screens are captured by hand in the desktop app's Device tab; nothing captures them on its own. */
+export const capturedByHand = (platform: Platform) => platform !== "web";
+
+export const DESKTOP_DOWNLOAD = "https://github.com/chicreativetech/scribui/releases/latest";
+
+/** What a capture asked for on Android or iOS answers (CLI, MCP, the canvas's Recapture). */
+export const BY_HAND = "Android and iOS screens are captured by hand: open the project in the ScribUI desktop app, move through the app in its Device tab and press Capture.";

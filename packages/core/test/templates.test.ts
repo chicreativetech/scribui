@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { androidFlowHelper, androidFlowScript, screensGuide, screensPrompt, starterManifest, ScreenManifest, upsertAgentSection } from "../src/index.js";
+import { androidFlowHelper, androidFlowScript, capturedByHand, screensGuide, screensPrompt, starterManifest, ScreenManifest, upsertAgentSection } from "../src/index.js";
 
 describe("templates", () => {
   it("replaces the agent section written under the old name in place", () => {
@@ -27,12 +27,24 @@ describe("templates", () => {
     expect(androidFlowScript(["Shop", 'Say "hi"'])).toContain('node adb.mjs launch\nnode adb.mjs tap "Shop"\nnode adb.mjs tap "Say \\"hi\\""');
   });
 
+  it("mobile projects capture by hand: no starter screens, agent told not to capture", () => {
+    expect(starterManifest("android", "App").screens).toEqual([]);
+    expect(capturedByHand("ios") && capturedByHand("android") && !capturedByHand("web")).toBe(true);
+    const mobile = upsertAgentSection(null, "android");
+    expect(mobile).toContain("Device tab");
+    expect(mobile).not.toContain("npx scribui capture");
+    expect(upsertAgentSection(null)).toContain("npx scribui capture");
+    // switching a project's section from web to mobile replaces it in place
+    expect(upsertAgentSection(upsertAgentSection("# Mine\n"), "ios")).toBe(upsertAgentSection("# Mine\n", "ios"));
+  });
+
   it("starter manifests are valid for every platform", () => {
     for (const p of ["web", "android", "ios"] as const) expect(ScreenManifest.safeParse(starterManifest(p, "App")).success).toBe(true);
   });
 
   it("guides and prompts mention the right things", () => {
-    expect(screensGuide("android")).toContain("node adb.mjs tap");
+    expect(screensGuide("android")).toContain("captures this app's screens by hand");
+    expect(screensGuide("ios", { appId: "com.shop" })).toContain("`com.shop`");
     expect(screensGuide("web", { baseUrl: "http://localhost:5173" })).toContain("http://localhost:5173");
     expect(screensPrompt("web", "http://localhost:5173")).toContain("The app runs at http://localhost:5173.");
   });

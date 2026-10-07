@@ -4,6 +4,13 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
+## 0.2.0 (unreleased)
+
+- **Android and iOS screens are captured by hand,** like web views: open the project in the desktop app, move through your app in the Device tab and press Capture view. Nothing runs through your app on its own any more: setup no longer asks your agent to list screens or write navigation flows, there's no automatic first round, and Recapture is for web projects only. After the agent applies a round, the canvas names the screens it changed so you can capture them again (pick **replace "…"**).
+- `scribui` opens Android and iOS projects in the desktop app (and says where to get it when it isn't installed); `scribui capture` and MCP's `request_review` say these screens are captured in the app.
+- Projects set up earlier get updated agent instructions in `AGENTS.md` the next time the app opens them.
+- A development build of the app keeps its own data, so it runs next to an installed ScribUI.
+
 ## 0.1.1 (2026-10-07)
 
 The first complete build of the desktop app on all three systems (0.1.0's Windows build didn't finish).

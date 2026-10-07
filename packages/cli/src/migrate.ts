@@ -37,7 +37,10 @@ export async function migrateProject(root: string) {
     const p = join(root, f);
     if (!existsSync(p)) continue;
     const before = await readFile(p, "utf8");
-    const after = upsertAgentSection(before);
+    const platform = await readFile(join(to, "screens.json"), "utf8")
+      .then((t) => (JSON.parse(t) as { app?: { platform?: "web" | "android" | "ios" } }).app?.platform ?? "web")
+      .catch(() => "web" as const);
+    const after = upsertAgentSection(before, platform);
     if (after !== before) {
       await writeFile(p, after);
       updated.push(f);

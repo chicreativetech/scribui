@@ -3,9 +3,7 @@ import { appendFile, mkdir, readdir, readFile, readlink, rename, rm, stat, symli
 import { basename, join, relative, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import {
-  AGENT_SECTION,
-  androidFlowHelper,
-  androidFlowScript,
+  agentSection,
   Annotation,
   AnnotationsFile,
   SCREENS_GUIDE_FILE,
@@ -56,7 +54,7 @@ export class ReviewStore {
 
   /**
    * Create the folder contract: screens.json (starter), the format guide for the
-   * agent, rules.md, flows/ (with the Android helper), and the AGENTS.md section.
+   * agent, rules.md, flows/ (web setup scripts), and the AGENTS.md section for the platform.
    * Existing files are kept. Returns the paths it created or updated.
    */
   async init(opts: { platform: Platform; name?: string; baseUrl?: string; appId?: string; build?: string }): Promise<string[]> {
@@ -78,12 +76,6 @@ export class ReviewStore {
       await writeFile(this.path(".starter"), createHash("sha1").update(body).digest("hex") + "\n");
     }
     await write(SCREENS_GUIDE_FILE, screensGuide(opts.platform, opts));
-    if (opts.platform === "android") {
-      await write("flows/adb.mjs", androidFlowHelper(opts.appId ?? "com.example.app"));
-      await write("flows/home.sh", androidFlowScript([]), 0o755);
-    } else if (opts.platform === "ios") {
-      await write("flows/home.yaml", `appId: ${opts.appId ?? "com.example.app"}\n---\n- launchApp\n`);
-    }
     await write("rules.md", RULES_HEADER);
 
     // agent instructions
@@ -92,13 +84,34 @@ export class ReviewStore {
     for (const f of targets) {
       const p = join(this.root, f);
       const before = existsSync(p) ? await readFile(p, "utf8") : null;
-      const after = upsertAgentSection(before);
+      const after = upsertAgentSection(before, opts.platform);
       if (after !== before) {
         await writeFile(p, after);
         created.push(before === null ? f : `${f} (updated)`);
       }
     }
     return created;
+  }
+
+  /**
+   * Bring the ScribUI section in AGENTS.md / CLAUDE.md up to date for the
+   * platform, where the file has one already (projects set up before mobile
+   * screens were captured by hand). Returns the files it changed.
+   */
+  async refreshAgentSection(platform: Platform): Promise<string[]> {
+    const changed: string[] = [];
+    for (const f of ["AGENTS.md", "CLAUDE.md"]) {
+      const p = join(this.root, f);
+      if (!existsSync(p)) continue;
+      const before = await readFile(p, "utf8");
+      if (!/<!-- (scribui|intentcue):start -->/.test(before)) continue;
+      const after = upsertAgentSection(before, platform);
+      if (after !== before) {
+        await writeFile(p, after);
+        changed.push(f);
+      }
+    }
+    return changed;
   }
 
   /** True while screens.json is still exactly the starter written by init. */
@@ -140,8 +153,8 @@ export class ReviewStore {
     await writeJson(this.path("screens.json"), raw);
   }
 
-  agentSection() {
-    return AGENT_SECTION;
+  agentSection(platform: Platform = "web") {
+    return agentSection(platform);
   }
 
   /* ─────────────── manifest ─────────────── */

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
-import { Platform, PRODUCT, ScreenManifest, screensPrompt } from "@scribui/core";
+import { BY_HAND, capturedByHand, DESKTOP_DOWNLOAD, Platform, PRODUCT, ScreenManifest } from "@scribui/core";
 import type { ReviewStore } from "@scribui/server";
 import {
   captureProject,
@@ -20,7 +20,7 @@ import {
 import { desktopInstalled, openInDesktop } from "./desktop.js";
 import { input, interactive, select, waitFor } from "./prompts.js";
 import { openLiveWindow, type LiveWindow } from "./live.js";
-import { BETA, copyToClipboard, ensureAndroid, ensureIos, ensureWebTools } from "./setup.js";
+import { ensureWebTools } from "./setup.js";
 import { banner, c, errLine, line, okLine, out, warnLine } from "./ui.js";
 
 export type StartFlags = {
@@ -61,10 +61,6 @@ export async function start(store: ReviewStore, flags: StartFlags) {
     platform = flags.platform ?? (await choosePlatform(info));
     let baseUrl: string | undefined;
     if (platform === "web") baseUrl = await findApp(store.root);
-    else {
-      out();
-      out(`  ${BETA}  Mobile capture is in beta. It works, but capturing is slower than on the web (about 10 s per screen).`);
-    }
     const appId = platform === "android" ? info.android?.appId : platform === "ios" ? info.ios?.bundleId : undefined;
     const build = platform === "android" ? info.android?.build : platform === "ios" ? info.ios?.build : undefined;
     const created = await store.init({ platform, name: info.name, baseUrl, appId, build });
@@ -76,22 +72,18 @@ export async function start(store: ReviewStore, flags: StartFlags) {
     platform = flags.platform ?? manifest.app.platform;
   }
 
-  // capture tools and device
+  // Android and iOS: screens are captured by hand in the desktop app's Device tab
+  if (capturedByHand(platform)) return openMobile(store, flags);
+
+  // capture tools
   out();
   const manifest = (await readManifestOrExplain(store))!;
   if (!manifest) return process.exit(1);
-  if (!(await ensureTools(store, platform, manifest, info, flags))) {
+  if (!(await ensureTools(store, manifest, info))) {
     out();
     out(c.dim("  Run scribui again when that's sorted."));
     out();
     return process.exit(1);
-  }
-
-  // the agent lists the screens (mobile; on the web you capture views yourself in the app tab)
-  const rounds = await store.listRounds();
-  if (platform !== "web" && rounds.length === 0 && (await store.isStarterManifest())) {
-    const ok = await waitForScreens(store, platform);
-    if (!ok) return process.exit(1);
   }
 
   // non-interactive (an agent or CI ran plain `scribui`): capture and stop
@@ -110,7 +102,41 @@ export async function start(store: ReviewStore, flags: StartFlags) {
     return;
   }
 
-  await serve(store, flags, platform, platform !== "web" && (await store.listRounds()).length === 0);
+  await serve(store, flags, platform);
+}
+
+/**
+ * Android and iOS: the desktop app's Device tab is where screens are
+ * captured, so the project opens there. Without the app, the browser canvas
+ * can still show rounds captured before, but can't capture new ones.
+ */
+async function openMobile(store: ReviewStore, flags: StartFlags) {
+  out();
+  const owner = await findOwner(store, flags.port ?? PRODUCT.defaultPort);
+  if (owner?.app === "desktop") {
+    okLine(`already open in the ScribUI app ${c.dim(`(${owner.url ?? ""})`)}`);
+    out();
+    return;
+  }
+  if (await handToDesktop(store, flags)) {
+    out(c.dim("  Move through your app in the Device tab and press Capture for each screen you want to review."));
+    out();
+    return;
+  }
+  const installed = await desktopInstalled();
+  if (!installed) {
+    warnLine("Android and iOS screens are captured in the ScribUI desktop app, which isn't installed.");
+    out(`    Download it: ${c.accent(DESKTOP_DOWNLOAD)}`);
+  } else if (!interactive()) {
+    out(`  ${BY_HAND}`);
+  }
+  const rounds = await store.listRounds();
+  if (!interactive() || !rounds.length) {
+    out();
+    return process.exit(installed ? 0 : 1);
+  }
+  out(c.dim("  Opening the screens captured so far in the browser; capturing new ones needs the desktop app."));
+  await serve(store, flags, (await store.readManifest()).app.platform);
 }
 
 /** iOS capture runs the iOS Simulator, which only exists in Xcode on macOS. */
@@ -171,69 +197,16 @@ async function readManifestOrExplain(store: ReviewStore): Promise<ScreenManifest
   }
 }
 
-async function ensureTools(store: ReviewStore, platform: Platform, manifest: ScreenManifest, info: ProjectInfo, flags: StartFlags): Promise<boolean> {
-  if (platform === "web") {
-    if (!(await ensureWebTools(store.root, info))) return false;
-    const base = manifest.app.baseUrl;
-    if (base && !(await reachable(base))) {
-      warnLine(`Nothing answers at ${base}.`);
-      out(c.dim(`    Start your app (e.g. ${info.packageManager} run dev), or change "baseUrl" in ${PRODUCT.folder}/screens.json.`));
-      const how = await waitFor(`Waiting for ${base}… (Enter to continue anyway)`, () => reachable(base));
-      if (how === "detected") okLine(`${base} is up`);
-    } else if (base) okLine(`app running at ${base}`);
-    return true;
-  }
-  const appId = manifest.app.bundleId && manifest.app.bundleId !== "com.example.app" ? manifest.app.bundleId : undefined;
-  const device = flags.device ?? manifest.app.device;
-  const r =
-    platform === "android"
-      ? await ensureAndroid(store.root, { appId, build: manifest.app.build, device })
-      : await ensureIos(store.root, { bundleId: appId, build: manifest.app.build, device });
-  if (r.ok && r.device && !manifest.app.device) {
-    // remember the choice so the next capture doesn't ask again
-    await store.updateApp({ device: r.device });
-  }
-  return r.ok;
-}
-
-async function waitForScreens(store: ReviewStore, platform: Platform): Promise<boolean> {
-  const manifest = await store.readManifest();
-  const prompt = screensPrompt(platform, manifest.app.baseUrl);
-  const copied = await copyToClipboard(prompt);
-  out();
-  out(`  ${c.bold("Next: your coding agent lists the screens.")} Paste this into it${copied ? c.dim(" (already copied to your clipboard)") : ""}:`);
-  out();
-  out(`  ${c.accent("│")} ${prompt}`);
-  out();
-  let lastError = "";
-  const how = await waitFor(`Waiting for ${PRODUCT.folder}/screens.json… ${c.dim("(Enter to capture what's there now)")}`, async () => {
-    if (await store.isStarterManifest()) return false;
-    try {
-      await store.readManifest();
-      return true;
-    } catch (e) {
-      const msg = (e as Error).message;
-      if (msg !== lastError && !/Unexpected end|JSON/.test(msg)) {
-        lastError = msg;
-        process.stdout.write("\r\x1b[2K");
-        warnLine(msg.split("\n").slice(0, 3).join(" "));
-      }
-      return false;
-    }
-  });
-  if (how === "detected") {
-    const m = await store.readManifest();
-    okLine(`screens.json has ${m.screens.length} screen${m.screens.length === 1 ? "" : "s"}`);
-    return true;
-  }
-  // Enter: go ahead with whatever is there
-  try {
-    await store.readManifest();
-    return true;
-  } catch (e) {
-    errLine((e as Error).message);
-    return false;
-  }
+async function ensureTools(store: ReviewStore, manifest: ScreenManifest, info: ProjectInfo): Promise<boolean> {
+  if (!(await ensureWebTools(store.root, info))) return false;
+  const base = manifest.app.baseUrl;
+  if (base && !(await reachable(base))) {
+    warnLine(`Nothing answers at ${base}.`);
+    out(c.dim(`    Start your app (e.g. ${info.packageManager} run dev), or change "baseUrl" in ${PRODUCT.folder}/screens.json.`));
+    const how = await waitFor(`Waiting for ${base}… (Enter to continue anyway)`, () => reachable(base));
+    if (how === "detected") okLine(`${base} is up`);
+  } else if (base) okLine(`app running at ${base}`);
+  return true;
 }
 
 /**
@@ -257,31 +230,9 @@ export async function handToDesktop(store: ReviewStore, flags: { open?: boolean;
   return true;
 }
 
-/** Start (or reuse) the server, open the canvas, capture first when there is no round yet. */
-async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, captureFirst: boolean) {
+/** Start (or reuse) the server and open the canvas. */
+async function serve(store: ReviewStore, flags: StartFlags, platform: Platform) {
   if (await handToDesktop(store, flags)) {
-    if (captureFirst) {
-      // the first round runs in the app; follow it here
-      out();
-      let last = "";
-      const res = await captureProject(store, {
-        app: "cli",
-        platform,
-        log: flags.printEvent,
-        onProgress: (st) => {
-          const key = `${st.phase}:${st.done ?? 0}/${st.total ?? 0}:${st.current ?? ""}`;
-          if (key === last) return;
-          last = key;
-          if (st.phase === "building") out(`  ${c.dim("building…")}`);
-          else if (st.total) out(`  ${c.dim(`[${st.done ?? 0}/${st.total}]`)} ${st.current ?? ""}`);
-        },
-      }).catch((e: Error) => {
-        errLine(e.message);
-        return null;
-      });
-      const r = res?.result;
-      if (r && "round" in r && r.round !== null) okLine(`round ${pad(r.round)} captured; it's on the board in the app`);
-    }
     out();
     return;
   }
@@ -320,17 +271,8 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, 
   } else if (flags.open !== false) openBrowser(url);
   const show = () => (live ? void live.show() : openBrowser(url));
 
-  if (captureFirst) {
-    out();
-    try {
-      srv.runCapture({ trigger: "gui" });
-    } catch (e) {
-      errLine((e as Error).message);
-    }
-  } else {
-    const latest = await store.latestRound();
-    if (latest !== null) line("round", `${pad(latest)}  ${c.dim("(latest; recapture from the canvas)")}`);
-  }
+  const latest = await store.latestRound();
+  if (latest !== null) line("round", `${pad(latest)}  ${c.dim(platform === "web" ? "(latest; recapture from the canvas)" : "(latest)")}`);
   out();
   out(c.dim(`  ${c.bold("r")} recapture changed   ${c.bold("R")} recapture all   ${c.bold("o")} open canvas   ${c.bold("q")} quit`));
 

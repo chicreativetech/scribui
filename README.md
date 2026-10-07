@@ -55,17 +55,17 @@ Start your app the way you always do, then run one command in the project folder
 scribui
 ```
 
-That's the whole interface. The first time, it sets the project up and walks you through the rest; after that it opens the canvas on your latest screens.
+That's the whole interface. The first time, it sets the project up and walks you through the rest; after that it opens the canvas on your latest screens. Android and iOS projects open in the [desktop app](#the-desktop-app), where you capture their screens by hand.
 
 ScribUI looks at the project to decide what it is. A folder without Android or iOS markers is treated as a web app. When it finds a Gradle project, an Xcode project, React Native, Expo or Flutter, it asks which platform to review. To skip the question, pass `--platform web|android|ios`.
 
 | | Web | Android App | iOS App |
 | --- | --- | --- | --- |
 | Runs on | macOS, Windows, Linux | macOS, Windows, Linux | **macOS only** |
-| Captures from | your local dev server | emulator or phone over USB | iOS Simulator |
-| ScribUI installs for you | Playwright + Chromium | adb (Google's platform tools) | Maestro (terminal), AXe (desktop app) |
+| Captures from | your local dev server | emulator or phone over USB, in the desktop app | iOS Simulator, in the desktop app |
+| How screens get captured | by hand in the App tab, and the agent's listed screens automatically | by hand in the Device tab | by hand in the Device tab |
+| ScribUI installs for you | Playwright + Chromium | adb (Google's platform tools) | AXe |
 | You install yourself | Node 20+ (terminal only) | an emulator (Android Studio) or a phone with USB debugging | Xcode |
-| Speed | about 1 s per screen | about 10 s per screen (beta) | about 10 s per screen (beta) |
 
 ### Web
 
@@ -97,41 +97,27 @@ Views captured in the app tab are never recaptured automatically: their state (a
 
 ### Android App
 
-**What you need:** your app's Android build, and an emulator (from Android Studio's Device Manager) or an Android phone with USB debugging on. Works on macOS, Windows and Linux. Android capture is in beta.
+**What you need:** the ScribUI desktop app, your app's Android build, and an emulator (from Android Studio's Device Manager) or an Android phone with USB debugging on. Works on macOS, Windows and Linux.
 
-1. **Start the emulator or connect your phone,** with the app installed. If nothing is connected, ScribUI lists your emulators and offers to start one.
-2. **Run `scribui`** and pick **Android** (preselected when only an Android project is found). The first time, it:
-   - creates `.scribui/`, a navigation helper for flows, and the `AGENTS.md` section;
-   - checks for **adb**. When it's missing, ScribUI offers to download Google's platform tools into `~/.scribui/tools` (no Homebrew or administrator needed);
-   - recommends **Maestro** for faster navigation flows. It's optional: ScribUI's built-in adb helper works without it;
-   - picks the device, asking when several are connected, and remembers the choice in `screens.json`;
-   - reads your app id from `app/build.gradle(.kts)` and checks that the app is installed. If it isn't, it offers to build and install it with the detected command: `./gradlew installDebug`, `npx expo run:android`, `npx react-native run-android` or `flutter run -d android --debug`. When `JAVA_HOME` is missing or older than 17, the build uses Android Studio's bundled JDK.
-3. **Paste the same one line into your agent;** it writes `screens.json` plus a small flow per screen that taps its way there.
-4. **The canvas opens** and the first round is captured. The canvas shows placeholders that fill in as each screen arrives.
-5. **Annotate and Send,** then paste `Implement .scribui/latest/review.md` into your agent.
-6. **When the agent is done,** the canvas says *"Rebuild and reinstall the app, then recapture."* Press **Rebuild & recapture** (when ScribUI knows your build command) or rebuild yourself and press **↻ Recapture**. Only the changed screens are captured, and the canvas shows the next round.
+Android screens are captured by hand, the way you capture web views: nothing runs through your app on its own.
+
+1. **Open your app's folder in the desktop app** (or run `scribui` there; it hands the project to the app). Setup asks for the platform (Android is preselected for a Gradle, React Native, Expo or Flutter project), confirms the application id and build command it found, and installs adb if it's missing.
+2. **Open the Device tab.** It connects to the emulator or phone you used last, or the only one connected, and lists emulators you can start. Install and open your app on it.
+3. **Move through your app** with the mouse and keyboard: click to tap, scroll, type, Back, Home, rotate. When a screen is the way you want to review it, **name it and press Capture view**. ScribUI freezes the picture, reads the elements, checks the screen held still, and adds it to the open round and to `screens.json`.
+4. **Annotate and Send,** then paste `Implement .scribui/latest/review.md` into your agent.
+5. **When the agent is done,** it marks the round applied and lists the screens it changed; the canvas names them. Rebuild and reinstall the app, then capture those screens again in the Device tab, picking **replace "…"** next to Capture view to update a screen in place. Screens you don't capture again are carried forward, marked `↺`.
 
 ### iOS App
 
-**What you need:** a Mac with Xcode and at least one iPhone simulator (Xcode → Window → Devices and Simulators). iOS capture is in beta.
+**What you need:** a Mac with Xcode, at least one iPhone simulator (Xcode → Window → Devices and Simulators), and the ScribUI desktop app. AXe, which shows and controls the simulator, is installed by the app.
 
 > **iOS capture requires a Mac.** ScribUI captures from the iOS Simulator, which Apple only ships with Xcode on macOS, so iOS isn't available on Windows or Linux. Real iPhones aren't supported either. For a React Native, Expo or Flutter app, you can review its Android or web build on Windows and Linux. Layout and copy feedback carries over, but iOS-specific rendering such as fonts, safe areas and native controls won't show.
 
-1. **Boot a simulator** with the app installed, or let ScribUI boot one for you.
-2. **Run `scribui`** and pick **iOS** (preselected when only an iOS project is found). The first time, it:
-   - creates `.scribui/`, a navigation helper for flows, and the `AGENTS.md` section;
-   - checks for the Xcode command line tools (`xcode-select --install` if they're missing);
-   - offers to install **Maestro**, which reads the screens and navigates between them (`idb` works too if you already use it). Maestro needs Java 17 or newer: `brew install openjdk@17`;
-   - uses the booted simulator, asks which one when several are booted, or offers a list of iPhone simulators to boot;
-   - reads your bundle id from `app.json` or the Xcode project and checks that the app is installed on the simulator. If it isn't, it offers to build it with `npx expo run:ios`, `npx react-native run-ios` or `flutter run -d ios --debug`. For a native Xcode project, build and run it on the simulator once with ▶ in Xcode, then run `scribui` again.
-3. **Paste the same one line into your agent;** it writes `screens.json` plus a Maestro flow per screen.
-4. **The canvas opens** and the first round is captured, with placeholders that fill in as each screen arrives.
-5. **Annotate and Send,** then paste `Implement .scribui/latest/review.md` into your agent.
-6. **When the agent is done,** rebuild the app (Xcode ▶, or **Rebuild & recapture** when ScribUI knows your build command) and press **↻ Recapture**.
+It works like Android: open the folder in the desktop app (setup confirms the bundle id and build command), boot a simulator from the Device tab's list, move through your app and press **Capture view** for each screen. Typing goes to the simulator as a hardware keyboard in your Mac's layout. After the agent applies a round, rebuild the app and capture the changed screens again with **replace "…"**.
 
 ### In the terminal while ScribUI runs
 
-`r` recapture changed screens · `R` recapture all screens · `o` open the canvas again (on the web: bring back the Chrome window) · `q` quit. Everything else happens in the canvas.
+Web projects: `r` recapture changed screens · `R` recapture all screens · `o` open the canvas again (bring back the Chrome window) · `q` quit. Everything else happens in the canvas.
 
 ### Several projects at once
 
@@ -144,8 +130,8 @@ The desktop app does everything the terminal and the browser canvas do, in one w
 - **Setting up a project:** **Open folder…** on a folder that isn't a ScribUI project yet walks you through what `scribui` asks in the terminal: the platform (the detected one is marked), where the web app runs (running dev servers are listed with their page titles) or the mobile app's id and build command, the tools that platform needs, and for mobile, the line to paste into your agent while ScribUI waits for it to list the screens.
 - **Installing tools:** the projects window lists the capture tools on your computer and installs the missing ones with **Install**: adb (downloaded from Google), AXe and Android Studio (with Homebrew, or winget on Windows), Playwright, and Xcode's selection when only the Command Line Tools are active. The output shows as it runs.
 - **Web:** the **App** tab is your running app as a normal page, so logins, cookies and pages that refuse to be embedded all work. Size it to desktop, laptop, tablet or phone and press **Capture view**.
-- **Android and iOS:** mobile projects get a **Device** tab with the emulator, phone or simulator live in it. Use it with the mouse and keyboard (scrolling, typing, Back/Home, rotate) and press **Capture**: ScribUI freezes the picture, reads the elements and checks the screen held still. iOS needs a Mac with Xcode, plus AXe.
-- **With the CLI:** when the app is installed, `scribui` and `scribui open` open the project in it; `--no-desktop` keeps the browser. Only one process captures a project at a time, so the CLI and MCP hand their captures to the app while it has the project open.
+- **Android and iOS:** mobile projects get a **Device** tab with the emulator, phone or simulator live in it, and it's the only way their screens are captured. Use it with the mouse and keyboard (scrolling, typing, Back/Home, rotate) and press **Capture view**: ScribUI freezes the picture, reads the elements and checks the screen held still. iOS needs a Mac with Xcode, plus AXe.
+- **With the CLI:** when the app is installed, `scribui` and `scribui open` open the project in it; `--no-desktop` keeps the browser for web projects. Android and iOS projects always open in the app (without it, `scribui` says where to download it). Only one process captures a project at a time, so the CLI and MCP hand web captures to the app while it has the project open.
 - **Updates:** the app checks [Releases](https://github.com/chicreativetech/scribui/releases) when it starts and every few hours. On Windows and with the Linux AppImage it downloads updates and installs them when you quit (or **Help → Restart to Update**). Until macOS builds are signed, and for the `.deb`, it tells you a new version is out and links to it. **Help → Check for Updates…** checks now; what changed is in [CHANGELOG.md](CHANGELOG.md).
 - **Crashes:** crash reports stay on your computer. After a crash, the next launch offers to open a GitHub issue with the version and error filled in (you see everything before sending) or to show the files. **Help → Report a Problem…** and **Help → Show Logs and Crash Reports** work any time.
 
@@ -181,13 +167,13 @@ Screenshot: screens/checkout-default.annotated.png
 
 When the agent finishes, it sets the round to `applied` and lists the screens it changed (`review.md` and `AGENTS.md` tell it to). Older rounds stay in the round menu in the top bar, read-only.
 
-### Only changed screens are recaptured
+### Only changed screens are recaptured (web)
 
-Unchanged screens are copied forward from the previous round, so round 2 of a 7-screen app usually captures one or two. A screen is recaptured when any of these says it may have changed:
+This is about screens your agent lists in `screens.json` for a web app; screens captured by hand (every Android and iOS screen, and web views from the App tab) are only captured again by you. Unchanged screens are copied forward from the previous round, so round 2 of a 7-screen app usually captures one or two. A screen is recaptured when any of these says it may have changed:
 
 - it had instructions in the round the agent just applied;
 - the agent listed it in `changedScreens` when it marked the round applied (the `AGENTS.md` section asks for this);
-- its flow, setup script or `screens.json` entry changed, or it's new, or it failed last time;
+- its setup script or `screens.json` entry changed, or it's new, or it failed last time;
 - it loads the same page as a recaptured screen (`/checkout` and `/checkout?error=card`);
 - a file matching its `sources` globs changed (optional, see below).
 
@@ -205,9 +191,9 @@ For the most precise results, tell ScribUI which code draws which screen:
 
 ```json
 {
-  "app": { "name": "Shop", "platform": "android", "sharedSources": ["app/**/designsystem/**"] },
+  "app": { "name": "Shop", "platform": "web", "baseUrl": "http://localhost:5173", "sharedSources": ["src/design-system/**"] },
   "screens": [
-    { "id": "shop", "title": "Butik", "flow": "flows/shop.sh", "sources": ["app/**/feature/shop/**"] }
+    { "id": "shop", "title": "Shop", "url": "/shop", "sources": ["src/pages/shop/**"] }
   ]
 }
 ```
@@ -228,7 +214,7 @@ ScribUI includes an MCP server, so an agent can request reviews and poll for fee
 claude mcp add scribui -- scribui mcp
 ```
 
-Tools: `request_review` (captures a round), `get_feedback` (returns `waiting` or the finished review.md; call it again with `mark_applied: true` when done) and `list_rounds`.
+Tools: `request_review` (web: captures a round; Android and iOS: tells the agent to let you know the app is ready, since you capture those screens yourself), `get_feedback` (returns `waiting` or the finished review.md; call it again with `mark_applied: true` when done) and `list_rounds`.
 
 ### Troubleshooting
 
@@ -241,7 +227,7 @@ Tools: `request_review` (captures a round), `get_feedback` (returns `waiting` or
 | Web screens fail with "App not reachable" | start your dev server; check `app.baseUrl` |
 | Marks attach to the wrong element | press `E` to show all element outlines, then fix the target via the chip; add testIDs for the long run |
 | Chips say `container 632×50` instead of a name | the element has no id or label; add an accessibility id or `data-testid` |
-| Mobile capture fails | `scribui doctor --device "iPhone 16"`; check that the simulator is booted and the flow runs with `maestro test <flow>` |
+| A mobile capture says "the screen was still changing" | something on screen kept moving (a spinner, an animation, a timer): wait for it, press **Try again**, or **Keep first frame** |
 | A screen looks out of date | it was reused (`↺` badge): click the badge, press `R` in the terminal, or run `scribui capture --all` |
 | The desktop app's Device tab says a tool is missing | press **Install** there, or in the projects window (**File → Projects…**) |
 | The desktop app crashed or misbehaves | **Help → Report a Problem…** opens a prefilled GitHub issue; the logs are under **Help → Show Logs and Crash Reports** |
@@ -275,23 +261,23 @@ A developer tool with a terminal soul: a keyboard-first, monospace interface wit
 | --- | --- |
 | `scribui init` | Creates `.scribui/` with an example `screens.json` and adds the agent section to `AGENTS.md` (and `CLAUDE.md` if present) |
 | `scribui doctor` | Checks platform tools and devices and prints exact fixes |
-| `scribui capture` | Creates a new round: captures the screens that may have changed (screenshot + element tree) and reuses the rest. A failing screen is reported and skipped |
+| `scribui capture` | Web: creates a new round, capturing the screens that may have changed (screenshot + element tree) and reusing the rest. A failing screen is reported and skipped. Android and iOS screens are captured in the desktop app instead |
 | `scribui open` | Serves the canvas on the latest round (`--lan` pairs a tablet with a one-time QR code) |
-| `scribui` | First run: guided setup, then capture and open the canvas. Later: open the canvas on the latest round |
+| `scribui` | First run: guided setup. Then: open the project (web: the canvas, capturing the first round; Android and iOS: in the desktop app) |
 | `scribui status` | Shows the latest round's state and counts |
 | `scribui mcp` | MCP server over stdio: `request_review`, `get_feedback` (non-blocking), `list_rounds` |
 
 Flags: `--dir`, `--platform ios|android|web`, `--device`, `--screens a,b`, `--all`, `--dry-run`, `--port` (default 4382), `--no-open`, `--no-desktop`, `--lan`.
 
-**Several devices connected?** Capture asks which one to use. Pass `--device emulator`, a model name such as `--device CPH2791`, or a serial; or set `"device"` under `"app"` in `screens.json` to make the choice permanent.
+**Several devices connected?** Pick one in the desktop app's Device tab; it remembers the last one per project.
 
 ## Platforms
 
 | Platform | Navigation | Screenshot | Element tree | Needs |
 | --- | --- | --- | --- | --- |
-| iOS simulator (macOS only) | Maestro flow | `simctl io screenshot` | Maestro hierarchy, `idb ui describe-all` or AXe | Xcode, and Maestro, idb or AXe (the desktop app uses AXe) |
-| Android emulator or phone | Maestro flow or adb helper | `adb screencap` | `uiautomator dump` | adb; Maestro optional |
-| Web | `url` + optional setup script | Playwright | DOM walk | `playwright` + Chromium |
+| iOS simulator (macOS only) | by hand, in the Device tab | `simctl io screenshot` | AXe (idb's accessibility tree, web views included) | Xcode, AXe |
+| Android emulator or phone | by hand, in the Device tab | `adb screencap` | `uiautomator dump`, plus the on-screen keyboard | adb |
+| Web | `url` + optional setup script, or by hand in the App tab | Playwright, or the app's own view | DOM walk | `playwright` + Chromium for automatic captures |
 
 Ids are taken in this order: accessibility identifier, testID (`data-testid` on web), DOM id, then a stable generated id. On web, `data-component` and `data-source="src/File.tsx:12"` attributes flow into the instructions as source locations.
 
@@ -301,7 +287,7 @@ Ids are taken in this order: accessibility identifier, testID (`data-testid` on 
 .scribui/
   screens.json          screen manifest, written by the agent
   rules.md              persistent design rules, appended by scribui, editable by hand
-  flows/                Maestro flows or setup scripts per screen
+  flows/                web setup scripts per screen
   rounds/001/
     review.md           compiled instructions for the agent
     review.json         the same, structured, with element targets

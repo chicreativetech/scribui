@@ -144,13 +144,6 @@
       .field .hint { margin: 0; }
       .flabel { font-weight: 600; }
       .tools-list { border: 1px solid var(--line); }
-      .prompt { display: flex; gap: 6px; align-items: stretch; margin-bottom: 14px; }
-      .prompt code { flex: 1; font: 12px/1.5 var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid var(--accent); padding: 8px 10px; user-select: text; }
-      .status { display: flex; gap: 8px; align-items: center; font-weight: 600; margin-bottom: 6px; }
-      .okmark { color: var(--green); }
-      .spin { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      .created { color: var(--fg-faint); font: 11px var(--mono); margin: 10px 0 0; user-select: text; }
       @media (max-width: 600px) { .cards { grid-template-columns: 1fr; } .card { min-height: 0; } }
     </style>
     <script src="./launcher.js" defer></script>

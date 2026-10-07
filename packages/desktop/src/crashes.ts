@@ -21,7 +21,7 @@ let reviewedFile = "";
 /** Call first thing in the app's own process (after the sRGB relaunch), before `ready`. */
 export function startCrashReporting() {
   // named explicitly: before the app is ready a development run would be called "Electron"
-  app.setAppLogsPath(process.platform === "darwin" ? join(homedir(), "Library/Logs/ScribUI") : join(app.getPath("userData"), "logs"));
+  app.setAppLogsPath(process.platform === "darwin" ? join(homedir(), "Library/Logs", app.isPackaged ? "ScribUI" : "ScribUI Dev") : join(app.getPath("userData"), "logs"));
   const logs = app.getPath("logs");
   mkdirSync(logs, { recursive: true });
   logFile = join(logs, "main.log");

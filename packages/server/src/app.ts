@@ -252,7 +252,8 @@ export function createApp(opts: ServerOptions) {
       rounds: await store.listRounds(),
       latest: await store.latestRound(),
       lan: { enabled: lanState.enabled, paired: lan.paired },
-      canCapture: !!opts.runner,
+      // Android and iOS screens are captured by hand (the desktop app's Device tab), never by a round
+      canCapture: !!opts.runner && "app" in manifest && manifest.app.platform === "web",
       autoRecapture: opts.autoRecapture !== false,
       capture,
     });
@@ -366,7 +367,7 @@ export function createApp(opts: ServerOptions) {
             : undefined,
         };
       });
-    return c.json({ round: n, status, app: manifest?.app, screens, annotations, canRecapture: !!opts.runner });
+    return c.json({ round: n, status, app: manifest?.app, screens, annotations, canRecapture: !!opts.runner && manifest?.app.platform === "web" });
   });
 
   app.post("/api/rounds/:n/recapture", async (c) => {

@@ -41,7 +41,6 @@ type UpdateState =
   | { status: "ready"; version: string }
   | { status: "error"; message: string };
 type Server = { url: string; running: boolean; title: string | null };
-type ScreensState = { state: "starter" } | { state: "listed"; count: number } | { state: "invalid"; error: string };
 
 declare global {
   interface Window {
@@ -67,10 +66,8 @@ declare global {
         servers(dir: string): Promise<Server[]>;
         checkUrl(url: string): Promise<{ url: string | null; running: boolean }>;
         tools(dir: string, platform: Platform): Promise<Tool[]>;
-        create(dir: string, answers: unknown): Promise<{ ok: true; created: string[]; prompt: string | null } | { ok: false; error: string }>;
-        screens(dir: string): Promise<ScreensState>;
-        deviceReady(platform: Platform): Promise<boolean>;
-        finish(dir: string, capture: boolean): Promise<OpenResult>;
+        /** Set the folder up and open it. */
+        create(dir: string, answers: unknown): Promise<OpenResult & { created?: string[] }>;
         cancel(dir: string): Promise<void>;
         onStart(cb: (dir: string) => void): void;
       };
@@ -273,7 +270,7 @@ async function renderTools() {
 
 /* ─────────────────────────── setup ─────────────────────────── */
 
-type Step = "platform" | "app" | "tools" | "screens";
+type Step = "platform" | "app" | "tools";
 
 type Setup = {
   dir: string;
@@ -287,21 +284,16 @@ type Setup = {
   appId: string;
   build: string;
   tools: Tool[] | null;
-  created: { created: string[]; prompt: string | null } | null;
-  screens: ScreensState | null;
-  deviceReady: boolean | null;
   error: string | null;
   busy: boolean;
 };
 
 let setup: Setup | null = null;
-let poll: ReturnType<typeof setInterval> | null = null;
 
-const stepsFor = (p: Platform): Step[] => (p === "web" ? ["platform", "app", "tools"] : ["platform", "app", "tools", "screens"]);
-const STEP_NAMES: Record<Step, string> = { platform: "Platform", app: "App", tools: "Tools", screens: "Screens" };
+const STEPS: Step[] = ["platform", "app", "tools"];
+const STEP_NAMES: Record<Step, string> = { platform: "Platform", app: "App", tools: "Tools" };
 
 async function startSetup(dir: string) {
-  stopPolling();
   const info = await api.setup.info(dir);
   setup = {
     dir,
@@ -314,9 +306,6 @@ async function startSetup(dir: string) {
     appId: "",
     build: "",
     tools: null,
-    created: null,
-    screens: null,
-    deviceReady: null,
     error: null,
     busy: false,
   };
@@ -334,7 +323,6 @@ function fillMobileDefaults(s: Setup) {
 }
 
 function leaveSetup() {
-  stopPolling();
   if (setup) void api.setup.cancel(setup.dir);
   setup = null;
   $("setup").hidden = true;
@@ -343,23 +331,17 @@ function leaveSetup() {
   void renderTools();
 }
 
-function stopPolling() {
-  if (poll) clearInterval(poll);
-  poll = null;
-}
-
 function go(step: Step) {
   if (!setup) return;
   setup.step = step;
   setup.error = null;
-  stopPolling();
   renderSetup();
 }
 
 function renderSetup() {
   const s = setup;
   if (!s) return;
-  const steps = stepsFor(s.platform);
+  const steps = STEPS;
   const at = steps.indexOf(s.step);
   const root = $("setup");
   const body = el("div", { className: "body" });
@@ -374,7 +356,7 @@ function renderSetup() {
         { className: "head" },
         el("h2", {}, `Set up ScribUI in ${s.info.name}`, el("span", { className: "sub path", textContent: `‎${s.info.display}` })),
         (() => {
-          const b = el("button", { className: "btn", textContent: s.created ? "Close" : "Cancel" });
+          const b = el("button", { className: "btn", textContent: "Cancel" });
           b.addEventListener("click", leaveSetup);
           return b;
         })(),
@@ -413,18 +395,10 @@ function renderSetup() {
   } else if (s.step === "tools") {
     toolsStep(s, body);
     const missing = (s.tools ?? []).filter((t) => t.required && !t.ok);
-    const label = s.platform === "web" ? "Create and open" : "Create";
+    const label = "Create and open";
     const btn = next(missing.length ? `${label} without ${missing.map((t) => t.name).join(" and ")}` : label, () => void create(s), !!s.tools);
     if (missing.length) btn.classList.remove("primary");
     foot.append(back("app"), el("span", { className: "spacer" }), btn);
-  } else {
-    screensStep(s, body);
-    const listed = s.screens?.state === "listed";
-    const open = el("button", { className: "btn", textContent: "Open without capturing" });
-    open.disabled = s.busy;
-    open.addEventListener("click", () => void finish(s, false));
-    const capture = next(s.deviceReady === false ? "Open project" : "Capture and open", () => void finish(s, s.deviceReady !== false), listed);
-    foot.append(el("span", { className: "spacer" }), ...(listed && s.deviceReady !== false ? [open, capture] : [listed ? capture : open]));
   }
 }
 
@@ -578,68 +552,15 @@ async function create(s: Setup) {
   const raw = s.url === "other" || s.url === null ? s.custom : s.url;
   const r = await api.setup.create(s.dir, { platform: s.platform, ...(s.platform === "web" ? { baseUrl: raw } : { appId: s.appId, build: s.build }) });
   s.busy = false;
-  if (!r.ok) {
-    s.error = r.error;
-    return renderSetup();
-  }
-  s.created = { created: r.created, prompt: r.prompt };
-  if (s.platform === "web") return finish(s, false);
-  go("screens");
-}
-
-function screensStep(s: Setup, body: HTMLElement) {
-  const prompt = s.created?.prompt ?? "";
-  const status = el("div", { className: "status" });
-  const device = el("div", { className: "hint" });
-  body.append(
-    el("p", { className: "lead", textContent: "Next, your coding agent lists the app's screens" }),
-    el("p", { className: "hint", textContent: "Paste this into your coding agent (Claude Code, Codex, Cursor…) in this folder:" }),
-    el("div", { className: "prompt" }, el("code", { textContent: prompt }), copyButton(prompt)),
-    status,
-    device,
-  );
-  if (s.created?.created.length) body.append(el("p", { className: "created", textContent: `Created ${s.created.created.join(", ")}` }));
-  const show = () => {
-    const st = s.screens;
-    if (!st || st.state === "starter") status.replaceChildren(el("span", { className: "spin" }), "Waiting for .scribui/screens.json…");
-    else if (st.state === "listed") status.replaceChildren(el("span", { className: "okmark", textContent: "✓" }), `screens.json lists ${st.count} screen${st.count === 1 ? "" : "s"}`);
-    else status.replaceChildren(el("span", { className: "error", textContent: `screens.json has a problem: ${st.error}` }));
-    device.textContent =
-      s.deviceReady === false
-        ? `No ${s.platform === "ios" ? "simulator is booted" : "emulator or phone is connected"}. Open the project, start one in its Device tab, then capture from the board.`
-        : "";
-  };
-  show();
-  if (s.screens?.state === "listed") return;
-  const tick = async () => {
-    const [st, ready] = await Promise.all([api.setup.screens(s.dir), api.setup.deviceReady(s.platform)]);
-    if (setup !== s || s.step !== "screens") return;
-    const changed = st.state !== s.screens?.state || ready !== s.deviceReady;
-    s.screens = st;
-    s.deviceReady = ready;
-    if (st.state === "listed") stopPolling();
-    // the footer's buttons follow the state
-    if (changed) renderSetup();
-    else show();
-  };
-  void tick();
-  if (!poll) poll = setInterval(() => void tick(), 1500);
-}
-
-async function finish(s: Setup, capture: boolean) {
-  s.busy = true;
-  renderSetup();
-  const r = await api.setup.finish(s.dir, capture);
-  s.busy = false;
   if (r.ok) {
-    stopPolling();
+    // the project's window is open; this window closes or goes back to the list
     setup = null;
     $("setup").hidden = true;
     $("home").hidden = false;
     void renderProjects();
     return;
   }
-  s.error = "error" in r ? r.error : "Couldn't open the project.";
+  s.error = "error" in r ? r.error : "Couldn't set the project up.";
   renderSetup();
 }
 

@@ -29,13 +29,27 @@ describe("store", () => {
     const store = new ReviewStore(dir);
     const created = await store.init({ platform: "ios" });
     expect(created).toContain(".scribui/screens.json");
-    expect(existsSync(join(dir, ".scribui/flows/home.yaml"))).toBe(true);
+    // iOS screens are captured by hand: no flows, and the agent is told so
+    expect(existsSync(join(dir, ".scribui/flows/home.yaml"))).toBe(false);
+    expect((await store.readManifest()).screens).toEqual([]);
     const agents = readFileSync(join(dir, "AGENTS.md"), "utf8");
     expect(agents).toContain("## Visual design review");
+    expect(agents).toContain("captures the app's screens by hand");
     const claude = readFileSync(join(dir, "CLAUDE.md"), "utf8");
     expect(claude).toMatch(/^# Mine\n\nKeep this\.\n\n<!-- scribui:start -->/);
     // idempotent
     expect(await store.init({ platform: "ios" })).toEqual([]);
+  });
+
+  it("refreshes an existing agent section for the platform, and leaves files without one alone", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "scribui-refresh-"));
+    const store = new ReviewStore(dir);
+    await store.init({ platform: "web" });
+    writeFileSync(join(dir, "CLAUDE.md"), "# Mine\n");
+    expect(await store.refreshAgentSection("android")).toEqual(["AGENTS.md"]);
+    expect(readFileSync(join(dir, "AGENTS.md"), "utf8")).toContain("Device tab");
+    expect(readFileSync(join(dir, "CLAUDE.md"), "utf8")).toBe("# Mine\n");
+    expect(await store.refreshAgentSection("android")).toEqual([]);
   });
 
   it("creates numbered rounds with a latest pointer", async () => {

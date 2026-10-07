@@ -1,4 +1,4 @@
-import type { ScreenManifest } from "./schemas.js";
+import type { Platform, ScreenManifest } from "./schemas.js";
 
 const START = "<!-- scribui:start -->";
 const END = "<!-- scribui:end -->";
@@ -22,8 +22,33 @@ Design feedback lives in \`.scribui/\`.
 ${END}
 `;
 
+/**
+ * Android and iOS: the user captures every screen by hand in the desktop
+ * app's Device tab, so the agent neither lists screens nor starts captures.
+ */
+export const MOBILE_AGENT_SECTION = `${START}
+## Visual design review
+
+Design feedback lives in \`.scribui/\`. The user captures the app's screens by hand in the ScribUI
+desktop app (its Device tab) and marks them up there.
+
+- Before any UI work, read \`.scribui/rules.md\` and follow it.
+- When \`.scribui/latest/status.json\` says \`sent\`, implement \`.scribui/latest/review.md\`,
+  then set its status to \`applied\` and add \`"changedScreens"\`: the ids of every screen whose UI
+  you changed (check screens that share the components you edited), or \`"all"\` if you changed
+  shared styles, theme or design-system components. The user rebuilds the app and captures those
+  screens again.
+- If an instruction is marked \`unresolved\`, ask the user instead of guessing.
+- To request a review, tell the user the app is ready to review in ScribUI.
+${END}
+`;
+
+/** The section for a project's platform. */
+export const agentSection = (platform: Platform = "web") => (platform === "web" ? AGENT_SECTION : MOBILE_AGENT_SECTION);
+
 /** Insert or refresh the ScribUI section in an AGENTS.md / CLAUDE.md body. */
-export function upsertAgentSection(existing: string | null): string {
+export function upsertAgentSection(existing: string | null, platform: Platform = "web"): string {
+  const AGENT_SECTION = agentSection(platform);
   if (!existing || !existing.trim()) return `# Agent instructions\n\n${AGENT_SECTION}`;
   for (const [start, end] of [
     [START, END],

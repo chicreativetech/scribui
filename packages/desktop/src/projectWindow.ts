@@ -57,8 +57,6 @@ export const openProjects = () => [...byDir.values()];
 export type OpenOptions = {
   surface?: Project["surface"];
   onOpened?: (p: Project) => void;
-  /** Capture a first round right away (a mobile project just set up, its screens listed). */
-  captureFirst?: boolean;
 };
 
 export function openProject(dir: string, opts: OpenOptions = {}): Promise<OpenResult> {
@@ -180,13 +178,8 @@ async function createProject(root: string, opts: OpenOptions): Promise<OpenResul
   });
   await win.loadURL(canvasUrl);
   opts.onOpened?.(project);
-  if (opts.captureFirst && srv) {
-    try {
-      srv.runCapture({ trigger: "desktop" });
-    } catch {
-      /* a capture is running already */
-    }
-  }
+  // projects set up when mobile screens were listed by the agent: tell it they're captured by hand now
+  if (manifest.app.platform !== "web") void store.refreshAgentSection(manifest.app.platform).catch(() => {});
   void warnMissingTools(project);
   return { ok: true, project };
 }
