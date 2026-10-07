@@ -63,6 +63,7 @@ jobs:
       - name: Bundle the app
         working-directory: packages/desktop
         run: |
+          node scripts/fetch-scrcpy.mjs
           npx tsup
           node scripts/stage-native.mjs --arch ${{ matrix.archs }}
       - name: Package (unsigned)

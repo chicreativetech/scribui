@@ -57,7 +57,15 @@ export async function saveCapturedView(store: ReviewStore, req: ViewSaveRequest)
   await store.upsertScreen({ ...(replacing ?? {}), ...screen });
 
   const cur = await store.readStatus(n);
-  const entry = { screenId: id, ok: true, reason: req.platform === "web" ? "captured from the app tab" : "captured from the device view" };
+  const reason =
+    req.platform === "web"
+      ? "captured from the app tab"
+      : req.noElements
+        ? "captured from the device view while the screen never stopped changing; it has no elements, so notes on it are regions"
+        : req.unsettled
+          ? "captured from the device view while the screen was still changing; element positions may be off"
+          : "captured from the device view";
+  const entry = { screenId: id, ok: true, reason };
   const screens = (cur.screens ?? []).filter((s) => s.screenId !== id);
   await store.writeStatus(n, { ...cur, status: "open", updatedAt: new Date().toISOString(), screens: [...screens, entry] });
   return { round: n, screenId: id, title: screen.title };

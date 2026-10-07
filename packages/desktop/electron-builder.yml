@@ -17,6 +17,11 @@ extraResources:
   # the canvas, served by the project's server
   - from: ../canvas/dist
     to: canvas
+  # the Android device view's server, pinned (scripts/fetch-scrcpy.mjs)
+  - from: vendor/scrcpy-server
+    to: scrcpy-server
+  - from: vendor/scrcpy-LICENSE
+    to: scrcpy-LICENSE
 asarUnpack:
   - "dist/node_modules/@resvg/**"
 protocols:

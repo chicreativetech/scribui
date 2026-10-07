@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { focusTile } from "./Board";
 import { Spinner } from "./Capture";
+import { deviceApi, DeviceTab } from "./Device";
 
 /**
  * The app tab: the running web app, for capturing views by hand.
@@ -9,7 +10,8 @@ import { Spinner } from "./Capture";
  * Chrome window ScribUI opens: it exposes `window.__scribuiCapture`, which
  * screenshots the embedded app as it is. In the desktop app the app has its
  * own view (`scribuiDesktop.live`): this tab reports where it should sit and
- * drives it; pages that refuse embedding work there.
+ * drives it; pages that refuse embedding work there. Mobile projects in the
+ * desktop app get the device tab instead (Device.tsx).
  */
 
 type CaptureFn = (req: { title?: string; replace?: string }) => Promise<{ round: number; screenId: string; title: string }>;
@@ -54,6 +56,11 @@ const SIZES = [
 
 const pad = (n: number) => String(n).padStart(3, "0");
 
+/** The app tab exists for web projects, and for mobile ones in the desktop app (the device tab). */
+export function hasLiveTab(platform: string | undefined): boolean {
+  return platform === "web" || (!!deviceApi && platform === deviceApi.platform);
+}
+
 export function showLive() {
   useStore.getState().set({ view: "live", liveVisited: true });
 }
@@ -73,6 +80,10 @@ function readSize(): string {
 }
 
 export function LiveView() {
+  return deviceApi ? <DeviceTab api={deviceApi} /> : <WebLive />;
+}
+
+function WebLive() {
   const view = useStore((s) => s.view);
   const visited = useStore((s) => s.liveVisited);
   const project = useStore((s) => s.project);

@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { TOOLS, VISION_HINTS, isReadOnly, unresolvedCount, useStore, type Tool } from "../store";
 import { useVision } from "../vision";
 import { Spinner } from "./Capture";
-import { showLive } from "./Live";
+import { hasLiveTab, showLive } from "./Live";
 import selectIcon from "../assets/icons/select.png";
 import commentIcon from "../assets/icons/comment.png";
 import circleIcon from "../assets/icons/circle.png";
@@ -96,15 +96,15 @@ export function TopBar() {
         >
           Vision
         </button>
-        {platform === "web" && (
+        {hasLiveTab(platform) && (
           <button
             className={`item ${view === "live" ? "on" : ""}`}
             onClick={showLive}
             role="tab"
             aria-selected={view === "live"}
-            title="your running app: browse and capture views (L)"
+            title={mobile ? "your app on an emulator or phone: use it and capture views (L)" : "your running app: browse and capture views (L)"}
           >
-            App
+            {mobile ? "Device" : "App"}
           </button>
         )}
         <button

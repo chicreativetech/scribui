@@ -74,6 +74,10 @@ export type ViewSaveRequest = {
   png: Uint8Array;
   /** Element tree in screenshot pixels. */
   raw: RawElement;
+  /** Mobile: the screen kept changing; the tree may not match the picture exactly. */
+  unsettled?: boolean;
+  /** Mobile: the screen never stopped changing, so it has no elements (only the screen). */
+  noElements?: boolean;
 };
 export type ViewSaveResult = { round: number; screenId: string; title: string };
 export type ViewSaver = (req: ViewSaveRequest) => Promise<ViewSaveResult>;
@@ -287,6 +291,8 @@ export function createApp(opts: ServerOptions) {
         /** base64 PNG */
         png: z.string().min(1),
         tree: z.any(),
+        unsettled: z.boolean().optional(),
+        noElements: z.boolean().optional(),
         trigger: z.string().optional(),
       })
       .parse(await c.req.json());
