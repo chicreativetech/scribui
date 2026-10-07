@@ -1,0 +1,32 @@
+{
+  "name": "@scribui/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ScribUI desktop app (Electron). Spike W: the web capture path.",
+  "type": "module",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "tsup",
+    "start": "tsup && electron .",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.3",
+    "@resvg/resvg-js": "^2.6.2",
+    "hono": "^4.13.12",
+    "perfect-freehand": "^1.2.3",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@scribui/capture": "workspace:*",
+    "@scribui/core": "workspace:*",
+    "@scribui/project": "workspace:*",
+    "@scribui/server": "workspace:*",
+    "@types/node": "^22",
+    "@types/ws": "^8.5.12",
+    "electron": "^44.6.0",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3"
+  }
+}

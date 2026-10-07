@@ -3,7 +3,7 @@ import { listAndroidDevices } from "@scribui/capture";
 import type { Platform } from "@scribui/core";
 import type { CaptureRunner, ReviewStore } from "@scribui/server";
 import { captureRound, type CaptureEvent } from "./capture.js";
-import { buildEnv } from "./setup.js";
+import { buildEnv } from "./env.js";
 
 /**
  * The capture runner the server calls when the canvas (or the agent marking a
@@ -70,9 +70,9 @@ export function makeRunner(
       },
     });
     if (!result) throw new Error(problems.join("\n") || "capture tools are not ready; run `scribui doctor`");
-    if (result.skipped) return { round: null, summary: `nothing to capture: ${result.plan.why}`, failed: [] };
+    if (result.skipped) return { round: null, summary: `nothing to capture: ${result.plan.why}`, failed: [], ok: [], reused: result.reused, skipped: true };
     const reused = result.reused.length ? `, ${result.reused.length} reused` : "";
-    return { round: result.round, summary: `${result.ok.length} captured${reused}`, failed: result.failed };
+    return { round: result.round, summary: `${result.ok.length} captured${reused}`, failed: result.failed, ok: result.ok, reused: result.reused };
   };
 }
 
