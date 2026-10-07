@@ -69,12 +69,29 @@ export const MOVING_PAGE = STILL_PAGE.replace(
 );
 
 /** Serve the probe page on all interfaces (an Android emulator reaches the host at 10.0.2.2). */
-export function serveProbe(host = "127.0.0.1"): Promise<{ server: Server; port: number }> {
+export type ProbeServer = {
+  server: Server;
+  port: number;
+  /** Resolves once the browser has asked for a page under `path` after `since` (ms epoch); false when `ms` pass first. */
+  requested(path: string, since: number, ms: number): Promise<boolean>;
+};
+
+export function serveProbe(host = "127.0.0.1"): Promise<ProbeServer> {
+  const seen: { path: string; at: number }[] = [];
   return new Promise((done) => {
     const server = createServer((req, res) => {
+      seen.push({ path: req.url ?? "/", at: Date.now() });
       res.writeHead(200, { "content-type": "text/html", "cache-control": "no-store" });
       res.end(req.url?.startsWith("/still") ? STILL_PAGE : req.url?.startsWith("/moving") ? MOVING_PAGE : PROBE_PAGE);
     });
-    server.listen(0, host, () => done({ server, port: (server.address() as { port: number }).port }));
+    const requested = async (path: string, since: number, ms: number) => {
+      const until = Date.now() + ms;
+      while (Date.now() < until) {
+        if (seen.some((r) => r.at >= since && r.path.startsWith(path))) return true;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      return false;
+    };
+    server.listen(0, host, () => done({ server, port: (server.address() as { port: number }).port, requested }));
   });
 }

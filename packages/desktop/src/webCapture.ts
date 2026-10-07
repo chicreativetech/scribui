@@ -85,7 +85,8 @@ export const nextPaint = (wc: WebContents) =>
 /**
  * The capture behind "Capture view" when the app has its own view: the page
  * is the app, so nothing of ScribUI needs hiding. `full` puts a scaled-down
- * view at its real size for the moment of the shot.
+ * view at its real size for the moment of the shot. Scrollbars are hidden
+ * for the shot, as in Playwright's captures.
  */
 export async function captureFromView(wc: WebContents, req: LiveCaptureRequest, save: SaveView, full?: { enter(): Promise<void>; leave(): void }): Promise<ViewSaveResult> {
   const url = wc.getURL();
@@ -94,11 +95,16 @@ export async function captureFromView(wc: WebContents, req: LiveCaptureRequest, 
   let shot: Awaited<ReturnType<typeof readLiveFrame>>;
   await full?.enter();
   try {
+    // no scrollbars in the capture, as Playwright's headless Chromium: where they take room
+    // (Windows, Linux, macOS without a trackpad) the page would be laid out 15 px narrower
+    await cdp(wc, "Emulation.setScrollbarsHidden", { hidden: true });
+    await nextPaint(wc);
     shot = await readLiveFrame({
       frame: { evaluate: <T>(fn: string) => wc.mainFrame.executeJavaScript(fn) as Promise<T> },
       element: { screenshot: () => screenshotPage(wc) },
     });
   } finally {
+    await cdp(wc, "Emulation.setScrollbarsHidden", { hidden: false }).catch(() => {});
     full?.leave();
   }
   return save({

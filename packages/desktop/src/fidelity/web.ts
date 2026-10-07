@@ -184,6 +184,9 @@ export async function runWebFidelity() {
       at(`${size}: capturing with Playwright`);
       const pw = await captureWithPlaywright(url, top.cap, work);
       writeFileSync(join(out, `${size}.top.playwright.png`), pw.png);
+      // both element trees, to see what differs when the bounds check fails
+      writeFileSync(join(out, `${size}.top.electron.json`), JSON.stringify(top.cap.root, null, 1));
+      writeFileSync(join(out, `${size}.top.playwright.json`), JSON.stringify(pw.cap.root, null, 1));
       const pixels = comparePixels(img, decode(pw.png));
       const trees = compareTrees(top.cap, pw.cap);
       c.pixels = pixels;
