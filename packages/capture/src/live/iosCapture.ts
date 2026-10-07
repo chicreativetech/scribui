@@ -53,8 +53,14 @@ type Opts = {
 export async function simScreenshot(udid: string): Promise<Buffer> {
   const tmp = join(tmpdir(), `scribui-sim-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.png`);
   try {
-    const r = await run("xcrun", ["simctl", "io", udid, "screenshot", "--type=png", tmp], { timeoutMs: 30_000 });
-    if (r.code !== 0) throw new CaptureError("the Simulator's screenshot failed", r.stderr);
+    const shoot = (timeoutMs: number) => run("xcrun", ["simctl", "io", udid, "screenshot", "--type=png", tmp], { timeoutMs });
+    // a busy Mac (CI's especially) can be slow or refuse once; try again with more time
+    let r = await shoot(30_000);
+    if (r.code !== 0) r = await shoot(90_000);
+    if (r.code !== 0) {
+      const why = r.stderr.trim().split("\n").filter(Boolean).pop() ?? `exit ${r.code}`;
+      throw new CaptureError(`the Simulator's screenshot failed: ${why}`, r.stderr);
+    }
     return await readFile(tmp);
   } finally {
     await rm(tmp, { force: true });
