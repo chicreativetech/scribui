@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createAdapter, CaptureError } from "@scribui/capture";
-import { planCapture, ReviewJson, type CapturePlan, type Platform, type PreviousRound, type StatusFile } from "@scribui/core";
+import { BY_HAND, capturedByHand, planCapture, ReviewJson, type CapturePlan, type Platform, type PreviousRound, type StatusFile } from "@scribui/core";
 import type { ReviewStore } from "@scribui/server";
 import { changedFilesSince, screenFingerprint } from "./changes.js";
 
@@ -49,6 +49,8 @@ export async function captureRound(store: ReviewStore, opts: CaptureOptions = {}
   const log = opts.log ?? (() => {});
   const manifest = await store.readManifest();
   const platform = opts.platform ?? manifest.app.platform;
+  // Android and iOS: every screen is captured by hand in the desktop app
+  if (capturedByHand(platform)) throw new Error(BY_HAND);
   const device = opts.device ?? manifest.app.device;
   // views captured by hand in the app tab can't be reproduced from their url: carried forward, never recaptured
   const screens = manifest.screens.filter((s) => !s.live);

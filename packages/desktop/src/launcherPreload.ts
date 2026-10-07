@@ -29,10 +29,8 @@ contextBridge.exposeInMainWorld("scribuiLauncher", {
     servers: (dir: string) => call("servers", String(dir)),
     checkUrl: (url: string) => call("checkUrl", String(url)),
     tools: (dir: string, platform: string) => call("setupTools", String(dir), String(platform)),
+    /** Set the folder up and open it. */
     create: (dir: string, answers: unknown) => call("create", String(dir), JSON.parse(JSON.stringify(answers ?? null))),
-    screens: (dir: string) => call("screens", String(dir)),
-    deviceReady: (platform: string) => call("deviceReady", String(platform)),
-    finish: (dir: string, capture: boolean) => call("finish", String(dir), capture === true),
     cancel: (dir: string) => call("cancelSetup", String(dir)),
     onStart: (cb: (dir: string) => void) => void ipcRenderer.on("scribui:launcher:setup", (_e, dir) => cb(String(dir))),
   },

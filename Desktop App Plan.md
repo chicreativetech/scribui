@@ -417,6 +417,17 @@ Decided with the user: build signing now and turn it on with secrets later; rele
 
 **Not verified:** the Release workflow itself (needs a tag: it creates a draft release on the public repo), a real update from one version to the next (needs two published releases; on macOS also a signed build), signing and notarisation (no certificates yet), the update and crash dialogs on Windows and Linux.
 
+### After phase 7: mobile screens captured by hand (2026-10-07)
+
+Decided with the user: Android and iOS work like the web app's views. The emulator, phone or simulator runs in the Device tab, the user moves through the app and presses Capture view; nothing captures on its own.
+
+- **Dropped for mobile:** the agent listing screens with navigation flows (Maestro / the adb helper), the automatic first round, Recapture and "Rebuild & recapture". `captureRound` refuses Android and iOS with one message (`BY_HAND`), so the canvas, `scribui capture` and MCP all say the same; the canvas hides Recapture (`canCapture`/`canRecapture` only for web).
+- **Setup:** the desktop setup has three steps for every platform and opens the project at the end; mobile starter manifests list no screens and no flows are written. The CLI hands Android and iOS projects to the desktop app (without it: the download link; with earlier rounds it can still show them in the browser).
+- **The agent:** mobile projects get their own `AGENTS.md` section (no `npx scribui capture`, no screen list; still `changedScreens` when applying), refreshed in older projects when the app opens them. After a round is applied the canvas names the changed screens and opens the Device tab.
+- **Development runs** use their own data folder ("ScribUI Dev"): with an installed ScribUI running, a dev build used to hand over to it through the single-instance lock and quit.
+
+The capture fidelity suites are unchanged: they test the Device tab's capture path, which is now the only one.
+
 ### Then the product
 
 | # | Phase | Result | Prototype estimate |

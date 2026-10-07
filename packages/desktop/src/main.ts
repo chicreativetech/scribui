@@ -1,3 +1,4 @@
+import "./devPaths.js";
 import { resolve } from "node:path";
 import { app, BrowserWindow } from "electron";
 import { closeLauncher, explainFailure, launcherOpen, openAndRemember, registerLauncherApi, showLauncher } from "./launcherWindow.js";

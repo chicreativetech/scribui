@@ -1,16 +1,16 @@
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { parse, resolve } from "node:path";
-import { listAndroidDevices, listSimulators } from "@scribui/capture";
-import { PRODUCT, screensPrompt, type Platform } from "@scribui/core";
+import type { Platform } from "@scribui/core";
 import { detectDevServers, detectProject, pageTitle } from "@scribui/project";
 import type { ReviewStore } from "@scribui/server";
 
 /**
  * First-time setup of a folder in the app: what the CLI asks in the terminal
- * on its first run (platform, where the app runs, its id and build command,
- * then the agent listing the screens), as data for the projects window's
- * setup screens. Everything the window sends back is checked here.
+ * on its first run (platform, where the web app runs or the mobile app's id
+ * and build command), as data for the projects window's setup screens.
+ * Everything the window sends back is checked here. Screens are captured by
+ * hand afterwards, in the App tab (web) or the Device tab (Android, iOS).
  */
 
 export type SetupInfo = {
@@ -111,31 +111,6 @@ export async function devServers(dir: string): Promise<{ url: string; running: b
 }
 
 /** Write the folder contract (screens.json, the guide, rules, flows, the AGENTS.md section). */
-export async function createProject(store: ReviewStore, name: string, a: SetupAnswers): Promise<{ created: string[]; prompt: string | null }> {
-  const created = await store.init({ ...a, name });
-  // the web app's screens come from capturing views in the app; mobile screens are listed by the agent
-  return { created, prompt: a.platform === "web" ? null : screensPrompt(a.platform) };
-}
-
-export type ScreensState = { state: "starter" } | { state: "listed"; count: number } | { state: "invalid"; error: string };
-
-/** Has the agent filled in screens.json yet? */
-export async function screensState(store: ReviewStore): Promise<ScreensState> {
-  if (await store.isStarterManifest()) return { state: "starter" };
-  try {
-    const m = await store.readManifest();
-    return { state: "listed", count: m.screens.length };
-  } catch (e) {
-    const msg = (e as Error).message;
-    // the agent is still writing the file
-    if (/Unexpected end|JSON/.test(msg)) return { state: "starter" };
-    return { state: "invalid", error: msg.replace(`${PRODUCT.folder}/screens.json is invalid:\n`, "").split("\n").slice(0, 3).join(" ") };
-  }
-}
-
-/** A device the first round can run on: a connected Android device or a booted simulator. */
-export async function deviceReady(platform: Platform): Promise<boolean> {
-  if (platform === "android") return (await listAndroidDevices()).length > 0;
-  if (platform === "ios") return (await listSimulators()).some((s) => s.state === "Booted");
-  return false;
+export async function createProject(store: ReviewStore, name: string, a: SetupAnswers): Promise<string[]> {
+  return store.init({ ...a, name });
 }

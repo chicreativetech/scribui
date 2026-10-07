@@ -83,7 +83,13 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
               <span className="stale busy">capturing…</span>
             ) : (
               info?.reusedFrom !== undefined &&
-              w > 90 && (
+              w > 90 &&
+              (!round?.canRecapture ? (
+                // captured by hand (Android, iOS): only the Device tab captures it again
+                <span className="stale" title={`Copied unchanged from round ${pad(info.reusedFrom)}. Capture it again in the Device tab to update it.`}>
+                  ↺ R{pad(info.reusedFrom)}
+                </span>
+              ) : (
                 <span className="stale" title={`Not recaptured: copied unchanged from round ${pad(info.reusedFrom)}. Click to recapture.`}>
                   <span
                     role="button"
@@ -95,7 +101,7 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
                     ↺ R{pad(info.reusedFrom)}
                   </span>
                 </span>
-              )
+              ))
             )}
           </div>
         );

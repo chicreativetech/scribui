@@ -1,9 +1,9 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ReviewStore } from "@scribui/server";
-import { checkAnswers, normalizeUrl, screensState, setupInfo } from "../src/setup.js";
+import { checkAnswers, createProject, normalizeUrl, setupInfo } from "../src/setup.js";
 
 describe("setup", () => {
   it("normalizes ports and URLs", () => {
@@ -35,15 +35,14 @@ describe("setup", () => {
     expect(setupInfo(web)).toMatchObject({ name: "shop", detected: "web", warning: null });
   });
 
-  it("follows screens.json from starter to listed or invalid", async () => {
+  it("sets a mobile project up for capturing by hand", async () => {
     const dir = mkdtempSync(join(tmpdir(), "scribui-setup-"));
     const store = new ReviewStore(dir);
-    await store.init({ platform: "android", name: "app", appId: "com.example.app" });
-    expect(await screensState(store)).toEqual({ state: "starter" });
-    const m = JSON.parse(await (await import("node:fs/promises")).readFile(store.path("screens.json"), "utf8"));
-    writeFileSync(store.path("screens.json"), JSON.stringify({ ...m, screens: m.screens.slice(0, 1) }));
-    expect(await screensState(store)).toEqual({ state: "listed", count: 1 });
-    writeFileSync(store.path("screens.json"), JSON.stringify({ version: 1, app: {}, screens: [] }));
-    expect((await screensState(store)).state).toBe("invalid");
+    const created = await createProject(store, "shop", { platform: "android", appId: "com.example.shop", build: "./gradlew installDebug" });
+    expect(created).toContain(".scribui/screens.json");
+    const m = await store.readManifest();
+    expect(m.app).toMatchObject({ platform: "android", bundleId: "com.example.shop", build: "./gradlew installDebug", name: "shop" });
+    expect(m.screens).toEqual([]);
+    expect(existsSync(join(dir, ".scribui/flows/home.sh"))).toBe(false);
   });
 });

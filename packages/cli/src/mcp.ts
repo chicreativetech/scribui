@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
-import { PRODUCT } from "@scribui/core";
+import { BY_HAND, capturedByHand, PRODUCT } from "@scribui/core";
 import type { ReviewStore } from "@scribui/server";
 import { captureProject } from "@scribui/project";
 
@@ -14,7 +14,7 @@ export async function runMcp(store: ReviewStore) {
     {
       name: "request_review",
       description:
-        "Capture every screen in .scribui/screens.json into a new review round. Afterwards tell the user the round is ready and that they can open it with `npx scribui open`.",
+        "Web: capture every screen in .scribui/screens.json into a new review round; afterwards tell the user the round is ready and that they can open it with `npx scribui open`. Android and iOS: captures nothing (the user captures screens by hand in the ScribUI desktop app); tell the user the app is ready to review.",
       inputSchema: {
         type: "object",
         properties: {
@@ -52,6 +52,12 @@ export async function runMcp(store: ReviewStore) {
       return { rounds };
     }
     if (name === "request_review") {
+      const platform = await store
+        .readManifest()
+        .then((m) => m.app.platform)
+        .catch(() => "web" as const);
+      // nothing to capture here: the user captures Android and iOS screens in the desktop app
+      if (capturedByHand(platform)) return { round: null, captured: [], note: `${BY_HAND} Tell the user the app is ready to review in ScribUI.` };
       // handed to the project's server when one runs (the canvas or desktop app), otherwise run here
       const got = await captureProject(store, { app: "mcp", screens: args["screens"] as string[] | undefined, all: args["all"] === true });
       const next = "Ask the user to review with `npx scribui open`.";

@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cac } from "cac";
 import { createAdapter } from "@scribui/capture";
-import { Platform, PRODUCT, ReviewJson } from "@scribui/core";
+import { BY_HAND, capturedByHand, Platform, PRODUCT, ReviewJson } from "@scribui/core";
 import { lanAddress, ReviewStore, type CaptureState } from "@scribui/server";
 import { captureProject, describePlan, detectProject, hostProject, makeRunner, portRange, saveCapturedView, type CaptureEvent, type Owner } from "@scribui/project";
 import { runMcp } from "./mcp.js";
@@ -111,6 +111,8 @@ async function cmdCapture(f: Flags): Promise<number | null> {
   requireInit(store);
   banner("capture");
   out();
+  const platform = platformFlag(f) ?? (await store.readManifest().then((m) => m.app.platform).catch(() => "web" as const));
+  if (capturedByHand(platform)) fail(BY_HAND);
   const screens = f.screens ? String(f.screens).split(",").map((s) => s.trim()).filter(Boolean) : undefined;
   const t0 = Date.now();
   let res;
@@ -328,7 +330,7 @@ common(cli.command("init", "Create .scribui/ and add the agent section to AGENTS
 
 common(cli.command("doctor", "Check platform tools and devices, print fixes")).action((f: Flags) => cmdDoctor(f));
 
-common(cli.command("capture", "Create a new round: run every screen's flow, capture screenshot and tree"))
+common(cli.command("capture", "Web: create a new round, capturing the screens that changed (Android and iOS are captured in the desktop app)"))
   .option("--screens <ids>", "Comma-separated screen ids to capture; the rest are reused")
   .option("--all", "Recapture every screen (default: only screens that may have changed)")
   .option("--dry-run", "Show which screens would be captured or reused, then stop")
@@ -350,7 +352,7 @@ cli
   .option("--dir <path>", "Project directory")
   .action((f: Flags) => runMcp(storeFor(f)));
 
-common(cli.command("", "Set up on first run, then open the canvas (captures when there is nothing yet)"))
+common(cli.command("", "Set up on first run, then open the project (Android and iOS: in the desktop app)"))
   .option("--port <port>", "Port", { default: PRODUCT.defaultPort })
   .option("--no-open", "Do not open a browser")
   .option("--no-desktop", "Use the browser even when the ScribUI app is installed")

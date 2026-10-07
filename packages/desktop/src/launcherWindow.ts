@@ -7,11 +7,11 @@ import type { Platform } from "@scribui/core";
 import { reachable } from "@scribui/project";
 import { ReviewStore } from "@scribui/server";
 import { cancelInstall, installTool, isInstallable } from "./installs.js";
-import { openProject, openProjects, type OpenOptions, type OpenResult } from "./projectWindow.js";
+import { openProject, openProjects, type OpenResult } from "./projectWindow.js";
 import { refreshMenu } from "./menu.js";
 import { RecentProjects } from "./recent.js";
 import { checkNow, installNow, onUpdateState, updateState } from "./updates.js";
-import { checkAnswers, createProject, deviceReady, devServers, normalizeUrl, screensState, setupInfo } from "./setup.js";
+import { checkAnswers, createProject, devServers, normalizeUrl, setupInfo } from "./setup.js";
 
 /**
  * The projects window: recent projects, "Open folder…", the capture tools
@@ -70,9 +70,8 @@ export function launcherChanged() {
 }
 
 /** Open a project from anywhere (the window, a link, the menu), remembering it. Closes the projects window once it's open. */
-export async function openAndRemember(dir: string, extra: Pick<OpenOptions, "captureFirst"> = {}): Promise<OpenResult> {
+export async function openAndRemember(dir: string): Promise<OpenResult> {
   const r = await openProject(dir, {
-    ...extra,
     onOpened: (p) => {
       recent.add({ dir: p.store.root, name: p.name, platform: p.platform });
       app.addRecentDocument(p.store.root);
@@ -218,28 +217,14 @@ export function registerLauncherApi() {
     const store = new ReviewStore(d);
     if (store.exists()) return { ok: false, error: `${d} has been set up meanwhile; open it from the list.` };
     try {
-      const r = await createProject(store, setupInfo(d).name, checked.answers);
-      return { ok: true, ...r };
+      const created = await createProject(store, setupInfo(d).name, checked.answers);
+      // open it right away: screens are captured by hand there (App or Device tab)
+      const r = await openAndRemember(d);
+      if (r.ok) setupDirs.delete(d);
+      return { ...result(r, d), created };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }
-  });
-  handle("screens", (dir) => screensState(new ReviewStore(setupDir(dir))));
-  handle("deviceReady", (platform) => (platform === "android" || platform === "ios" ? deviceReady(platform) : false));
-  handle("finish", async (dir, capture) => {
-    const d = setupDir(dir);
-    // the first round needs a device to run on; without one the board waits for a capture
-    let captureFirst = false;
-    if (capture === true) {
-      const platform = await new ReviewStore(d)
-        .readManifest()
-        .then((m) => m.app.platform)
-        .catch(() => null);
-      captureFirst = !!platform && platform !== "web" && (await deviceReady(platform));
-    }
-    const r = await openAndRemember(d, { captureFirst });
-    if (r.ok) setupDirs.delete(d);
-    return result(r, d);
   });
   handle("cancelSetup", (dir) => {
     if (typeof dir === "string") setupDirs.delete(dir);

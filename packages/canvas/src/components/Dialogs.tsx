@@ -184,7 +184,7 @@ export function SentDialog() {
                   <b>2</b> Rebuild and reinstall the app{build ? <span className="dim"> ({build})</span> : null}.
                 </div>
                 <div>
-                  <b>3</b> Press <b>{build ? "Rebuild & recapture" : "↻ Recapture"}</b> here. Only changed screens are captured.
+                  <b>3</b> Capture the screens it changed again in the <b>Device</b> tab; pick <b>replace "…"</b> next to Capture view to update one in place.
                 </div>
               </>
             ) : (

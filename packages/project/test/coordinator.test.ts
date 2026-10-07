@@ -4,7 +4,7 @@ import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ReviewStore, type CaptureRunner } from "@scribui/server";
-import { captureProject, findOwner, hostProject, ignoreLockInGit, ProjectLock, readLock, saveCapturedView, type LockInfo } from "../src/index.js";
+import { captureProject, captureRound, findOwner, hostProject, ignoreLockInGit, ProjectLock, readLock, saveCapturedView, type LockInfo } from "../src/index.js";
 
 const F = join(import.meta.dirname, "../../../fixtures");
 
@@ -159,6 +159,20 @@ describe("views captured by hand", () => {
     expect((await store.readCapture(n, "cart-logged-in"))?.root.children[0]?.id).toBe("pay");
   });
 
+  it("android: the first capture into a new project starts round 1, then a second adds to it", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "scribui-handfirst-"));
+    const store = new ReviewStore(dir);
+    await store.init({ platform: "android", appId: "com.example.shop" });
+    const phone = { name: "Pixel 9a", width: 412, height: 915, scale: 2.625 };
+    const a = await saveCapturedView(store, { platform: "android", title: "Booking", device: phone, png, raw, orientation: "portrait" });
+    expect(a).toEqual({ round: 1, screenId: "booking", title: "Booking" });
+    const b = await saveCapturedView(store, { platform: "android", title: "Booking, time picked", device: phone, png, raw, orientation: "portrait" });
+    expect(b.round).toBe(1);
+    const m = await store.readManifest();
+    expect(m.screens.map((x) => x.id)).toEqual(["booking", "booking-time-picked"]);
+    expect(m.screens[0]).toMatchObject({ live: true, device: "Pixel 9a", orientation: "portrait" });
+  });
+
   it("refuses a view from another platform", async () => {
     const { store } = await project();
     await expect(saveCapturedView(store, { platform: "android", device, png, raw })).rejects.toThrow(/web app/);
@@ -176,5 +190,14 @@ describe("views captured by hand", () => {
     });
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ round: n, screenId: "thanks", title: "/thanks" });
+  });
+});
+
+describe("Android and iOS", () => {
+  it("never capture on their own: rounds are refused with where to capture instead", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "scribui-byhand-"));
+    const store = new ReviewStore(dir);
+    await store.init({ platform: "android", appId: "com.example.shop" });
+    await expect(captureRound(store)).rejects.toThrow(/captured by hand/);
   });
 });
