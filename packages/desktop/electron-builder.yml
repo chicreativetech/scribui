@@ -24,6 +24,10 @@ extraResources:
     to: scrcpy-server
   - from: vendor/scrcpy-LICENSE
     to: scrcpy-LICENSE
+# nothing is published yet (phase 7 adds releases and auto-update); without
+# this, electron-builder guesses a publish target, finds none and crashes
+# writing the AppImage's update info
+publish: null
 asarUnpack:
   - "dist/node_modules/@resvg/**"
 protocols:

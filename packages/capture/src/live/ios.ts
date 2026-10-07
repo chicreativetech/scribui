@@ -57,8 +57,14 @@ const REMOTE_GRID_POINTS = 25;
 const ORIENTATION_POLL_MS = 2000;
 
 export async function listSimulatorEntries(): Promise<SimulatorEntry[]> {
-  const r = await run("xcrun", ["simctl", "list", "devices", "-j"], { timeoutMs: 20_000 });
-  return r.code === 0 ? parseSimctlDevices(r.stdout.toString()) : [];
+  return (await readSimulatorEntries()).sims;
+}
+
+/** The simulators, or why simctl couldn't list them (it can take a while right after Xcode is switched or a simulator boots). */
+async function readSimulatorEntries(timeoutMs = 20_000): Promise<{ sims: SimulatorEntry[]; error: string | null }> {
+  const r = await run("xcrun", ["simctl", "list", "devices", "-j"], { timeoutMs });
+  if (r.code !== 0) return { sims: [], error: `simctl list failed (exit ${r.code}): ${r.stderr.trim().split("\n").slice(-2).join(" ")}` };
+  return { sims: parseSimctlDevices(r.stdout.toString()), error: null };
 }
 
 /** A device type's screen: pixels (portrait) and scale, from its profile in the Simulator's device types. */
@@ -94,9 +100,11 @@ export class IosTarget implements LiveTarget {
   }
 
   async connect(udid: string, signal?: AbortSignal): Promise<LiveSession> {
-    const sims = await listSimulatorEntries();
-    const sim = sims.find((s) => s.udid === udid);
-    if (!sim) throw new Error(`no simulator ${udid}`);
+    // one retry with more time: a failed or slow listing isn't "no such simulator"
+    let listed = await readSimulatorEntries();
+    if (listed.error || !listed.sims.some((s) => s.udid === udid)) listed = await readSimulatorEntries(60_000);
+    const sim = listed.sims.find((s) => s.udid === udid);
+    if (!sim) throw new Error(listed.error ?? `no simulator ${udid} (simctl lists ${listed.sims.length}: ${listed.sims.slice(0, 5).map((s) => `${s.name} ${s.runtime} ${s.state}`).join(", ") || "none"})`);
     if (sim.state !== "Booted") throw new Error(`${sim.name} isn't booted (${sim.state.toLowerCase()})`);
     const profile = await deviceProfile(sim.deviceType);
     if (!profile) throw new Error(`can't read ${sim.name}'s screen size`);

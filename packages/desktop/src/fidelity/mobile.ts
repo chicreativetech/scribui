@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -5,8 +6,8 @@ import { fileURLToPath } from "node:url";
 import type { RawElement, ScreenCapture } from "@scribui/core";
 import { normalizeTree } from "@scribui/core";
 import { AndroidTarget, findTool, IosTarget, run, type LiveCapture, type LiveSession, type LiveTarget } from "@scribui/capture";
-import { announce, checkProbe, decode, findElement, markResolves, summary, type Check } from "./checks.js";
-import { PROBES, serveProbe } from "./pages.js";
+import { announce, checkProbe, decode, findElement, flatten, markResolves, summary, type Check } from "./checks.js";
+import { PROBES, serveProbe, type ProbeServer } from "./pages.js";
 
 /**
  * The mobile fidelity suites (plan §5): the device tab's capture path on an
@@ -54,14 +55,32 @@ async function target(platform: Platform): Promise<LiveTarget> {
   return new AndroidTarget({ serverJar: join(vendor, "scrcpy-server"), ...(adb ? { adb } : {}) });
 }
 
-/** Open the probe page in the device's browser. Android reaches the host through `adb reverse`. */
-async function openProbe(platform: Platform, id: string, port: number, path = "/still") {
-  const url = `http://127.0.0.1:${port}${path}`;
+/**
+ * Open the probe page in the device's browser and wait until the browser has
+ * fetched it: a freshly booted simulator's first Safari launch can take far
+ * longer than a fixed pause (CI's always is fresh). Android reaches the host
+ * through `adb reverse`.
+ */
+async function openProbe(platform: Platform, id: string, probe: ProbeServer, path = "/still", settleMs = 3000) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const since = Date.now();
+    await sendProbeUrl(platform, id, `http://127.0.0.1:${probe.port}${path}`);
+    if (await probe.requested(path, since, 20_000)) {
+      // drawn, and any first-launch sheet gone
+      await sleep(settleMs);
+      return;
+    }
+  }
+  throw new Error(`the browser never loaded ${path}`);
+}
+
+async function sendProbeUrl(platform: Platform, id: string, url: string) {
   if (platform === "ios") {
     await run("xcrun", ["simctl", "openurl", id, url], { timeoutMs: 20_000 });
     return;
   }
   const adb = (await findTool("adb")) ?? "adb";
+  const port = new URL(url).port;
   await run(adb, ["-s", id, "reverse", `tcp:${port}`, `tcp:${port}`], { timeoutMs: 10_000 });
   // no first-run screens in Chrome (emulators allow the command-line file)
   await run(adb, ["-s", id, "shell", "echo 'chrome --disable-fre --no-default-browser-check --no-first-run' > /data/local/tmp/chrome-command-line"], { timeoutMs: 10_000 });
@@ -89,8 +108,10 @@ export async function runMobileFidelity(platform: Platform) {
     console.log(`${ok ? "ok  " : "FAIL"} ${name}`);
   };
   const report: Record<string, unknown> = { suite: platform, host: process.platform, arch: process.arch };
-  const { server, port } = await serveProbe();
+  const probe = await serveProbe();
+  const { server } = probe;
   let session: LiveSession | null = null;
+  let reverseFor: { adb: string; id: string } | null = null;
   const watchdog = setTimeout(() => {
     check("the suite finished in time", false);
     finish();
@@ -104,6 +125,14 @@ export async function runMobileFidelity(platform: Platform) {
     console.log(`FIDELITY_REPORT ${join(out, "report.json")} ${JSON.stringify(report.summary)}`);
     server.close();
     void session?.dispose();
+    // this run's tunnel: left behind, they pile up on the device across runs (and once there are many, Chrome's requests stopped arriving)
+    if (platform === "android" && reverseFor) {
+      try {
+        execFileSync(reverseFor.adb, ["-s", reverseFor.id, "reverse", "--remove", `tcp:${probe.port}`], { stdio: "ignore", timeout: 10_000 });
+      } catch (e) {
+        console.log(`couldn't remove the adb reverse tunnel: ${(e as Error).message}`);
+      }
+    }
     process.exit(checks.length && checks.every((c) => c.ok) ? 0 : 1);
   };
 
@@ -116,8 +145,8 @@ export async function runMobileFidelity(platform: Platform) {
     report.device = device;
 
     at("opening the probe page");
-    await openProbe(platform, device.id, port);
-    await sleep(4000);
+    if (platform === "android") reverseFor = { adb: (await findTool("adb")) ?? "adb", id: device.id };
+    await openProbe(platform, device.id, probe);
 
     at("connecting");
     const t1 = Date.now();
@@ -161,6 +190,21 @@ export async function runMobileFidelity(platform: Platform) {
       }
     };
 
+    // a fresh browser shows first-run tips over the page, and the tree then has none of it
+    // (CI's simulator is always fresh): close them, then measure
+    for (let i = 1; i <= 3; i++) {
+      const pre = await capture(`overlay-check-${i}`);
+      if (findElement(pre.cap, PROBES.probe.match)) break;
+      const close = flatten(pre.cap.root).find((e) => /^(close|dismiss|not now|no thanks|continue|ok|done)$/i.test((e.label ?? "").trim()) && e.bounds.w > 0);
+      if (!close) break;
+      at(`closing "${close.label}" over the page`);
+      const x = (close.bounds.x + close.bounds.w / 2) / pre.img.width;
+      const y = (close.bounds.y + close.bounds.h / 2) / pre.img.height;
+      await s.input({ type: "pointer", action: "down", x, y });
+      await s.input({ type: "pointer", action: "up", x, y });
+      await sleep(1500);
+    }
+
     // portrait, still
     const p = await capture("portrait");
     check("portrait: settled on a still screen", p.c.settled && p.c.elements, { attempts: p.c.attempts, ms: p.ms, steps: p.steps, device: p.c.device });
@@ -183,14 +227,14 @@ export async function runMobileFidelity(platform: Platform) {
     // Capture while something on the page still moves: either the capture waits for the screen to
     // settle or it says it didn't
     at("capturing while the page moves");
-    await openProbe(platform, device.id, port, "/moving");
+    await openProbe(platform, device.id, probe, "/moving", 0);
     await sleep(1200);
     const m = await capture("moving");
     const moved = m.c.attempts > 1 || !m.c.settled;
     check("while moving: the motion was noticed (retried or kept unsettled)", moved, { attempts: m.c.attempts, settled: m.c.settled, steps: m.steps, ms: m.ms });
     // whatever it settled on, its tree belongs to its picture
     if (m.c.settled) probes("while moving (settled)", m, ["probe", "header"]);
-    await openProbe(platform, device.id, port);
+    await openProbe(platform, device.id, probe);
     await sleep(2500);
 
     // the keyboard (Android: in the screenshot, added to the tree)

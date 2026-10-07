@@ -88,7 +88,15 @@ jobs:
         if: failure()
         working-directory: packages/desktop
         shell: bash
-        run: test -f package.log && tail -n 25 package.log | sed -e 's/%/%25/g' -e 's/^/::error title=electron-builder::/' || true
+        # one annotation (GitHub keeps only 10 per step), newlines encoded as %0A
+        run: test -f package.log && echo "::error title=electron-builder::$(tail -n 40 package.log | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')" || true
+      - name: Keep the packaging log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-log-${{ runner.os }}
+          path: packages/desktop/package.log
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: scribui-desktop-${{ runner.os }}
