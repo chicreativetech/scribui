@@ -6,6 +6,7 @@ import {
   AXE_INSTALL,
   bootSimulatorHeadless,
   findTool,
+  installEnv,
   IosTarget,
   listSimulatorsLive,
   listAvds,
@@ -47,8 +48,8 @@ export type DeviceList = {
   devices: DeviceInfo[];
   /** Emulators (AVD names) or simulators (UDIDs) that can be started: not running. */
   startable: { id: string; name: string }[];
-  /** A tool the device view needs is missing (adb; AXe or the helper on iOS): what to run to get it. */
-  missing: { tool: string; install?: string } | null;
+  /** A tool the device view needs is missing (adb; AXe or the helper on iOS): what to run to get it, and whether the app can install it. */
+  missing: { tool: string; install?: string; installable?: "adb" | "axe" } | null;
 };
 
 export type CaptureOutcome =
@@ -130,7 +131,7 @@ export class DeviceView {
       const install = { darwin: "brew install --cask android-platform-tools", win32: "winget install Google.PlatformTools", linux: "sudo apt install adb" }[
         process.platform as "darwin"
       ];
-      return { devices: [], startable: [], missing: { tool: "adb", ...(install ? { install } : {}) } };
+      return { devices: [], startable: [], missing: { tool: "adb", ...(install ? { install } : {}), installable: "adb" } };
     }
     const target = await this.getTarget();
     const [devices, avds] = await Promise.all([target.list(), listAvds().catch(() => [])]);
@@ -139,9 +140,13 @@ export class DeviceView {
   }
 
   private async listSimulators(): Promise<DeviceList> {
-    const none = (tool: string, install?: string): DeviceList => ({ devices: [], startable: [], missing: { tool, ...(install ? { install } : {}) } });
+    const none = (tool: string, install?: string, installable?: "axe"): DeviceList => ({
+      devices: [],
+      startable: [],
+      missing: { tool, ...(install ? { install } : {}), ...(installable ? { installable } : {}) },
+    });
     if (process.platform !== "darwin") return none("a Mac (the iOS Simulator only runs on macOS)");
-    if (!(await findTool("axe")) || !axeFrameworks()) return none("AXe", AXE_INSTALL);
+    if (!(await findTool("axe")) || !axeFrameworks()) return none("AXe", AXE_INSTALL, (await installEnv()).brew ? "axe" : undefined);
     if (!simHelperPath()) return none("scribui-sim, built with the app", "pnpm --filter @scribui/desktop exec node scripts/build-sim-helper.mjs");
     const { devices, startable } = await listSimulatorsLive();
     return { devices, startable, missing: null };

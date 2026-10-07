@@ -6,3 +6,4 @@ export { findRunning, portRange, startOnFreePort } from "./instances.js";
 export * from "./lock.js";
 export * from "./runner.js";
 export * from "./views.js";
+export * from "./detect.js";

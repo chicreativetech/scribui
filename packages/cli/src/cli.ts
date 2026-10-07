@@ -6,10 +6,9 @@ import { cac } from "cac";
 import { createAdapter } from "@scribui/capture";
 import { Platform, PRODUCT, ReviewJson } from "@scribui/core";
 import { lanAddress, ReviewStore, type CaptureState } from "@scribui/server";
-import { captureProject, describePlan, hostProject, makeRunner, portRange, saveCapturedView, type CaptureEvent, type Owner } from "@scribui/project";
+import { captureProject, describePlan, detectProject, hostProject, makeRunner, portRange, saveCapturedView, type CaptureEvent, type Owner } from "@scribui/project";
 import { runMcp } from "./mcp.js";
 import { migrateHome, migrateProject } from "./migrate.js";
-import { detectProject } from "./setup.js";
 import { handToDesktop, openBrowser, start } from "./start.js";
 import { banner, c, errLine, fail, line, okLine, out, warnLine } from "./ui.js";
 

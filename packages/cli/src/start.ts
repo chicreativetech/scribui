@@ -2,21 +2,25 @@ import { spawn } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
 import { Platform, PRODUCT, ScreenManifest, screensPrompt } from "@scribui/core";
 import type { ReviewStore } from "@scribui/server";
-import { captureProject, findOwner, hostProject, makeRunner, portRange, saveCapturedView, type CaptureEvent } from "@scribui/project";
-import { desktopInstalled, openInDesktop } from "./desktop.js";
-import { input, interactive, select, waitFor } from "./prompts.js";
-import { openLiveWindow, type LiveWindow } from "./live.js";
 import {
-  BETA,
-  copyToClipboard,
+  captureProject,
   DEV_PORTS,
   detectDevServers,
   detectProject,
-  ensureAndroid,
-  ensureIos,
-  ensureWebTools,
+  findOwner,
+  hostProject,
+  makeRunner,
+  pageTitle,
+  portRange,
+  reachable,
+  saveCapturedView,
+  type CaptureEvent,
   type ProjectInfo,
-} from "./setup.js";
+} from "@scribui/project";
+import { desktopInstalled, openInDesktop } from "./desktop.js";
+import { input, interactive, select, waitFor } from "./prompts.js";
+import { openLiveWindow, type LiveWindow } from "./live.js";
+import { BETA, copyToClipboard, ensureAndroid, ensureIos, ensureWebTools } from "./setup.js";
 import { banner, c, errLine, line, okLine, out, warnLine } from "./ui.js";
 
 export type StartFlags = {
@@ -157,16 +161,6 @@ async function findApp(root: string): Promise<string> {
   }
 }
 
-async function pageTitle(url: string): Promise<string | null> {
-  try {
-    const html = await (await fetch(url, { signal: AbortSignal.timeout(1500) })).text();
-    const t = /<title[^>]*>([^<]{1,80})<\/title>/i.exec(html)?.[1]?.trim();
-    return t || null;
-  } catch {
-    return null;
-  }
-}
-
 async function readManifestOrExplain(store: ReviewStore): Promise<ScreenManifest | null> {
   try {
     return await store.readManifest();
@@ -200,15 +194,6 @@ async function ensureTools(store: ReviewStore, platform: Platform, manifest: Scr
     await store.updateApp({ device: r.device });
   }
   return r.ok;
-}
-
-async function reachable(url: string): Promise<boolean> {
-  try {
-    await fetch(url, { signal: AbortSignal.timeout(2000), redirect: "manual" });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function waitForScreens(store: ReviewStore, platform: Platform): Promise<boolean> {
