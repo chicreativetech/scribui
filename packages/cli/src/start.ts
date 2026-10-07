@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
 import { Platform, PRODUCT, ScreenManifest, screensPrompt } from "@scribui/core";
 import type { ReviewStore } from "@scribui/server";
-import { captureProject, hostProject, makeRunner, portRange, saveCapturedView, type CaptureEvent } from "@scribui/project";
+import { captureProject, findOwner, hostProject, makeRunner, portRange, saveCapturedView, type CaptureEvent } from "@scribui/project";
+import { desktopInstalled, openInDesktop } from "./desktop.js";
 import { input, interactive, select, waitFor } from "./prompts.js";
 import { openLiveWindow, type LiveWindow } from "./live.js";
 import {
@@ -23,6 +24,8 @@ export type StartFlags = {
   device?: string;
   port?: number;
   open?: boolean;
+  /** false: don't hand the project to the desktop app even when it's installed. */
+  desktop?: boolean;
   lan?: boolean;
   canvasDir?: string;
   printEvent: (e: CaptureEvent) => void;
@@ -248,8 +251,55 @@ async function waitForScreens(store: ReviewStore, platform: Platform): Promise<b
   }
 }
 
+/**
+ * With the desktop app installed, it opens the project instead of a browser:
+ * the app takes the project and this run ends. Not when another server owns
+ * the project already, or for --lan (the app doesn't pair tablets yet).
+ * Returns whether the app took it.
+ */
+export async function handToDesktop(store: ReviewStore, flags: { open?: boolean; desktop?: boolean; lan?: boolean; port?: number }): Promise<boolean> {
+  if (flags.open === false || flags.desktop === false || flags.lan || !interactive()) return false;
+  if (await findOwner(store, flags.port ?? PRODUCT.defaultPort)) return false;
+  if (!(await desktopInstalled())) return false;
+  out();
+  out(c.dim("  Opening the project in the ScribUI app…"));
+  const owner = await openInDesktop(store);
+  if (!owner) {
+    warnLine("The ScribUI app didn't open the project; opening it here instead. (--no-desktop skips the app)");
+    return false;
+  }
+  okLine(`opened in the ScribUI app ${c.dim(`(${owner.url})`)}`);
+  return true;
+}
+
 /** Start (or reuse) the server, open the canvas, capture first when there is no round yet. */
 async function serve(store: ReviewStore, flags: StartFlags, platform: Platform, captureFirst: boolean) {
+  if (await handToDesktop(store, flags)) {
+    if (captureFirst) {
+      // the first round runs in the app; follow it here
+      out();
+      let last = "";
+      const res = await captureProject(store, {
+        app: "cli",
+        platform,
+        log: flags.printEvent,
+        onProgress: (st) => {
+          const key = `${st.phase}:${st.done ?? 0}/${st.total ?? 0}:${st.current ?? ""}`;
+          if (key === last) return;
+          last = key;
+          if (st.phase === "building") out(`  ${c.dim("building…")}`);
+          else if (st.total) out(`  ${c.dim(`[${st.done ?? 0}/${st.total}]`)} ${st.current ?? ""}`);
+        },
+      }).catch((e: Error) => {
+        errLine(e.message);
+        return null;
+      });
+      const r = res?.result;
+      if (r && "round" in r && r.round !== null) okLine(`round ${pad(r.round)} captured; it's on the board in the app`);
+    }
+    out();
+    return;
+  }
   const port = flags.port ?? PRODUCT.defaultPort;
   const runner = makeRunner(store, { platform, ...(flags.device ? { device: flags.device } : {}) }, flags.printEvent, (l: string) =>
     out(c.dim(`    ${l.slice(0, 160)}`)),

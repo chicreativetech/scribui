@@ -22,3 +22,7 @@ export const PRODUCT = {
   folder: ".scribui",
   defaultPort: 4382,
 } as const;
+
+/** The desktop app's link scheme: `scribui://open?dir=<absolute path>` opens a project in it. */
+export const DESKTOP_PROTOCOL = "scribui";
+export const desktopOpenUrl = (dir: string) => `${DESKTOP_PROTOCOL}://open?dir=${encodeURIComponent(dir)}`;

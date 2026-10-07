@@ -10,7 +10,7 @@ import { captureProject, describePlan, hostProject, makeRunner, portRange, saveC
 import { runMcp } from "./mcp.js";
 import { migrateHome, migrateProject } from "./migrate.js";
 import { detectProject } from "./setup.js";
-import { openBrowser, start } from "./start.js";
+import { handToDesktop, openBrowser, start } from "./start.js";
 import { banner, c, errLine, fail, line, okLine, out, warnLine } from "./ui.js";
 
 const VERSION = "0.1.0";
@@ -25,6 +25,7 @@ type Flags = {
   screens?: string;
   port?: number;
   open?: boolean;
+  desktop?: boolean;
   lan?: boolean;
   name?: string;
 };
@@ -229,6 +230,7 @@ async function cmdOpen(f: Flags) {
   const dir = canvasDir();
   if (!dir) warnLine("canvas build not found; run `pnpm build` in the ScribUI repo");
   const port = f.port ?? PRODUCT.defaultPort;
+  if (await handToDesktop(store, f)) return;
   const hosted = await hostProject(store, {
     app: "cli",
     port,
@@ -338,6 +340,7 @@ common(cli.command("capture", "Create a new round: run every screen's flow, capt
 common(cli.command("open", "Start the server and open the canvas on the latest round"))
   .option("--port <port>", "Port", { default: PRODUCT.defaultPort })
   .option("--no-open", "Do not open a browser")
+  .option("--no-desktop", "Use the browser even when the ScribUI app is installed")
   .option("--lan", "Also listen on the local network, paired with a one-time QR code")
   .action((f: Flags) => cmdOpen(f));
 
@@ -351,6 +354,7 @@ cli
 common(cli.command("", "Set up on first run, then open the canvas (captures when there is nothing yet)"))
   .option("--port <port>", "Port", { default: PRODUCT.defaultPort })
   .option("--no-open", "Do not open a browser")
+  .option("--no-desktop", "Use the browser even when the ScribUI app is installed")
   .option("--lan", "Also listen on the local network")
   .action(async (f: Flags) => {
     await start(storeFor(f), {
@@ -358,6 +362,7 @@ common(cli.command("", "Set up on first run, then open the canvas (captures when
       device: f.device,
       port: f.port,
       open: f.open,
+      desktop: f.desktop,
       lan: f.lan,
       canvasDir: canvasDir(),
       printEvent,
