@@ -4,6 +4,8 @@
 # the asar archive. The package itself has no runtime dependencies.
 appId: dev.scribui.desktop
 productName: ScribUI
+# the package's own name (@scribui/desktop) can't be a file name
+executableName: scribui
 artifactName: ScribUI-${version}-${os}-${arch}.${ext}
 directories:
   output: release

@@ -6,7 +6,7 @@ type IdbItem = {
   frame?: { x: number; y: number; width: number; height: number };
   AXUniqueId?: string | null;
   AXLabel?: string | null;
-  AXValue?: string | null;
+  AXValue?: string | number | null;
   title?: string | null;
   type?: string | null;
   role?: string | null;
@@ -54,7 +54,8 @@ function toRaw(i: IdbItem, scale: number): RawElement {
     el.id = i.AXUniqueId;
     el.idSource = "accessibility";
   }
-  const label = (i.AXLabel || i.title || i.AXValue || "").trim();
+  // AXValue is a number for sliders and scroll bars
+  const label = String(i.AXLabel || i.title || i.AXValue || "").trim();
   if (label) el.label = label;
   return el;
 }

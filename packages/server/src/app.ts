@@ -563,7 +563,17 @@ export async function startServer(opts: ServerOptions) {
       stopWatch();
       for (const s of sockets) s.close();
       wss.close();
-      await Promise.all(servers.map((srv) => new Promise<void>((r) => srv.close(() => r()))));
+      // close() waits for open connections; a request still in flight would leave its
+      // keep-alive connection behind and the server (and the project's lock) never closing
+      await Promise.all(
+        servers.map(
+          (srv) =>
+            new Promise<void>((r) => {
+              srv.close(() => r());
+              srv.closeAllConnections();
+            }),
+        ),
+      );
     },
   };
 }

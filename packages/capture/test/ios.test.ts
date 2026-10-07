@@ -80,6 +80,11 @@ describe("a turned simulator screen", () => {
     expect(uiOrientation(null, "landscapeLeft")).toBe("landscapeLeft");
   });
 
+  it("reads elements whose value is a number (scroll bars)", () => {
+    const tree = JSON.stringify([{ type: "Application", frame: { x: 0, y: 0, width: 402, height: 874 }, children: [{ type: "Slider", AXValue: 0.5, frame: { x: 1, y: 2, width: 3, height: 4 }, children: [] }] }]);
+    expect(parseIdb(tree, 1).children[0]).toMatchObject({ type: "slider", label: "0.5" });
+  });
+
   it("places a landscape tree on the turned screenshot", () => {
     // what the tree says in landscape (points) and where the turned screenshot has it (pixels, ×3)
     const tree = JSON.stringify([

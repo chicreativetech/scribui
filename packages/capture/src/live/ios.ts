@@ -307,12 +307,15 @@ class IosSession implements LiveSession {
     f.y = Math.min(1, Math.max(0, f.y + (ev.dy * SCROLL_POINTS) / hh));
     h.send({ op: "touch", down: true, ...this.hid(f) });
     if (this.fingerTimer) clearTimeout(this.fingerTimer);
-    this.fingerTimer = setTimeout(() => {
-      this.fingerTimer = null;
-      const end = this.finger;
-      this.finger = null;
-      if (end && this.helper) this.helper.send({ op: "touch", down: false, ...this.hid(end) });
-    }, SCROLL_IDLE_MS);
+    this.fingerTimer = setTimeout(() => this.endScroll(), SCROLL_IDLE_MS);
+  }
+
+  private endScroll() {
+    if (this.fingerTimer) clearTimeout(this.fingerTimer);
+    this.fingerTimer = null;
+    const end = this.finger;
+    this.finger = null;
+    if (end && this.helper) this.helper.send({ op: "touch", down: false, ...this.hid(end) });
   }
 
   resetVideo() {
@@ -328,6 +331,13 @@ class IosSession implements LiveSession {
     const h = this.helper;
     if (!h || h.isClosed) throw new Error(`${this.name} is reconnecting`);
     this.capturing = true;
+    // a wheel scroll still holding its finger: lift it first. A held page stands still, so both
+    // screenshots agree, but the accessibility tree leaves out the overscroll (a 150 pt pull read
+    // as settled with every element 150 pt off); lifted, the bounce back shows as motion
+    if (this.finger) {
+      this.endScroll();
+      await sleep(100);
+    }
     try {
       const c = await captureIosLive({
         udid: this.deviceId,

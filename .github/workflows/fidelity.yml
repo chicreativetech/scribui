@@ -1,0 +1,140 @@
+name: Capture fidelity
+
+# The capture-fidelity matrix (plan §5): the desktop app's capture paths against
+# a probe page, checked for element alignment, marks, raw colours, frozen
+# animations, the verify step and reconnects. Failed checks show as annotations
+# on the run; reports and screenshots are kept as artifacts.
+# Locally: packages/desktop/src/fidelity/web.ts and mobile.ts (how to run: top of each).
+on:
+  push:
+    branches: [main]
+    paths: ["packages/**", "pnpm-lock.yaml", ".github/workflows/fidelity.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: fidelity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        scale: [1, 2]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @scribui/canvas build
+      # today's path, the reference
+      - run: npx playwright install --with-deps chromium
+      - name: Build the app
+        working-directory: packages/desktop
+        run: npx tsup
+      - name: Web suite (scale ${{ matrix.scale }})
+        working-directory: packages/desktop
+        env:
+          SCRIBUI_FIDELITY: web
+          SCRIBUI_FIDELITY_OUT: ${{ runner.temp }}/fidelity-web
+        shell: bash
+        run: |
+          args=(--force-color-profile=srgb --force-device-scale-factor=${{ matrix.scale }})
+          if [ "$RUNNER_OS" = Linux ]; then
+            # no display, and no setuid sandbox helper on the runner
+            xvfb-run -a -s "-screen 0 1920x1200x24" npx electron . "${args[@]}" --no-sandbox
+          else
+            npx electron . "${args[@]}"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fidelity-web-${{ runner.os }}-scale${{ matrix.scale }}
+          path: ${{ runner.temp }}/fidelity-web
+          if-no-files-found: ignore
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Pinned scrcpy server
+        working-directory: packages/desktop
+        run: node scripts/fetch-scrcpy.mjs
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android suite (emulator)
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          SCRIBUI_FIDELITY_OUT: ${{ runner.temp }}/fidelity-android
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          working-directory: packages/desktop
+          script: npx tsx src/fidelity/mobile.ts android
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fidelity-android
+          path: ${{ runner.temp }}/fidelity-android
+          if-no-files-found: ignore
+
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Xcode 26 (AXe needs it)
+        run: |
+          x=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$x" ]; then sudo xcode-select -s "$x"; fi
+          xcodebuild -version
+      - name: AXe and the simulator helper
+        working-directory: packages/desktop
+        run: |
+          brew tap cameroncooke/axe
+          brew trust --formula cameroncooke/axe/axe || true
+          brew install cameroncooke/axe/axe
+          node scripts/build-sim-helper.mjs
+      - name: Boot an iPhone simulator
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k in sorted(d, reverse=True) if 'iOS' in k for x in d[k] if x['name'].startswith('iPhone')))")
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+      - name: iOS suite (simulator)
+        working-directory: packages/desktop
+        env:
+          SCRIBUI_FIDELITY_OUT: ${{ runner.temp }}/fidelity-ios
+        run: npx tsx src/fidelity/mobile.ts ios --device "$UDID"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fidelity-ios
+          path: ${{ runner.temp }}/fidelity-ios
+          if-no-files-found: ignore
