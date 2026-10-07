@@ -1,24 +1,31 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { Platform } from "@scribui/core";
 import { run, which } from "./exec.js";
 
 /**
  * Find a command-line tool on PATH or in the places its installer puts it
  * (Android Studio's SDK, ~/.maestro/bin), which are often not on PATH.
  */
-export async function findTool(name: "adb" | "emulator" | "maestro" | "idb" | "xcrun"): Promise<string | null> {
+export async function findTool(name: "adb" | "emulator" | "maestro" | "idb" | "idb_companion" | "xcrun"): Promise<string | null> {
   const onPath = await which(name);
   if (onPath) return onPath;
   const home = homedir();
-  const sdks = [process.env.ANDROID_HOME, process.env.ANDROID_SDK_ROOT, join(home, "Library/Android/sdk"), join(home, "Android/Sdk")].filter(
-    (p): p is string => !!p,
-  );
+  const sdks = [
+    process.env.ANDROID_HOME,
+    process.env.ANDROID_SDK_ROOT,
+    join(home, "Library/Android/sdk"),
+    join(home, "Android/Sdk"),
+    process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, "Android/Sdk"),
+  ].filter((p): p is string => !!p);
+  const exe = process.platform === "win32" ? ".exe" : "";
   const candidates: string[] = [];
-  if (name === "adb") candidates.push(...sdks.map((s) => join(s, "platform-tools/adb")));
-  if (name === "emulator") candidates.push(...sdks.map((s) => join(s, "emulator/emulator")));
+  if (name === "adb") candidates.push(...sdks.map((s) => join(s, `platform-tools/adb${exe}`)));
+  if (name === "emulator") candidates.push(...sdks.map((s) => join(s, `emulator/emulator${exe}`)));
   if (name === "maestro") candidates.push(join(home, ".maestro/bin/maestro"));
   if (name === "idb") candidates.push(join(home, ".local/bin/idb"), "/opt/homebrew/bin/idb");
+  if (name === "idb_companion") candidates.push("/opt/homebrew/bin/idb_companion", "/usr/local/bin/idb_companion");
   return candidates.find((p) => existsSync(p)) ?? null;
 }
 
@@ -90,4 +97,104 @@ export async function bootSimulator(udid: string): Promise<boolean> {
   const ok = r.code === 0 || /current state: Booted/i.test(r.stderr);
   if (ok) await run("xcrun", ["simctl", "bootstatus", udid, "-b"], { timeoutMs: 180_000 });
   return ok;
+}
+
+/* ─────────────────────────── tool report ─────────────────────────── */
+
+export type ToolId = "adb" | "emulator" | "xcode" | "idb";
+
+export type ToolStatus = {
+  id: ToolId;
+  name: string;
+  /** What it's for, in a few words. */
+  purpose: string;
+  /** Platforms whose capture needs it. */
+  platforms: Platform[];
+  /** Capture can't work without it (the others make it better or are needed later). */
+  required: boolean;
+  ok: boolean;
+  /** Where it was found, or why it isn't usable. */
+  detail: string;
+  /** How to install it on this system, when it's missing. */
+  install?: { command?: string; url?: string };
+};
+
+type Os = "darwin" | "win32" | "linux";
+
+const INSTALL: Record<ToolId, Partial<Record<Os, { command?: string; url?: string }>>> = {
+  adb: {
+    darwin: { command: "brew install --cask android-platform-tools" },
+    win32: { command: "winget install Google.PlatformTools" },
+    linux: { command: "sudo apt install adb" },
+  },
+  emulator: {
+    darwin: { command: "brew install --cask android-studio", url: "https://developer.android.com/studio" },
+    win32: { command: "winget install Google.AndroidStudio", url: "https://developer.android.com/studio" },
+    linux: { command: "sudo snap install android-studio --classic", url: "https://developer.android.com/studio" },
+  },
+  xcode: { darwin: { command: 'open "macappstore://apps.apple.com/app/xcode/id497799835"', url: "https://developer.apple.com/xcode/" } },
+  idb: { darwin: { command: "brew install facebook/fb/idb-companion && pipx install fb-idb", url: "https://fbidb.io" } },
+};
+
+/**
+ * The device tools ScribUI uses, found or not, with the command that installs
+ * each missing one on this system. iOS tools are only listed on macOS.
+ */
+export async function detectTools(os: NodeJS.Platform = process.platform): Promise<ToolStatus[]> {
+  const install = (id: ToolId) => INSTALL[id][os as Os];
+  const found = (id: ToolId, path: string | null, missing: string) =>
+    path ? { ok: true, detail: path } : { ok: false, detail: missing, ...(install(id) ? { install: install(id) } : {}) };
+
+  const [adb, emulator] = await Promise.all([findTool("adb"), findTool("emulator")]);
+  const tools: ToolStatus[] = [
+    {
+      id: "adb",
+      name: "adb",
+      purpose: "talks to Android emulators and phones",
+      platforms: ["android"],
+      required: true,
+      ...found("adb", adb, "not found on PATH or in the Android SDK"),
+    },
+    {
+      id: "emulator",
+      name: "Android emulator",
+      purpose: "runs virtual Android devices (or use a phone over USB)",
+      platforms: ["android"],
+      required: false,
+      ...found("emulator", emulator, "not found in the Android SDK"),
+    },
+  ];
+  if (os !== "darwin") return tools;
+
+  const [xcode, idb, companion] = await Promise.all([xcodeStatus(), findTool("idb"), findTool("idb_companion")]);
+  tools.push(
+    {
+      id: "xcode",
+      name: "Xcode",
+      purpose: "runs the iOS Simulator",
+      platforms: ["ios"],
+      required: true,
+      ...(xcode.ok ? { ok: true, detail: xcode.detail } : { ok: false, detail: xcode.detail, install: install("xcode")! }),
+    },
+    {
+      id: "idb",
+      name: "idb",
+      purpose: "mirrors and controls the iOS Simulator",
+      platforms: ["ios"],
+      required: false,
+      ...(idb && companion
+        ? { ok: true, detail: idb }
+        : { ok: false, detail: idb ? "idb_companion is missing" : "not found", install: install("idb")! }),
+    },
+  );
+  return tools;
+}
+
+/** Full Xcode (not just the Command Line Tools): `simctl` only comes with Xcode. */
+async function xcodeStatus(): Promise<{ ok: boolean; detail: string }> {
+  const dir = (await run("xcode-select", ["-p"], { timeoutMs: 5000 })).stdout.toString().trim();
+  const simctl = await run("xcrun", ["simctl", "help"], { timeoutMs: 10_000 });
+  if (simctl.code === 0) return { ok: true, detail: dir || "xcrun simctl" };
+  if (/CommandLineTools/.test(dir)) return { ok: false, detail: "only the Command Line Tools are selected; the Simulator needs Xcode (then: sudo xcode-select -s /Applications/Xcode.app)" };
+  return { ok: false, detail: "not installed" };
 }

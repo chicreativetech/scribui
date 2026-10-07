@@ -8,7 +8,7 @@ import { resolveAll, type ScreenCapture, type UIElement } from "@scribui/core";
 import { loadChromium } from "@scribui/capture";
 import { attachLiveCapture } from "../../cli/src/live.js";
 import type { ViewSaveRequest } from "@scribui/server";
-import { openProject } from "./main.js";
+import { openProject } from "./projectWindow.js";
 import { captureFromCanvas, liveFrame } from "./webCapture.js";
 
 /**
@@ -236,8 +236,10 @@ export async function runSpike(_dir: string | null) {
   manifest.app.baseUrl = base;
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
-  const project = await openProject(projectDir);
-  if (!project) throw new Error("could not open the spike project");
+  // the spike compares the iframe path with Playwright's
+  const opened = await openProject(projectDir, { surface: "iframe" });
+  if (!opened.ok) throw new Error(`could not open the spike project: ${opened.error}`);
+  const project = opened.project;
   const wc = project.win.webContents;
   report.desktopRole = project.guest ? "guest (another process owns the project)" : "owner";
   await sleep(1500);

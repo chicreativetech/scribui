@@ -38,8 +38,9 @@ export function run(
 }
 
 export async function which(cmd: string): Promise<string | null> {
-  const r = await run("/usr/bin/env", ["which", cmd]);
-  return r.code === 0 ? r.stdout.toString().trim() || null : null;
+  const r = process.platform === "win32" ? await run("where", [cmd]) : await run("/usr/bin/env", ["which", cmd]);
+  // `where` lists every match, one per line
+  return r.code === 0 ? r.stdout.toString().split(/\r?\n/)[0]!.trim() || null : null;
 }
 
 export class CaptureError extends Error {

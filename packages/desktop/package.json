@@ -1,24 +1,21 @@
 {
   "name": "@scribui/desktop",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "ScribUI desktop app (Electron). Spike W: the web capture path.",
+  "description": "ScribUI desktop app: shows the app under review live and captures it exactly as it is.",
   "type": "module",
   "main": "dist/main.cjs",
   "scripts": {
     "build": "tsup",
     "start": "tsup && electron .",
+    "icon": "node scripts/icon.mjs",
+    "dist": "tsup && node scripts/stage-native.mjs && electron-builder --publish never",
     "typecheck": "tsc --noEmit -p ."
   },
-  "dependencies": {
+  "dependencies": {},
+  "devDependencies": {
     "@hono/node-server": "^2.1.3",
     "@resvg/resvg-js": "^2.6.2",
-    "hono": "^4.13.12",
-    "perfect-freehand": "^1.2.3",
-    "ws": "^8.22.0",
-    "zod": "^4.6.5"
-  },
-  "devDependencies": {
     "@scribui/capture": "workspace:*",
     "@scribui/core": "workspace:*",
     "@scribui/project": "workspace:*",
@@ -26,7 +23,15 @@
     "@types/node": "^22",
     "@types/ws": "^8.5.12",
     "electron": "^44.6.0",
+    "electron-builder": "^26",
+    "hono": "^4.13.12",
+    "perfect-freehand": "^1.2.3",
     "tsup": "^8.5.1",
-    "typescript": "~5.9.3"
-  }
+    "typescript": "~5.9.3",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  },
+  "productName": "ScribUI",
+  "author": "ScribUI",
+  "homepage": "https://github.com/chicreativetech/scribui"
 }

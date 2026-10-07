@@ -7,9 +7,10 @@ export type LiveCaptureRequest = { title?: string; replace?: string };
 export type SaveView = (req: ViewSaveRequest) => Promise<ViewSaveResult>;
 
 /**
- * Web capture inside the desktop app: the canvas's app tab embeds the app in
- * an iframe named `scribui-live`; the main process reads that frame directly
- * (cross-origin frames are open to it) and screenshots it over DevTools.
+ * Web capture inside the desktop app, over DevTools from the main process.
+ * The app normally has its own view (`captureFromView`); the spike's iframe
+ * path (`captureFromCanvas`) reads the canvas's `scribui-live` frame directly
+ * (cross-origin frames are open to the main process).
  * Same preparation as the Playwright path: ScribUI's own UI hidden, the frame
  * pinned to the window's corner, animations finished, the caret hidden.
  */
@@ -66,7 +67,52 @@ export async function screenshotLiveFrame(wc: WebContents, frame: WebFrameMain):
   }
 }
 
-/** The capture behind the canvas's "Capture view" button. */
+/** Screenshot of a whole page shown in its own view (the app view), as it is painted. */
+export async function screenshotPage(wc: WebContents): Promise<Uint8Array> {
+  await wc.mainFrame.executeJavaScript(FREEZE);
+  try {
+    const shot = await cdp<{ data: string }>(wc, "Page.captureScreenshot", { format: "png", fromSurface: true });
+    return Buffer.from(shot.data, "base64");
+  } finally {
+    await wc.mainFrame.executeJavaScript(UNFREEZE).catch(() => {});
+  }
+}
+
+/** Two painted frames: what a layout or zoom change needs before a screenshot. */
+export const nextPaint = (wc: WebContents) =>
+  wc.mainFrame.executeJavaScript("new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))") as Promise<boolean>;
+
+/**
+ * The capture behind "Capture view" when the app has its own view: the page
+ * is the app, so nothing of ScribUI needs hiding. `full` puts a scaled-down
+ * view at its real size for the moment of the shot.
+ */
+export async function captureFromView(wc: WebContents, req: LiveCaptureRequest, save: SaveView, full?: { enter(): Promise<void>; leave(): void }): Promise<ViewSaveResult> {
+  const url = wc.getURL();
+  if (!/^https?:/.test(url)) throw new Error("the app hasn't loaded yet");
+  const pageTitle = wc.getTitle().trim();
+  let shot: Awaited<ReturnType<typeof readLiveFrame>>;
+  await full?.enter();
+  try {
+    shot = await readLiveFrame({
+      frame: { evaluate: <T>(fn: string) => wc.mainFrame.executeJavaScript(fn) as Promise<T> },
+      element: { screenshot: () => screenshotPage(wc) },
+    });
+  } finally {
+    full?.leave();
+  }
+  return save({
+    platform: "web",
+    url,
+    title: req.title?.trim() || (pageTitle && pageTitle !== url ? pageTitle : "") || new URL(url).pathname,
+    ...(req.replace ? { replace: req.replace } : {}),
+    device: shot.device,
+    png: shot.png,
+    raw: shot.raw,
+  });
+}
+
+/** The capture behind the canvas's "Capture view" button, with the app in the canvas's iframe (spike W). */
 export async function captureFromCanvas(wc: WebContents, req: LiveCaptureRequest, save: SaveView): Promise<ViewSaveResult> {
   const frame = liveFrame(wc);
   if (!frame) throw new Error("the app tab isn't showing an app");

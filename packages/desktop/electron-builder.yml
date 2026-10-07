@@ -1,0 +1,51 @@
+# Packaged, unsigned builds (see "Signing and testing before paying" in the plan).
+# The main process is one bundle (dist/main.cjs); the native PNG renderer is
+# staged into dist/node_modules (scripts/stage-native.mjs) and unpacked from
+# the asar archive. The package itself has no runtime dependencies.
+appId: dev.scribui.desktop
+productName: ScribUI
+artifactName: ScribUI-${version}-${os}-${arch}.${ext}
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - "!dist/**/*.map"
+  - "!dist/spike*"
+  - package.json
+extraResources:
+  # the canvas, served by the project's server
+  - from: ../canvas/dist
+    to: canvas
+asarUnpack:
+  - "dist/node_modules/@resvg/**"
+protocols:
+  - name: ScribUI project
+    schemes: [scribui]
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  category: public.app-category.developer-tools
+  # ad-hoc signature: enough for Apple Silicon to run it; no Developer ID yet
+  identity: "-"
+  hardenedRuntime: false
+dmg:
+  writeUpdateInfo: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: true
+  perMachine: false
+  differentialPackage: false
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  category: Development
+  maintainer: ScribUI
+  synopsis: Visual review between you and your coding agent

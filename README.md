@@ -125,6 +125,10 @@ Views captured in the app tab are never recaptured automatically: their state (a
 
 Run `scribui` in each project. Each one gets its own canvas on the next free port (4382, 4383, …) in its own browser tab, and its own `.scribui/` folder. Running `scribui` or `scribui open` again in a project that already has a canvas open reopens that canvas instead of starting a second one, also when it was started with `--port`.
 
+### The desktop app (preview)
+
+With the ScribUI desktop app installed, `scribui` and `scribui open` open the project there instead of a browser: the app runs the project's server, shows the canvas, and shows your web app in the App tab as a normal page (pages that refuse to be embedded work too). Pass `--no-desktop` to use the browser anyway. The app's projects window lists recent projects and which device tools (adb, the Android emulator, Xcode, idb) it found. Builds are unsigned for now: on macOS, open it once with **System Settings → Privacy & Security → Open Anyway**.
+
 ### Annotate
 
 Every mark snaps to a real UI element. Press a key to pick a tool:
@@ -255,7 +259,7 @@ A developer tool with a terminal soul: a keyboard-first, monospace interface wit
 | `scribui status` | Shows the latest round's state and counts |
 | `scribui mcp` | MCP server over stdio: `request_review`, `get_feedback` (non-blocking), `list_rounds` |
 
-Flags: `--dir`, `--platform ios|android|web`, `--device`, `--screens a,b`, `--all`, `--dry-run`, `--port` (default 4382), `--no-open`, `--lan`.
+Flags: `--dir`, `--platform ios|android|web`, `--device`, `--screens a,b`, `--all`, `--dry-run`, `--port` (default 4382), `--no-open`, `--no-desktop`, `--lan`.
 
 **Several devices connected?** Capture asks which one to use. Pass `--device emulator`, a model name such as `--device CPH2791`, or a serial; or set `"device"` under `"app"` in `screens.json` to make the choice permanent.
 
@@ -307,5 +311,7 @@ UPDATE_GOLDEN=1 pnpm test   # after an intended change to compiled output
 | `packages/server` | Hono server, WebSocket, `.scribui/` storage, send/compile/render |
 | `packages/canvas` | React + Vite canvas |
 | `packages/cli` | `scribui` entry point and MCP server; bundles the others and the built canvas into one npm package |
+| `packages/project` | Project ownership (lock), the capture queue's runner, saving captured views; shared by the CLI and the desktop app |
+| `packages/desktop` | Electron app: projects window, one window per project, the app view. `pnpm --filter @scribui/desktop start` runs it from the repo; `dist` packages it |
 
 Thresholds for the resolver and pen gestures live in one object: [`packages/core/src/config.ts`](packages/core/src/config.ts).

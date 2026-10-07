@@ -2,7 +2,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "examples/**/public/**", "packages/core/schemas/**"] },
+  { ignores: ["**/dist/**", "**/release/**", "**/node_modules/**", "examples/**/public/**", "packages/core/schemas/**"] },
   ...tseslint.configs.recommended,
   {
     files: ["packages/canvas/**/*.{ts,tsx}"],

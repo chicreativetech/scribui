@@ -1,0 +1,80 @@
+name: Desktop app
+
+# Unsigned packaged builds of the desktop app for macOS, Windows and Linux,
+# kept as workflow artifacts (see "Signing and testing before paying" in the plan).
+on:
+  push:
+    branches: [main]
+    paths: ["packages/**", "pnpm-lock.yaml", ".github/workflows/desktop.yml"]
+  pull_request:
+    paths: ["packages/**", "pnpm-lock.yaml", ".github/workflows/desktop.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  package:
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: --mac
+            archs: arm64,x64
+            files: |
+              packages/desktop/release/*.dmg
+          - os: windows-latest
+            target: --win
+            archs: x64
+            files: |
+              packages/desktop/release/*.exe
+          - os: ubuntu-latest
+            target: --linux
+            archs: x64
+            files: |
+              packages/desktop/release/*.AppImage
+              packages/desktop/release/*.deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @scribui/canvas build
+      - name: Bundle the app
+        working-directory: packages/desktop
+        run: |
+          npx tsup
+          node scripts/stage-native.mjs --arch ${{ matrix.archs }}
+      - name: Package (unsigned)
+        working-directory: packages/desktop
+        env:
+          # no Developer ID / Windows certificate yet: never look for one
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder ${{ matrix.target }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scribui-desktop-${{ runner.os }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 14

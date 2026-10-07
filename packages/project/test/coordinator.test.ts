@@ -65,7 +65,7 @@ describe("project lock", () => {
   it("leaves a live process's lock alone, and a lock it lost to another process", async () => {
     const { store } = await project();
     const other = otherProcess(5_000);
-    cleanups.push(() => other.kill());
+    cleanups.push(() => void other.kill());
     writeLock(store.dir, { pid: other.pid });
     expect(ProjectLock.acquire(store.dir, { role: "server", app: "desktop" })).toMatchObject({ held: { pid: other.pid } });
   });
@@ -136,7 +136,7 @@ describe("coordinator", () => {
   it("with no server, a one-off capture holds the lock, and waits for another one", async () => {
     const { store } = await project();
     const other = otherProcess(5_000);
-    cleanups.push(() => other.kill());
+    cleanups.push(() => void other.kill());
     writeLock(store.dir, { pid: other.pid, role: "capture", app: "mcp" });
     const waits: string[] = [];
     await expect(captureProject(store, { app: "cli", port: 4501, waitLimitMs: 600, onWait: (o) => waits.push(o.app) })).rejects.toThrow(/busy/);

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- the ScribUI mark (orange square, grey square behind it) on the macOS icon grid: 824 px body, 100 px margin -->
+  <rect x="100" y="100" width="824" height="824" rx="184" fill="#1b1b1e"/>
+  <rect x="452" y="432" width="250" height="250" fill="#5a5a62"/>
+  <rect x="300" y="282" width="330" height="314" fill="#fc9803"/>
+</svg>

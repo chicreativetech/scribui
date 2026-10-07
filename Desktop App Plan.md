@@ -221,6 +221,24 @@ Code: new package `packages/project` (`@scribui/project`): `lock.ts`, `coordinat
 
 Verified: 11 new unit tests (lock, takeover, waiting, hand-over with two concurrent captures, views, `POST /api/views`); the built CLI against a real project (server + second `open` + handed-over capture; capture with the lock while `open` waits; lock gone after stop); the desktop app as owner and as a guest of a CLI-owned project (spike W harness, captures saved through the CLI server's queue, same pixel-exact alignment).
 
+### Phase 2 results: desktop MVP (2026-10-07)
+
+Code: `packages/desktop/src`: `main.ts` (lifecycle, single instance, links), `projectWindow.ts` (one window per project, canvas IPC), `liveView.ts` + `liveLayout.ts` (the app's `WebContentsView`), `launcherWindow.ts` + `launcher/` (projects window), `menu.ts`, `recent.ts`, `openUrl.ts`, `shellPath.ts`; packaging in `electron-builder.yml`, `scripts/stage-native.mjs`, `.github/workflows/desktop.yml`. Canvas: desktop mode in `Live.tsx`. CLI: `cli/src/desktop.ts`. Tool report: `detectTools` in `capture/src/tools.ts`.
+
+- **Projects window:** recent projects (open, missing, platform, when), "Open folder…", and the device tools with the install command to copy. Opening a project closes it; closing the last project window brings it back. A mobile project opened without its required tool says what's missing and copies the install command.
+- **One window per project:** opening an open project focuses its window; a second launch (or link) goes to the running app (single instance).
+- **App view (`WebContentsView`):** no preload, sandboxed, its own `persist:app-<hash>` session; http(s) only, new windows go to the system browser. The canvas reports its app tab's free area; dialogs hide the view; toasts move over the status line, one at a time. Back, forward, reload, loading state, and a "didn't load" message when nothing answers. View → Developer Tools for App.
+- **Sizes larger than the room:** native views can't be clipped by a parent view or scrolled like the iframe (tested: a child view paints outside its parent's bounds; a view moved off-window stops painting). They're shown scaled down through the page's zoom factor, laid out at exactly the chosen CSS size (zoom and bounds are picked together, since Chromium rounds the zoomed size), and captured at full size: the view is enlarged in place for the shot (~300 ms), then restored.
+- **CLI handoff:** with the app installed, `scribui` and `scribui open` open `scribui://open?dir=…` and end once the app owns the project; a first mobile round is followed from the terminal while the app captures it. `--no-desktop` or `SCRIBUI_DESKTOP=0` skips it; `=1` forces it. Links only open projects (never capture or run commands). macOS delivers a launch link as an `open-url` event before the sRGB relaunch, so links are collected and passed on the relaunch's command line.
+- **PATH:** apps started from the Dock get a minimal PATH; the app reads the login shell's PATH at startup so Homebrew and SDK tools are found.
+- **Packaging:** the main process is one bundle; the only native module (resvg) is staged with the platform binary for each target architecture (fetched with `npm pack` when it isn't installed, e.g. Intel on an Apple Silicon runner), since electron-builder doesn't follow pnpm's layout for optional packages. macOS: ad-hoc signed DMGs for arm64 and x64; Windows: NSIS; Linux: AppImage and `.deb`. CI runs typecheck and tests, then packages on each OS and keeps the builds as artifacts.
+
+Verified on macOS (Apple Silicon), dev and packaged, driven over DevTools: the app view placed on the canvas area; captures in fit and in a scaled 1440×900 (saved 2880×1800 at scale 2, probe pixel-exact in both, sRGB without a profile); a page sending `X-Frame-Options: DENY` shown; back/forward; the load-error state; the projects window in light and dark; open from the list → window, close → projects window back; annotated screenshots rendered in the packaged app (resvg); CLI handoff from a cold start and to the running app, and a repeat `open` finding the owner. 13 new unit tests (layout and exact zoom across sizes, links, recent list, PATH).
+
+**Not verified yet:** the Windows and Linux builds and their link registration (registry, `xdg-mime`) only run in CI, which hasn't run; installation from the DMG into /Applications (the handoff was tested with the built app registered in place).
+
+**Open decision:** the plan limited the app view's navigation to the app's origin(s). Logins that redirect through another origin (OAuth, SSO) would break, so the view allows any http(s) page and blocks other schemes; it has no privileges either way. Narrow it if needed.
+
 ### Then the product
 
 | # | Phase | Result | Prototype estimate |
