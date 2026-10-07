@@ -112,6 +112,8 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // already handled: the device tab types into the device (an "l" there is text, not the tab key)
+      if (e.defaultPrevented) return;
       const t = e.target as HTMLElement;
       if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
       const st = useStore.getState();

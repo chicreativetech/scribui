@@ -26,9 +26,13 @@ export function createAdapter(platform: Platform, ctx: CaptureContext): CaptureA
       return new WebAdapter(ctx);
   }
 }
-export { decodePng, pixelDifference, type DecodedPng } from "./png.js";
+export { decodePng, encodePng, pixelDifference, rotatePixels, type DecodedPng } from "./png.js";
 export { ScrcpySession, SCRCPY_VERSION, SCRCPY_SERVER_SHA256, MotionAction, KeyAction, Keycode, avcCodecString, type VideoPacket, type VideoSession } from "./live/scrcpy.js";
 export { captureAndroidLive, dumpTree, readKeyboard, readRotation, type AndroidLiveCapture, type AndroidCaptureStep } from "./live/androidCapture.js";
 export { addKeyboard, parseInputShown, parseKeyboardFrame, parseRotation } from "./live/androidScreen.js";
 export { AndroidTarget, chunkText, parseAdbDevices, parseWm, type AndroidTargetOptions } from "./live/android.js";
 export * from "./live/session.js";
+export { IosTarget, bootSimulatorHeadless, listSimulatorsLive, type IosTargetOptions } from "./live/ios.js";
+export { captureIosLive, simScreenshot, type IosLiveCapture } from "./live/iosCapture.js";
+export { HID_USAGE, parseDeviceProfile, parseSimctlDevices, simulatorDevices, toPortraitPoints, turnFor, uiOrientation, type SimOrientation } from "./live/iosScreen.js";
+export { NalGrouper, SimHelper } from "./live/simHelper.js";

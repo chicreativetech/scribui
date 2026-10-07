@@ -60,10 +60,17 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @scribui/canvas build
+      - name: AXe (the iOS Simulator helper builds against it)
+        if: runner.os == 'macOS'
+        run: |
+          brew tap cameroncooke/axe
+          brew trust --formula cameroncooke/axe/axe || true
+          brew install cameroncooke/axe/axe
       - name: Bundle the app
         working-directory: packages/desktop
         run: |
           node scripts/fetch-scrcpy.mjs
+          node scripts/build-sim-helper.mjs
           npx tsup
           node scripts/stage-native.mjs --arch ${{ matrix.archs }}
       - name: Package (unsigned)

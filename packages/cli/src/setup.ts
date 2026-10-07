@@ -356,7 +356,7 @@ export async function ensureIos(root: string, opts: { bundleId?: string; build?:
     return { device: null, ok: false };
   }
   okLine("Xcode tools ready");
-  if (!(await findTool("maestro")) && !(await findTool("idb"))) {
+  if (!(await findTool("maestro")) && !(await findTool("axe")) && !(await findTool("idb"))) {
     out();
     out("  Maestro is required to read iOS screens and navigate between them.");
     if (!(await confirm("Install Maestro? (curl -fsSL https://get.maestro.mobile.dev | bash)", true))) {

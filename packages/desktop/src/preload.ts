@@ -27,7 +27,7 @@ contextBridge.exposeInMainWorld("__scribuiCapture", (req?: Req) =>
 const box = (b: Box | null) => (b ? { x: +b.x, y: +b.y, width: +b.width, height: +b.height } : null);
 
 contextBridge.exposeInMainWorld("scribuiDesktop", {
-  version: 3,
+  version: 4,
   platform: process.platform,
   ...(config.surface === "view"
     ? {
@@ -53,7 +53,8 @@ contextBridge.exposeInMainWorld("scribuiDesktop", {
           list: () => ipcRenderer.invoke("scribui:device-list"),
           connect: (id: string) => ipcRenderer.invoke("scribui:device-connect", String(id)),
           disconnect: () => ipcRenderer.invoke("scribui:device-disconnect"),
-          startEmulator: (avd: string) => ipcRenderer.invoke("scribui:device-emulator", String(avd)),
+          /** Start an emulator (AVD name) or boot a simulator (UDID) from the list's `startable`, then show it. */
+          start: (id: string) => ipcRenderer.invoke("scribui:device-start", String(id)),
           setVisible: (v: boolean) => ipcRenderer.send("scribui:device-visible", v === true),
           resetVideo: () => ipcRenderer.send("scribui:device-reset"),
           /** Pointer, scroll, keys, text, rotate; checked again in the main process. */

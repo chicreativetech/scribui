@@ -10,7 +10,7 @@ Showing the reviewed app correctly doesn't depend on the desktop app being nativ
 
 - Web apps are rendered by Chromium. Note the nuance: today the live window uses **your installed Chrome**; Electron ships **its own pinned Chromium**, so captures become accurate to Electron's Chromium version, not to the Chrome you browse with. Usually very close, but it must be stated and tested (see Capture fidelity).
 - Android is mirrored with scrcpy and adb, which behave the same on all three systems.
-- The iOS Simulator is mirrored with Apple's `simctl` and Facebook's `idb`, both command-line tools on the Mac.
+- The iOS Simulator is mirrored by a small Swift helper (`scribui-sim`) built on idb's simulator frameworks as AXe ships them, plus Apple's `simctl` (see Spike I).
 
 Electron drives all of this from one codebase and fits the existing React canvas and Node server. Three truly native apps (Swift, C#, GTK) would triple the work without showing anything better. If a later feature needs real Mac code, such as mirroring a physical iPhone, it becomes a small Swift helper the app starts.
 
@@ -96,7 +96,7 @@ The device view enables Home, Back, Rotate and text input from `capabilities`, s
 - scrcpy's client/server protocol is internal and changes between releases. Ship one **pinned** `scrcpy-server` version (Apache 2.0) with a client written for exactly that version, and test both together when upgrading.
 - Budget for decoder resets (new SPS/PPS after rotation or resolution change), device disconnects and reconnects.
 
-**iOS Simulator (macOS only).** `idb video-stream` (MJPEG first, H.264 if MJPEG is too heavy), input through `idb ui tap/swipe/text/button`, capture with `xcrun simctl io <udid> screenshot` plus `idb ui describe-all`. On Windows and Linux the option isn't listed.
+**iOS Simulator (macOS only).** ~~`idb video-stream`, `idb ui …`~~ (see Spike I): the `scribui-sim` helper streams H.264 from the framebuffer and holds the HID connection; capture with `xcrun simctl io <udid> screenshot` plus the accessibility tree from the helper. On Windows and Linux the option isn't listed.
 
 ### 4. Project coordinator: one writer per project
 
@@ -136,7 +136,7 @@ Today the running-instance registry (`cli/src/instances.ts`) is discovery, not a
 
 - **Basic tool detection ships in the first usable build:** adb, the Android emulator, Xcode and idb are found or clearly reported missing, with the exact install command to copy.
 - **Automated installation comes later** (phase 6).
-- Don't ship `adb` or `idb`: Android's tools come under Google's SDK licence and idb needs Python. Ship only the pinned `scrcpy-server` jar.
+- Don't ship `adb` or AXe: Android's tools come under Google's SDK licence; AXe (MIT) is installed with Homebrew and `scribui-sim` runs on its frameworks. Ship the pinned `scrcpy-server` jar and the `scribui-sim` binary.
 - Today's terminal setup questions (platform, app URL, screens) become screens in the app.
 
 ## Phases
@@ -275,6 +275,68 @@ While testing, the Mac ran out of memory (16 GB, 14 GB swapped) and the emulator
 
 **Not verified:** a physical phone over USB (none at hand), and Windows and Linux (CI only). The end-to-end driver was a scratch script; it should become a harness like spike A's, run on CI's Android emulator in phase 5.
 
+### Spike I results (2026-10-07)
+
+Code: `packages/desktop/native/scribui-sim/main.swift` (the helper), `scripts/build-sim-helper.mjs`. Setup: Xcode 26.2, iPhone 17 simulator (iOS 26.3, 1206×2622 @3x), booted headless (no Simulator.app).
+
+**idb isn't the tool any more.** It wasn't installed, its last release predates Xcode 26, and it needs Python. AXe (`cameroncooke/axe`, MIT, active) is a single binary on a maintained fork of idb's frameworks. Its CLI was measured first:
+
+| Path | Result |
+|---|---|
+| `axe touch` per process | 0.75–1.5 s each (a tap = down + up ≈ 2 s): not usable live |
+| `axe batch --stdin` | runs steps only after stdin closes: not a channel |
+| `axe stream-video` | "mjpeg" carries PNGs (3 MB/frame, 11 fps); half-scale JPEG 8 fps; BGRA ~29 fps at ~90 MB/s |
+| `axe describe-ui` | 0.4–1.3 s; idb's nested JSON (the existing `parseIdb` reads it); **no web-view content** |
+| `simctl io screenshot` | 0.38 s, sRGB chunk, no ICC profile (no colour-space problem like Electron's) |
+
+So, as the plan allowed, a small Swift helper the app starts: `scribui-sim serve` links AXe's FBControlCore/FBSimulatorControl, keeps one HID connection and one encoded stream, and talks JSON lines in / framed binary out.
+
+| Check | Result |
+|---|---|
+| Helper ready (frameworks, simulator, HID) | ~290 ms |
+| Tap (down + up) on the open HID connection | 5–7 ms |
+| Stream | H.264 Annex B, one write per NAL (SPS/PPS/IDR/P), frames only when the screen changes, as scrcpy: the canvas's WebCodecs decoder is reused unchanged |
+| Rotation | the framebuffer (stream and screenshots) **stays portrait**; the UI is drawn sideways in it. The accessibility tree switches to landscape points; the HID still takes portrait points |
+| Landscape tap through the mapping (`x = Y, y = H − X` for landscape-left) | hits Safari's address field |
+| Web views (Safari, WKWebView) | not in the app's own tree; idb finds them by hit-testing a grid of points (`remoteContentOptions`) |
+| Element alignment, magenta probe in Safari | tree bounds = magenta pixels, 0 px, portrait and landscape; a circle around it resolves to it |
+
+**Findings that change the plan**
+
+1. **Build:** AXe's frameworks are prebuilt; compiling against them needs idb's private headers (fetched at the commit AXe 1.8.0 was built from) and a patched copy of FBSimulatorControl's module interface (`FBSimulatorControl.FBFoo` and `IOSurface.IOSurface` don't resolve, a module/type name clash). It then builds with Xcode 26.2's Swift 6.2 although the frameworks came from 6.3. At runtime the helper loads AXe's own frameworks via `@rpath` (Apple Silicon and Intel Homebrew). Universal binary.
+2. **Turned screens are turned by ScribUI:** the stream is drawn rotated in the canvas, landscape screenshots are rotated before saving (new `rotatePixels`/`encodePng`), and touches are mapped back to portrait points. Which landscape it is comes from the device orientation ScribUI set; the frontmost app's frame says whether the UI followed (polled every 2 s while turned, ~90 ms a check).
+3. **Web content needs a fresh process per tree:** idb remembers the remote elements it found and skips them for the rest of the process (its "seen PIDs" filter), so only the first describe in a process has the page. Captures run `scribui-sim describe` (one-shot, ~1.8 s at a 25 pt grid; 10 pt takes ~10 s for a few more elements). In landscape idb builds the grid from the turned app frame and misses most of the screen: the helper passes the portrait screen as the region. Overlays of the app over a web view (a Safari tip) hide the page from the grid.
+4. **Typing must be physical keys:** HID usages are turned into characters by the simulator's hardware keyboard layout (here Swedish, from the Mac), so sending "US key for `-`" typed `+`. The canvas now sends `KeyboardEvent.code` + Shift/Option (`physical` input, capability `physicalKeys`), as Simulator.app does; dead keys compose on the simulator (`´` + `e` → `é`). Pasted text goes through `simctl pbcopy` + Cmd+V (iOS's smart paste may add a space).
+5. **No keyboard problem like Android's:** with HID typing iOS treats the keyboard as hardware and shows only its accessory bar; the software keyboard, when shown, is in the tree.
+
+### Phase 4 results: iOS Simulator (2026-10-07)
+
+Code: capture `live/ios.ts` (`IosTarget`, session: reconnect, orientation, wheel → finger drag), `live/iosCapture.ts` (verified capture, turned upright), `live/iosScreen.ts` (orientation math, simctl and profile parsing, HID usages), `live/simHelper.ts` (helper process, NAL → decoder packets), `png.ts` (`encodePng`, `rotatePixels`), `tools.ts` (AXe instead of idb; the CLI's iOS adapter can read trees with AXe too); desktop `deviceView.ts` (iOS target, simulator list, headless boot), packaging (`mac.extraResources`, CI installs AXe and builds the helper); canvas `Device.tsx` (turned video, start list, iOS wording, physical keys).
+
+- **Device tab** for iOS projects (macOS): booted simulators to show, shut-down ones to start (newest iOS first, twins named by version), booted headless with `simctl boot` + `bootstatus`. Missing AXe or helper: the tab shows the install command. Home and Power buttons (no Back/Recents: keys a session doesn't have are dropped in the main process).
+- **Use:** mouse as a finger; wheel/trackpad scrolling becomes a finger drag that lifts 120 ms after the wheel stops (iOS flings as usual); physical keys and paste as above; Rotate turns the device portrait ↔ landscape (left).
+- **Capture:** the same flow as Android (freeze, progress, verify, "keep first frame"), named after the frontmost app unless named; viewport in points, orientation saved.
+- **Fixed on the way (affects Android too):** the canvas's global `L` shortcut (switch tab) ran before its "live view" guard, so typing an `l` into the device switched tabs; key presses the device tab handled are now skipped by the global shortcuts.
+
+**Verified** on macOS (Apple Silicon) against an iPhone 17 simulator, through the real desktop app driven over DevTools and through `IosTarget` directly:
+
+| Check | Result |
+|---|---|
+| Connect (helper + stream + orientation) | live in 1.2–1.8 s; picture in the device frame |
+| Mouse | a click on a web field focuses it |
+| Typing through the app | 20 fast digits arrive in order, Backspace × 5 removes 5; Swedish layout: `a - _ b ! ? @ é` typed exactly; `l` stays in the device |
+| Capture, portrait | saved into R001 ("Probe page"), probe 0 px off; ~1.6–2.5 s |
+| Rotate button | 2622×1206, picture drawn upright; capture saved as landscape 874×402 pt ("Safari"), probe 0 px off |
+| Capture during scrolling | verify step saw motion, settled on attempt 2 |
+| Marks | a circle around the probe resolves to it on both saved captures |
+| Helper killed, 3 times | noticed in 39–81 ms, live again in ~1 s |
+| Simulator shut down | "reconnecting"; Start from the list boots it headless and shows it (16 s) |
+| Packaged app (`electron-builder --dir`, arm64) | `scribui-sim` in Resources, runs from there (stream and describe) |
+
+11 new unit tests (simctl and profile parsing, orientation mapping incl. the measured landscape tap, landscape tree placement, PNG turning and encoding, NAL grouping, key input checks). Typecheck, lint and all 166 tests pass.
+
+**Not verified:** an iPad simulator, landscape-right and upside-down (mapped, not measured), the Intel build of the helper (built universal, not run), CI's macOS job with AXe (hasn't run), and a native app with a WKWebView (only Safari).
+
 ### Then the product
 
 | # | Phase | Result | Prototype estimate |
@@ -282,7 +344,7 @@ While testing, the Mac ran out of memory (16 GB, 14 GB swapped) and the emulator
 | 1 | Coordinator | shared project coordinator, `.scribui/.lock`, serialized capture queue, `saveLiveCapture` split; CLI and MCP moved onto it | 3–4 days |
 | 2 | Desktop MVP | projects window, one window per project, chosen web surface, basic tool detection, CLI handoff; **packaged unsigned builds for macOS, Windows and Linux from CI from the start** | 5–7 days |
 | 3 | Android | `LiveSession` for Android, device picker and frame, capture flow with progress and preview, reconnect handling | 6–8 days |
-| 4 | iOS Simulator | `LiveSession` for iOS, simulator picker and boot | 4–5 days |
+| 4 | iOS Simulator | `LiveSession` for iOS, simulator picker and boot (done, with spike I: see above) | 4–5 days |
 | 5 | Fidelity suite | the capture-fidelity matrix in CI (Linux and macOS runners, Android emulator on Linux), manual pass on Windows | 3–4 days |
 | 6 | Setup in the app | first-time project setup as screens; automated tool installation | 5–7 days |
 | 7 | Release | Mac signing and notarisation, Windows signing, auto-update, release notes, crash reporting | 3–4 days, plus accounts |
@@ -315,6 +377,7 @@ Suggested order: spikes and phases 1–4 unsigned; pay for signing when handing 
 - **Mobile capture timing:** the verify step can loop on screens that never settle (spinners, video); the user can keep the first frame with a warning.
 - **Web surface trade-off:** `WebContentsView` fixes embedding but complicates canvas overlays; the iframe keeps overlays but keeps the embedding limit.
 - **Concurrency:** desktop, CLI and MCP all writing captures; solved by the coordinator, which must handle stale locks and crashes.
-- **Install hassle:** `idb` needs Python plus a Homebrew package; the Android emulator on Windows needs virtualisation enabled.
+- **Install hassle:** iOS needs AXe from a third-party Homebrew tap (current Homebrew asks to trust it); the Android emulator on Windows needs virtualisation enabled.
+- **iOS private frameworks:** `scribui-sim` uses idb's FBSimulatorControl, which drives Xcode's private CoreSimulator/SimulatorKit. A new Xcode can break it until AXe (and idb) catch up; the helper is rebuilt against AXe's frameworks and found through them at runtime.
 - **Size:** about 120 MB for the app; until Playwright is dropped, automatic web recaptures still download its Chromium.
 - **Testing on all systems:** Android emulator on Linux CI and the iOS Simulator on macOS CI can be automated; Windows device testing will be mostly by hand.

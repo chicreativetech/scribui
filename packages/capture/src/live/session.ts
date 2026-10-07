@@ -14,6 +14,12 @@ export type Capabilities = {
   /** Wheel / trackpad scrolling. */
   scroll: boolean;
   text: boolean;
+  /**
+   * Typing goes in as the computer's physical keys (`physical` input), which
+   * the device turns into characters with its own keyboard layout (the iOS
+   * Simulator, like Simulator.app). Otherwise typed characters go in as text.
+   */
+  physicalKeys: boolean;
   keys: LiveKey[];
   rotate: boolean;
   orientation: "portrait" | "landscape" | "auto";
@@ -34,8 +40,13 @@ export type DeviceInfo = {
 
 export type Rotation = 0 | 90 | 180 | 270;
 
-/** The device's screen as it is now, in device pixels (rotation applied). */
-export type LiveSize = { width: number; height: number; scale: number; rotation: Rotation };
+/**
+ * The device's screen as it is now, in device pixels (rotation applied).
+ * `videoRotation`: the stream stays in the device's natural orientation (the
+ * iOS Simulator's framebuffer is always portrait); turn it clockwise by this
+ * much to show it upright. Absent or 0 when the video already follows.
+ */
+export type LiveSize = { width: number; height: number; scale: number; rotation: Rotation; videoRotation?: Rotation };
 
 /** A point on the shown screen, 0–1 from its top-left corner. */
 export type ViewPoint = { x: number; y: number };
@@ -46,6 +57,8 @@ export type LiveInput =
   | { type: "key"; key: LiveKey }
   | { type: "edit"; key: EditKey }
   | { type: "text"; text: string }
+  /** A key as pressed on the computer: `code` is KeyboardEvent.code; `text` what it typed there (a fallback; empty for a dead key). */
+  | { type: "physical"; code: string; shift: boolean; alt: boolean; text: string }
   | { type: "rotate" };
 
 export type LiveCaptureStep = "screenshot" | "elements" | "verifying" | "retrying";
@@ -93,6 +106,8 @@ export interface LiveSession {
   /** A fresh key frame (after a decoder error in the canvas). */
   resetVideo(): void;
   capture(signal: AbortSignal, progress: (p: CaptureProgress) => void): Promise<LiveCapture>;
+  /** A name for a captured view from what's in front (the app, the screen), when the platform says. */
+  foregroundTitle?(): Promise<string | null>;
   dispose(): Promise<void>;
 }
 

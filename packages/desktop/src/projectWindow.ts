@@ -300,9 +300,9 @@ function registerDeviceApi() {
     return senderDevice(e).device.connect(id);
   });
   ipcMain.handle("scribui:device-disconnect", (e) => senderDevice(e).device.disconnect());
-  ipcMain.handle("scribui:device-emulator", (e, avd: unknown) => {
-    if (typeof avd !== "string" || !/^[\w.\-]{1,128}$/.test(avd)) throw new Error("bad emulator name");
-    return senderDevice(e).device.startEmulator(avd);
+  ipcMain.handle("scribui:device-start", (e, id: unknown) => {
+    if (typeof id !== "string" || !/^[\w.\-]{1,128}$/.test(id)) throw new Error("bad emulator or simulator");
+    return senderDevice(e).device.start(id);
   });
   ipcMain.on("scribui:device-visible", (e, v: unknown) => quiet(() => senderDevice(e).device.setVisible(v === true)));
   ipcMain.on("scribui:device-reset", (e) => quiet(() => senderDevice(e).device.resetVideo()));

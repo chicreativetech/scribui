@@ -4,8 +4,8 @@ import { focusTile } from "./Board";
 import { Spinner } from "./Capture";
 
 /**
- * The device tab of a mobile project, in the desktop app: an emulator or
- * phone live (H.264 from the main process, decoded here with WebCodecs), used
+ * The device tab of a mobile project, in the desktop app: an emulator, phone
+ * or iOS Simulator live (H.264 from the main process, decoded here with WebCodecs), used
  * with the mouse and keyboard, and captured exactly as it is. Which buttons
  * show comes from the session's capabilities. Capturing freezes the picture,
  * shows the steps, and when the screen kept changing asks whether to try
@@ -14,16 +14,17 @@ import { Spinner } from "./Capture";
 
 type Rotation = 0 | 90 | 180 | 270;
 type LiveKey = "home" | "back" | "recents" | "lock";
-type Capabilities = { video: string; pointer: boolean; scroll: boolean; text: boolean; keys: LiveKey[]; rotate: boolean; orientation: string };
+type Capabilities = { video: string; pointer: boolean; scroll: boolean; text: boolean; physicalKeys: boolean; keys: LiveKey[]; rotate: boolean; orientation: string };
 type DeviceInfo = { id: string; name: string; kind: "emulator" | "phone" | "simulator"; state: "ready" | "offline" | "unauthorized" | "booting" };
 type DeviceState = {
   status: "idle" | "connecting" | "live" | "reconnecting" | "lost";
   device: { id: string; name: string } | null;
-  size: { width: number; height: number; scale: number; rotation: Rotation } | null;
+  /** `videoRotation`: the stream stays portrait (iOS Simulator); turn it clockwise by this much to show it. */
+  size: { width: number; height: number; scale: number; rotation: Rotation; videoRotation?: Rotation } | null;
   capabilities: Capabilities | null;
   message: string | null;
 };
-type DeviceList = { devices: DeviceInfo[]; avds: string[]; missing: { tool: string; install?: string } | null };
+type DeviceList = { devices: DeviceInfo[]; startable: { id: string; name: string }[]; missing: { tool: string; install?: string } | null };
 type Frame = { config: boolean; key: boolean; pts: number; data: Uint8Array; codec?: string };
 type Progress = { step: "screenshot" | "elements" | "verifying" | "retrying"; attempt: number };
 type Saved = { round: number; screenId: string; title: string };
@@ -35,6 +36,7 @@ type Input =
   | { type: "key"; key: LiveKey }
   | { type: "edit"; key: EditKey }
   | { type: "text"; text: string }
+  | { type: "physical"; code: string; shift: boolean; alt: boolean; text: string }
   | { type: "rotate" };
 
 export type DesktopDevice = {
@@ -43,7 +45,8 @@ export type DesktopDevice = {
   list(): Promise<DeviceList>;
   connect(id: string): Promise<DeviceState>;
   disconnect(): Promise<void>;
-  startEmulator(avd: string): Promise<DeviceState>;
+  /** Start an emulator or boot a simulator from `startable`, then show it. */
+  start(id: string): Promise<DeviceState>;
   setVisible(v: boolean): void;
   resetVideo(): void;
   input(ev: Input): void;
@@ -116,7 +119,7 @@ function writePref(key: string, v: string) {
  * before a key frame are dropped; a decoder error asks the device for a fresh
  * key frame. While `frozen`, the picture stays as it was.
  */
-function useDecoder(api: DesktopDevice, canvas: React.RefObject<HTMLCanvasElement | null>, frozen: React.RefObject<boolean>) {
+function useDecoder(api: DesktopDevice, canvas: React.RefObject<HTMLCanvasElement | null>, frozen: React.RefObject<boolean>, turn: React.RefObject<Rotation>) {
   const [painted, setPainted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -139,11 +142,25 @@ function useDecoder(api: DesktopDevice, canvas: React.RefObject<HTMLCanvasElemen
         output: (f) => {
           const c = canvas.current;
           if (c && !frozen.current) {
-            if (c.width !== f.displayWidth || c.height !== f.displayHeight) {
-              c.width = f.displayWidth;
-              c.height = f.displayHeight;
+            // a portrait stream of a turned screen is drawn turned upright
+            const t = turn.current;
+            const sideways = t === 90 || t === 270;
+            const w = sideways ? f.displayHeight : f.displayWidth;
+            const h = sideways ? f.displayWidth : f.displayHeight;
+            if (c.width !== w || c.height !== h) {
+              c.width = w;
+              c.height = h;
             }
-            c.getContext("2d")?.drawImage(f, 0, 0);
+            const ctx = c.getContext("2d");
+            if (ctx) {
+              ctx.setTransform(1, 0, 0, 1, 0, 0);
+              if (t) {
+                ctx.translate(w / 2, h / 2);
+                ctx.rotate((t * Math.PI) / 180);
+                ctx.translate(-f.displayWidth / 2, -f.displayHeight / 2);
+              }
+              ctx.drawImage(f, 0, 0);
+            }
             if (first) {
               first = false;
               setPainted(true);
@@ -189,7 +206,7 @@ function useDecoder(api: DesktopDevice, canvas: React.RefObject<HTMLCanvasElemen
       off();
       if (decoder && decoder.state !== "closed") decoder.close();
     };
-  }, [api, canvas, frozen]);
+  }, [api, canvas, frozen, turn]);
   return { painted, error };
 }
 
@@ -221,7 +238,8 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
   const busyRef = useRef(false);
   const moveQueued = useRef<{ x: number; y: number } | null>(null);
   const down = useRef(false);
-  const { painted, error: decodeError } = useDecoder(api, canvasRef, frozen);
+  const turn = useRef<Rotation>(0);
+  const { painted, error: decodeError } = useDecoder(api, canvasRef, frozen, turn);
 
   useEffect(() => api.onState(setState), [api]);
   useEffect(() => api.onProgress(setProgress), [api]);
@@ -283,10 +301,15 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
 
   const live = state.status === "live" || state.status === "reconnecting";
   const hasCanvas = live && !!state.size;
-  // a canvas that was just (re)mounted is blank until the next frame: ask for a key frame
+  const videoTurn = state.size?.videoRotation ?? 0;
+  useLayoutEffect(() => {
+    turn.current = videoTurn;
+  }, [videoTurn]);
+  // a canvas that was just (re)mounted is blank until the next frame, and a turned
+  // picture is drawn the new way from the next one: ask for a key frame
   useEffect(() => {
     if (hasCanvas) api.resetVideo();
-  }, [api, hasCanvas]);
+  }, [api, hasCanvas, videoTurn]);
 
   if (!visited) return null;
 
@@ -344,10 +367,15 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
     if (!interactive || !caps?.text) return;
     if (e.metaKey || e.ctrlKey) return; // the app's own shortcuts (and paste, below)
     const edit = EDIT[e.key];
+    const char = e.key.length === 1 || [...e.key].length === 1;
     if (edit) {
       e.preventDefault();
       send({ type: "edit", key: edit });
-    } else if (e.key.length === 1 || [...e.key].length === 1) {
+    } else if (caps.physicalKeys && (char || e.key === "Dead") && e.code) {
+      // the device turns the key into a character with its own layout (dead keys compose there)
+      e.preventDefault();
+      send({ type: "physical", code: e.code, shift: e.shiftKey, alt: e.altKey, text: char ? e.key : "" });
+    } else if (char) {
       e.preventDefault();
       send({ type: "text", text: e.key });
     }
@@ -442,10 +470,10 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
     endCapture();
   };
 
-  const startEmulator = async (avd: string) => {
-    setStarting(avd);
+  const start = async (id: string) => {
+    setStarting(list?.startable.find((s) => s.id === id)?.name ?? id);
     try {
-      setState(await api.startEmulator(avd));
+      setState(await api.start(id));
       await refresh();
     } catch (e) {
       useStore.getState().toast({ text: (e as Error).message, tone: "err" });
@@ -455,6 +483,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
   };
 
   const devices = list?.devices ?? [];
+  const ios = api.platform === "ios";
   const pickValue = state.device?.id ?? "";
   const known = devices.some((d) => d.id === pickValue);
 
@@ -468,7 +497,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
           value={pickValue}
           onChange={(e) => {
             const v = e.target.value;
-            if (v.startsWith("avd:")) void startEmulator(v.slice(4));
+            if (v.startsWith("start:")) void start(v.slice(6));
             else if (v) void connect(v);
           }}
           title="device"
@@ -483,9 +512,9 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
               {d.state !== "ready" ? ` (${d.state})` : ""}
             </option>
           ))}
-          {list?.avds.map((a) => (
-            <option key={a} value={`avd:${a}`}>
-              start {a.replace(/_/g, " ")}
+          {list?.startable.map((a) => (
+            <option key={a.id} value={`start:${a.id}`}>
+              start {a.name}
             </option>
           ))}
         </select>
@@ -592,7 +621,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
           <div className="live-empty device-empty">
             {state.status === "connecting" ? (
               <p>
-                <Spinner /> {starting ? `starting ${starting.replace(/_/g, " ")}… (this can take a minute)` : `connecting to ${state.device?.name ?? "the device"}…`}
+                <Spinner /> {starting ? `starting ${starting}… (this can take a minute)` : `connecting to ${state.device?.name ?? "the device"}…`}
               </p>
             ) : list?.missing ? (
               <>
@@ -620,7 +649,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
                 {devices.filter((d) => d.state === "ready").length ? (
                   <p>Choose a device above.</p>
                 ) : (
-                  <p>No emulator or phone is connected.</p>
+                  <p>{ios ? "No simulator is running." : "No emulator or phone is connected."}</p>
                 )}
                 {devices
                   .filter((d) => d.state !== "ready")
@@ -634,17 +663,22 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
                           : "offline; reconnect its cable"}
                     </p>
                   ))}
-                {!!list?.avds.length && (
+                {!!list?.startable.length && (
                   <p className="device-avds">
-                    {list.avds.map((a) => (
-                      <button key={a} className="live-capture" disabled={!!starting} onClick={() => void startEmulator(a)}>
-                        ▶ Start {a.replace(/_/g, " ")}
+                    {list.startable.slice(0, ios ? 6 : undefined).map((a) => (
+                      <button key={a.id} className="live-capture" disabled={!!starting} onClick={() => void start(a.id)}>
+                        ▶ Start {a.name}
                       </button>
                     ))}
                   </p>
                 )}
-                {!devices.length && !list?.avds.length && list && (
-                  <p className="faint">Start an emulator from Android Studio, or connect a phone with USB debugging on.</p>
+                {!!list && ios && list.startable.length > 6 && <p className="faint">More simulators are in the list above.</p>}
+                {!devices.length && !list?.startable.length && list && (
+                  <p className="faint">
+                    {ios
+                      ? "Create a simulator in Xcode (Window → Devices and Simulators)."
+                      : "Start an emulator from Android Studio, or connect a phone with USB debugging on."}
+                  </p>
                 )}
               </>
             )}
