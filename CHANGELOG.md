@@ -4,6 +4,12 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
+## 0.1.1 (unreleased)
+
+The first complete build of the desktop app on all three systems (0.1.0's Windows build didn't finish).
+
+- iOS: captures no longer fail when a system sheet covers the simulator, and a slow simulator list is retried instead of showing no simulators.
+
 ## 0.1.0 (2026-10-07)
 
 The first desktop release.
