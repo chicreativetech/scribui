@@ -17,3 +17,4 @@ export {
 } from "./app.js";
 export { qrSvg } from "./qr.js";
 export { CaptureQueue, type Job, type JobStatus } from "./queue.js";
+export * from "./chat.js";

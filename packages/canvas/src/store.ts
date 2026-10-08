@@ -154,6 +154,19 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let lastCoalesce = { key: "", at: 0 };
 let toastSeq = 0;
 
+let startViewChosen = false;
+/** True the first time this project is opened here (remembered per browser or app). */
+function firstOpen(root: string): boolean {
+  const key = `scribui:opened:${root}`;
+  try {
+    if (localStorage.getItem(key)) return false;
+    localStorage.setItem(key, "1");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function loadTheme(): "dark" | "light" {
   const system = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   try {
@@ -207,7 +220,8 @@ export const useStore = create<Store>((set, get) => ({
   lanOpen: false,
   appliedDismissed: null,
   // the vision board is where a review starts
-  view: "vision",
+  // the first load picks the starting view (see load)
+  view: "board",
   toolStyles: loadStyles(),
   liveVisited: false,
   removeAsk: null,
@@ -217,10 +231,15 @@ export const useStore = create<Store>((set, get) => ({
     const s = get();
     const round = s.round;
     if (!round || ids.length === 0) return;
-    if (!round.canRecapture) {
-      s.toast({ text: "capturing from the canvas needs ScribUI started with `scribui`", tone: "warn" });
+    if (!round.canRecapture || !ids.some((id) => round.screens.find((x) => x.id === id)?.recapturable)) {
+      const byHand = round.app?.platform !== "web" || ids.every((id) => round.screens.find((x) => x.id === id)?.recapturable === false);
+      s.toast({
+        text: byHand ? "captured by hand: capture it again in the App tab" : "capturing from the canvas needs ScribUI started with `scribui`",
+        tone: "warn",
+      });
       return;
     }
+    ids = ids.filter((id) => round.screens.find((x) => x.id === id)?.recapturable);
     if (readOnly(round)) return get().captureNext();
     try {
       set({ captureState: await api.recapture(round.round, ids) });
@@ -260,6 +279,11 @@ export const useStore = create<Store>((set, get) => ({
       const project = await api.project();
       const rounds = await api.rounds();
       set({ captureState: project.capture ?? get().captureState, lan: project.lan ?? get().lan });
+      if (!startViewChosen) {
+        startViewChosen = true;
+        // a new project starts on the vision board, once; after that the board is the place to start
+        if (firstOpen(project.root) && (project.latest ?? 0) <= 1) set({ view: "vision" });
+      }
       const n = roundNo ?? project.latest;
       if (n === null || n === undefined) {
         set({ project, rounds, round: null, loading: false, tiles: [], groups: [], annotations: [] });

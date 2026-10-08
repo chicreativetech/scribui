@@ -87,11 +87,11 @@ ScribUI looks at the project to decide what it is. A folder without Android or i
    Implement .scribui/latest/review.md
    ```
 
-6. **When the agent is done,** switch to the app tab, get back to the same view and press **Capture view** again; choosing **replace "…"** puts the new version where the old one was. Your next capture starts a new round, and the views you didn't recapture are carried over, marked `↺`.
+6. **When the agent is done,** ScribUI reloads the views it changed from their URLs and captures them into the next round, as **↻ Recapture** does. For a view that needs more than its URL (a login, an open menu, typed text), switch to the app tab, get back to the same view and press **Capture view** again; choosing **replace "…"** puts the new version where the old one was. Views that weren't captured again are carried over, marked `↺`.
 
 ScribUI keeps the Chrome window's profile per project in `~/.scribui/browser/`, so logins survive between sessions. When your app runs on `localhost`, the canvas does too, so the app's cookies work inside the app tab. Press `o` in the terminal to bring the window back if you close it.
 
-Views captured in the app tab are never recaptured automatically: their state (a login, an open menu, typed text) can't be rebuilt from the URL. Screens your agent lists in `screens.json` with a `url` and optional setup script still work as before, and **↻ Recapture** captures those.
+Views captured in the app tab are recaptured by reloading their URL. Anything you did on the page before capturing it (a login, an open menu, typed text, scrolling) isn't repeated, so for those views capture them again by hand. When no view can be recaptured, the Recapture button is hidden and the canvas asks you to capture the changed views in the app tab. Screens your agent lists in `screens.json` with a `url` and optional setup script work as before.
 
 **Limits:** apps that refuse to be embedded (`X-Frame-Options` or a `frame-ancestors` policy, common on third-party login pages) don't show in the app tab. Capturing only works in the Chrome window ScribUI opens; in another browser the app tab is view-only.
 
@@ -169,7 +169,7 @@ When the agent finishes, it sets the round to `applied` and lists the screens it
 
 ### Only changed screens are recaptured (web)
 
-This is about screens your agent lists in `screens.json` for a web app; screens captured by hand (every Android and iOS screen, and web views from the App tab) are only captured again by you. Unchanged screens are copied forward from the previous round, so round 2 of a 7-screen app usually captures one or two. A screen is recaptured when any of these says it may have changed:
+This is about screens your agent lists in `screens.json` for a web app; screens captured by hand are only captured again by you on Android and iOS; web views from the App tab are reloaded from their URL (views without one are only captured again by you). Unchanged screens are copied forward from the previous round, so round 2 of a 7-screen app usually captures one or two. A screen is recaptured when any of these says it may have changed:
 
 - it had instructions in the round the agent just applied;
 - the agent listed it in `changedScreens` when it marked the round applied (the `AGENTS.md` section asks for this);

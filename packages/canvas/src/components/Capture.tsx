@@ -132,16 +132,20 @@ export function NextStepBanner() {
   const mobile = platform === "android" || platform === "ios";
   const canCapture = !!round.canRecapture;
 
-  if (mobile) {
-    // Android and iOS screens are captured by hand: say which ones changed, and where to capture them
+  if (mobile || !canCapture) {
+    // Android and iOS screens, and web views captured by hand without a url, are captured again by hand:
+    // say which ones changed, and where to capture them
     const changed = round.status.changedScreens;
     const titles =
       changed === "all"
         ? "every screen"
         : (changed ?? []).map((id) => round.screens.find((x) => x.id === id)?.title ?? id).join(", ");
     const device = hasLiveTab(platform);
-    const text =
-      status === "sent"
+    const text = !mobile
+      ? status === "sent"
+        ? "Sent to your agent. When it's done, capture the screens it changed again in the App tab."
+        : `The agent applied round ${pad(round.round)}${titles ? ` and changed ${titles}` : ""}. Capture ${titles ? "them" : "the changed screens"} again in the App tab: pick replace "…" next to Capture view to update a screen in place.`
+      : status === "sent"
         ? "Sent to your agent. When it's done, rebuild and reinstall the app, then capture the screens it changed again."
         : `The agent applied round ${pad(round.round)}${titles ? ` and changed ${titles}` : ""}. Rebuild and reinstall the app, then capture ${titles ? "them" : "the changed screens"} again${device ? " in the Device tab" : " in the ScribUI desktop app"}. Pick replace "…" next to Capture view to update a screen in place.`;
     return (
@@ -150,7 +154,7 @@ export function NextStepBanner() {
         <span>{text}</span>
         {device && status === "applied" && (
           <button className="btn primary" onClick={() => showLive()}>
-            Open the Device tab
+            Open the {mobile ? "Device" : "App"} tab
           </button>
         )}
         <button className="x" onClick={() => st.set({ appliedDismissed: round.round })} aria-label="dismiss">

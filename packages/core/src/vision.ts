@@ -58,6 +58,21 @@ export function canvasOf(item: VisionItem, canvases: VisionCanvas[]): VisionCanv
   return canvases.find((k) => contains(k, c));
 }
 
+/** Vision canvases are A4 portrait: height = width × √2. */
+export const A4_RATIO = Math.SQRT2;
+/** A new canvas: A4 at 96 dpi. */
+export const A4_CANVAS = { w: 794, h: 1123 };
+
+/** The smallest A4 portrait rect around `r`, centred on it. */
+export function a4Around(r: Rect): Rect {
+  const w = Math.max(r.w, r.h / A4_RATIO);
+  const h = w * A4_RATIO;
+  return { x: Math.round(r.x + (r.w - w) / 2), y: Math.round(r.y + (r.h - h) / 2), w: Math.round(w), h: Math.round(h) };
+}
+
+/** Already A4 portrait, give or take rounding. */
+export const isA4 = (r: { w: number; h: number }) => Math.abs(r.h - r.w * A4_RATIO) <= 1.5;
+
 /**
  * A new canvas for something drawn off every canvas: `size` big (larger when the
  * drawing is), centred on the drawing, kept clear of the canvases around it.

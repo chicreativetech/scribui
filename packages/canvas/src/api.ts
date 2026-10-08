@@ -1,3 +1,4 @@
+import type { ChatServerState } from "./chat";
 import type { Annotation, Device, ScreenCapture, ScreenManifest, StatusFile, VisionFile } from "@scribui/core";
 
 export type ScreenInfo = {
@@ -10,6 +11,8 @@ export type ScreenInfo = {
   reusedFrom?: number;
   /** Why it was captured or reused. */
   reason?: string;
+  /** An automatic capture can take it again (web, listed or captured by hand with a url). */
+  recapturable?: boolean;
   platform?: "ios" | "android" | "web";
   device?: Device;
   size?: { width: number; height: number };
@@ -133,7 +136,8 @@ export type ServerEvent =
   | { type: "lan-changed"; enabled: boolean; paired: number }
   | { type: "status-changed"; round: number; status: string }
   | { type: "annotations-changed"; round: number; by: string }
-  | { type: "vision-changed"; by: string };
+  | { type: "vision-changed"; by: string }
+  | { type: "chat"; state: ChatServerState };
 
 /** WebSocket with automatic reconnect. */
 export function connectEvents(onEvent: (e: ServerEvent) => void, onState: (connected: boolean) => void) {

@@ -21,6 +21,13 @@ export type PreviousRound = {
   newRules?: number;
 };
 
+/**
+ * Web: whether an automatic capture can take this screen. Screens listed for capture can;
+ * views captured by hand in the app tab can when they have a url, and are then reloaded
+ * from it (anything clicked or typed before the hand capture is not repeated).
+ */
+export const recapturable = (s: Pick<ScreenEntry, "live" | "url">): boolean => !s.live || !!s.url;
+
 export type PlanInput = {
   screens: ScreenEntry[];
   sharedSources?: string[];

@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { TOOLS, VISION_HINTS, isReadOnly, unresolvedCount, useStore, type Tool } from "../store";
 import { useVision } from "../vision";
 import { Spinner } from "./Capture";
+import { ChatToggle } from "./Chat";
 import { hasLiveTab, showLive } from "./Live";
 import selectIcon from "../assets/icons/select.png";
 import commentIcon from "../assets/icons/comment.png";
@@ -117,6 +118,7 @@ export function TopBar() {
           Board
         </button>
       </div>
+      <ChatToggle />
     </header>
   );
 }

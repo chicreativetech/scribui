@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { visionPages } from "@scribui/core";
+import { agentLabel, chatConnected, handOffToChat, useChat } from "../chat";
 import { compileCurrent, useStore } from "../store";
 import { useVision } from "../vision";
 
@@ -46,7 +47,10 @@ export function SendDialog() {
       // make sure the latest edits are on disk before compiling server-side
       await api.saveAnnotations(round.round, useStore.getState().annotations);
       const r = await api.send(round.round);
-      useStore.getState().set({ sendOpen: false, sentPrompt: r.prompt });
+      // a connected chat gets the prompt; with auto-run on the agent starts on it right away
+      const started = await handOffToChat(r.prompt);
+      useStore.getState().set({ sendOpen: false, sentPrompt: started ? null : r.prompt });
+      if (started) useStore.getState().toast({ text: `round sent: ${agentLabel(useChat.getState().choice)} is on it in the chat`, tone: "ok" });
       await useStore.getState().load(round.round);
     } catch (e) {
       setError((e as Error).message);
@@ -138,6 +142,9 @@ export function SentDialog() {
   const build = useStore((s) => s.round?.app?.build);
   const mobile = platform === "android" || platform === "ios";
   const [copied, setCopied] = useState(false);
+  const connected = useChat((s) => chatConnected(s));
+  const agent = useChat((s) => agentLabel(s.choice, s.agents));
+  const busy = useChat((s) => s.server.running);
   useEffect(() => {
     if (!prompt) return;
     setCopied(false);
@@ -174,6 +181,24 @@ export function SentDialog() {
             <code>{prompt}</code>
             <button onClick={copy}>{copied ? "copied ✓" : "copy"}</button>
           </div>
+          {connected && (
+            <div className="actions" style={{ justifyContent: "flex-start", marginTop: 8 }}>
+              <button
+                className="btn primary"
+                disabled={busy}
+                title={busy ? "the agent is still working on something" : undefined}
+                onClick={async () => {
+                  if (await useChat.getState().send(prompt)) {
+                    useChat.getState().set({ draft: "" });
+                    useStore.getState().set({ sentPrompt: null });
+                  }
+                }}
+              >
+                Run in {agent}
+              </button>
+              <span className="dim" style={{ fontSize: 11.5 }}>or edit it in the chat first</span>
+            </div>
+          )}
           <div className="next-steps">
             {mobile ? (
               <>

@@ -112,9 +112,10 @@ export const ScreenEntry = z.object({
   /** Web: setup script (ES module exporting default async (page) => {}). */
   setup: z.string().optional(),
   /**
-   * Captured by hand (the canvas's app tab, or a live device): its state
-   * (login, open menus, form input) can't be reproduced from a url or flow, so
-   * automatic captures carry it forward instead of recapturing it.
+   * Captured by hand (the canvas's app tab, or a live device). Web views with a
+   * url are recaptured by reloading it (state such as open menus or form input
+   * is not repeated); without a url, and on Android and iOS, automatic captures
+   * carry it forward instead.
    */
   live: z.boolean().optional(),
   /** Mobile, captured by hand: the device it was captured on. */

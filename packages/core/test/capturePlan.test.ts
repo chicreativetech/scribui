@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { globToRegExp, planCapture, type PlanInput, type PreviousRound } from "../src/index.js";
+import { globToRegExp, planCapture, recapturable, type PlanInput, type PreviousRound } from "../src/index.js";
 
 const screens = [
   { id: "home", title: "Home", flow: "flows/home.sh", sources: ["app/**/feature/home/**"] },
@@ -111,5 +111,13 @@ describe("planCapture", () => {
     const p = plan({ previous: prev({ round: 3, screens: [{ screenId: "home", ok: true, reusedFrom: 1 }, { screenId: "shop", ok: true }, { screenId: "profile", ok: true }] }) });
     expect(p.items.find((i) => i.screenId === "home")).toMatchObject({ reusedFrom: 1, copyFrom: 3 });
     expect(p.items.find((i) => i.screenId === "shop")).toMatchObject({ reusedFrom: 3 });
+  });
+});
+
+describe("recapturable", () => {
+  it("takes listed screens and hand-captured views with a url", () => {
+    expect(recapturable({ url: "/cart" })).toBe(true);
+    expect(recapturable({ live: true, url: "/cart?step=2" })).toBe(true);
+    expect(recapturable({ live: true })).toBe(false);
   });
 });
