@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createAdapter, CaptureError } from "@scribui/capture";
-import { BY_HAND, capturedByHand, planCapture, ReviewJson, type CapturePlan, type Platform, type PreviousRound, type StatusFile } from "@scribui/core";
+import { BY_HAND, capturedByHand, planCapture, recapturable, ReviewJson, type CapturePlan, type Platform, type PreviousRound, type StatusFile } from "@scribui/core";
 import type { ReviewStore } from "@scribui/server";
 import { changedFilesSince, screenFingerprint } from "./changes.js";
 
@@ -52,15 +52,15 @@ export async function captureRound(store: ReviewStore, opts: CaptureOptions = {}
   // Android and iOS: every screen is captured by hand in the desktop app
   if (capturedByHand(platform)) throw new Error(BY_HAND);
   const device = opts.device ?? manifest.app.device;
-  // views captured by hand in the app tab can't be reproduced from their url: carried forward, never recaptured
-  const screens = manifest.screens.filter((s) => !s.live);
-  const live = manifest.screens.filter((s) => s.live);
+  // views captured by hand in the app tab are reloaded from their url; without one they're carried forward
+  const screens = manifest.screens.filter(recapturable);
+  const live = manifest.screens.filter((s) => !recapturable(s));
   if (manifest.screens.length === 0) throw new Error("screens.json lists no screens");
   if (opts.screens?.length) {
     const unknown = opts.screens.filter((id) => !manifest.screens.some((s) => s.id === id));
     if (unknown.length) throw new Error(`unknown screen ids: ${unknown.join(", ")}`);
     const handmade = opts.screens.filter((id) => live.some((s) => s.id === id));
-    if (handmade.length) throw new Error(`${handmade.join(", ")} came from the app tab: capture ${handmade.length === 1 ? "it" : "them"} again there`);
+    if (handmade.length) throw new Error(`${handmade.join(", ")} came from the app tab without a url: capture ${handmade.length === 1 ? "it" : "them"} again there`);
   }
 
   // which round we write into, and which round we compare against
@@ -98,7 +98,7 @@ export async function captureRound(store: ReviewStore, opts: CaptureOptions = {}
   const toCapture = plan.items.filter((i) => i.action === "capture");
 
   if (screens.length === 0) {
-    const why = "every screen came from the app tab: capture them again there";
+    const why = "every screen came from the app tab without a url: capture them again there";
     return { round: previousNo ?? 0, ok: [], failed: [], reused: live.map((s) => s.id), plan: { ...plan, why }, skipped: true };
   }
   if (opts.dryRun || (toCapture.length === 0 && opts.intoRound === undefined)) {

@@ -22,7 +22,7 @@ const camera = (page: Page) => page.evaluate(() => (window as unknown as Win).__
 async function reset(page: Page) {
   await page.request.put("/api/rounds/1/annotations", { data: { annotations: [] } });
   await page.goto("/");
-  // the vision board is the first view; these tests are about the review board
+  // a first open of round 1 starts on the vision board; these tests are about the review board
   await page.getByRole("tab", { name: "Board" }).click();
   await expect(page.locator(".tile img").first()).toBeVisible();
   await page.waitForFunction(() => (window as never as { __scribui?: unknown }).__scribui);
@@ -284,6 +284,47 @@ test("vision: draws on the canvas, starts a new canvas off it, types text, undoe
 
   await page.keyboard.press("Meta+z");
   await expect(page.locator(".vision-canvas")).toHaveCount(1);
+  await page.request.put("/api/vision", { data: { version: 1, canvases: [], items: [] } });
+});
+
+test("starts on the vision board the first time only, then on the board", async ({ page }) => {
+  // reset() opened the project once already: forget that
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Vision" })).toHaveAttribute("aria-selected", "true");
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Board" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("vision: canvases are A4 and resize from their edges, staying A4", async ({ page }) => {
+  await page.request.put("/api/vision", { data: { version: 1, canvases: [{ id: "c1", x: 0, y: 0, w: 390, h: 844 }], items: [] } });
+  await page.reload();
+  await page.getByRole("tab", { name: "Vision" }).click();
+  const canvas = page.locator(".vision-canvas").first();
+  const a = (await canvas.boundingBox())!;
+  // an older, phone-shaped canvas became the A4 around it
+  expect(a.height / a.width).toBeCloseTo(Math.SQRT2, 1);
+
+  // the canvas is centred between the tool rail and the panels on the right
+  const rail = (await page.locator(".rail").boundingBox())!;
+  const side = (await page.locator(".inspector").boundingBox())!;
+  expect(Math.abs(a.x + a.width / 2 - (rail.x + rail.width + side.x) / 2)).toBeLessThan(4);
+
+  // drag the right edge out: wider and taller, still A4, top-left in place
+  await page.mouse.move(a.x + a.width, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width + 60, a.y + a.height / 2, { steps: 6 });
+  await page.mouse.up();
+  const b = (await canvas.boundingBox())!;
+  expect(b.width).toBeGreaterThan(a.width + 40);
+  expect(b.height / b.width).toBeCloseTo(Math.SQRT2, 1);
+  expect(Math.abs(b.x - a.x) + Math.abs(b.y - a.y)).toBeLessThan(2);
+
+  await page.waitForTimeout(450);
+  const v = (await (await page.request.get("/api/vision")).json()) as { canvases: { w: number; h: number }[] };
+  expect(v.canvases[0]!.h / v.canvases[0]!.w).toBeCloseTo(Math.SQRT2, 2);
+  await page.keyboard.press("Meta+z");
+  await expect.poll(async () => (await canvas.boundingBox())!.width).toBeCloseTo(a.width, 0);
   await page.request.put("/api/vision", { data: { version: 1, canvases: [], items: [] } });
 });
 

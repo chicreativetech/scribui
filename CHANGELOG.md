@@ -10,6 +10,11 @@ update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 - `scribui` opens Android and iOS projects in the desktop app (and says where to get it when it isn't installed); `scribui capture` and MCP's `request_review` say these screens are captured in the app.
 - Projects set up earlier get updated agent instructions in `AGENTS.md` the next time the app opens them.
 - A development build of the app keeps its own data, so it runs next to an installed ScribUI.
+- **Recapture works for web views captured in the App tab:** they're reloaded from their URL, including after the agent applies a round. Anything done on the page before the hand capture (a login, an open menu) isn't repeated. When no view can be captured automatically, Recapture is hidden and the canvas asks you to capture the changed views in the App tab, instead of failing with "nothing to capture".
+- **Project windows open maximized** the first time, then the way you last left one: its size and position, maximized or full screen. A window that was on a display that's no longer connected opens on one that is.
+- A project starts on the vision board only the first time you open it on round 1; after that it opens on the review board.
+- **Vision canvases are A4** (portrait) and centred in the space between the tools and the panels, re-centring when you open or close a panel until you move the view. Drag a canvas's edges or corners to resize it; it stays A4 and never shrinks off what's drawn on it. Canvases from older boards grow to the A4 around them.
+- **AI chat:** a Chat button next to Recapture opens a panel where you can prompt the coding agent you already use (Claude Code, Codex, Cursor or any command) without leaving ScribUI. It runs in the project folder and can edit files. It's optional: pick **Just copy prompts** to keep using your terminal. **Send to agent** puts the round's prompt in the chat, and with **Run sent rounds** turned on the agent starts on it right away.
 
 ## 0.1.1 (2026-10-07)
 

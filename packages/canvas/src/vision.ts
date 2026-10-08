@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import {
+  a4Around,
+  A4_CANVAS,
   canvasOf,
+  isA4,
   itemBounds,
   TEXT_LINE,
   VISION_FONT,
@@ -72,10 +75,13 @@ export const useVision = create<VisionState & VisionActions>((set, get) => ({
   async load() {
     try {
       const v = await api.vision();
-      const doc = { canvases: v.canvases, items: v.items };
+      // canvases are A4: older boards' canvases grow to the A4 around them, so nothing drawn falls off
+      const reshaped = v.canvases.some((c) => !isA4(c));
+      const doc = { canvases: v.canvases.map((c) => (isA4(c) ? c : { id: c.id, ...a4Around(c) })), items: v.items };
       if (doc.canvases.length === 0) doc.canvases = [{ id: newId("c"), x: 0, y: 0, ...defaultCanvasSize() }];
       const sel = get().selectedId;
       set({ doc, loaded: true, selectedId: sel && doc.items.some((i) => i.id === sel) ? sel : null });
+      if (reshaped) scheduleSave();
     } catch (e) {
       set({ loaded: true });
       useStore.getState().toast({ text: `vision board: ${(e as Error).message}`, tone: "err" });
@@ -184,20 +190,16 @@ function scheduleSave() {
 
 export const newId = (prefix: string) => prefix + Math.random().toString(36).slice(2, 8).padEnd(6, "0");
 
-/** Canvas size for new canvases: the app's own screen size. */
+/** Canvas size for new canvases: A4 portrait. */
 export function defaultCanvasSize(): { w: number; h: number } {
-  const p = useStore.getState().project;
-  const app = p && "app" in p.manifest ? p.manifest : null;
-  const vp = app?.screens.find((s) => s.viewport)?.viewport;
-  if (vp) return { w: vp.width, h: vp.height };
-  return app && app.app.platform !== "web" ? { w: 390, h: 844 } : { w: 1280, h: 800 };
+  return { ...A4_CANVAS };
 }
 
 /** An item drawn off every canvas gets a new canvas around it. */
 function placeItem(doc: Doc, id: string): Doc {
   const item = doc.items.find((i) => i.id === id);
   if (!item || canvasOf(item, doc.canvases)) return doc;
-  const r = wrapCanvas(itemBounds(item), doc.canvases, defaultCanvasSize());
+  const r = a4Around(wrapCanvas(itemBounds(item), doc.canvases, defaultCanvasSize()));
   return { ...doc, canvases: [...doc.canvases, { id: newId("c"), ...r }] };
 }
 

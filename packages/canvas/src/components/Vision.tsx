@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { canvasOf, itemBounds, renderVisionItemSvg, TEXT_LINE, VISION_FONT, type SketchStyle, type VisionItem } from "@scribui/core";
+import { A4_RATIO, canvasOf, itemBounds, renderVisionItemSvg, TEXT_LINE, VISION_FONT, type Rect, type SketchStyle, type VisionCanvas, type VisionItem } from "@scribui/core";
+import { useChat } from "../chat";
 import { visionImageUrl } from "../api";
 import { screenToWorld, type Camera } from "../layout";
 import { isSketchTool, TOOLS, useStore, type Tool } from "../store";
@@ -9,6 +10,8 @@ import { VISION_TOOLS } from "./Chrome";
 
 type Pt = [number, number];
 type Handle = "nw" | "ne" | "se" | "sw";
+/** A canvas edge or corner being dragged. */
+type Edge = "n" | "e" | "s" | "w" | Handle;
 type BoxItem = Extract<VisionItem, { type: "box" | "ellipse" | "image" | "text" }>;
 
 type Drag =
@@ -17,7 +20,9 @@ type Drag =
   | { kind: "shape"; shape: "line" | "box" | "ellipse"; from: Pt; to: Pt }
   | { kind: "move"; id: string; start: Pt; orig: VisionItem; moved: boolean }
   | { kind: "resize"; id: string; handle: Handle; orig: BoxItem; fixed: Pt }
-  | { kind: "rotate"; id: string; orig: BoxItem; center: Pt };
+  | { kind: "rotate"; id: string; orig: BoxItem; center: Pt }
+  /** Resizing a canvas; `keep` are the centres of its items, which must stay on it. */
+  | { kind: "canvas"; id: string; edge: Edge; orig: VisionCanvas; keep: Pt[] };
 
 const isBox = (i: VisionItem): i is BoxItem => i.type === "box" || i.type === "ellipse" || i.type === "image" || i.type === "text";
 const href = (src: string) => visionImageUrl(src);
@@ -45,17 +50,23 @@ export function VisionBoard() {
     setDrag(d);
   };
 
-  // load once the project is known: new canvases take the app's screen size
+  // load once the project is known
   const projectLoaded = useStore((s) => !!s.project);
   useEffect(() => {
     if (projectLoaded) void useVision.getState().load();
   }, [projectLoaded]);
 
-  // fit the canvases into view the first time the board is shown
+  // centre the canvases in the space between the panels the first time the board is shown, and again
+  // when a panel opens or closes, as long as the view hasn't been moved since
+  const inspectorOpen = useStore((s) => s.inspectorOpen);
+  const chatOpen = useChat((s) => s.open);
   useEffect(() => {
-    if (!shown || !loaded || fitted) return;
-    useVision.getState().set({ fitted: true, camera: fitVisionCamera() });
-  }, [shown, loaded, fitted]);
+    if (!shown || !loaded) return;
+    const v = useVision.getState();
+    if (fitted && !sameCamera(v.camera, lastFit)) return;
+    lastFit = fitVisionCamera();
+    v.set({ fitted: true, camera: lastFit });
+  }, [shown, loaded, fitted, inspectorOpen, chatOpen]);
 
   const local = useCallback((e: { clientX: number; clientY: number }): Pt => {
     const r = ref.current!.getBoundingClientRect();
@@ -249,6 +260,13 @@ export function VisionBoard() {
       case "resize":
         v.set({ doc: { ...v.doc, items: v.doc.items.map((i) => (i.id === d.id ? resized(d.orig, d.handle, d.fixed, w, e.shiftKey) : i)) } });
         return;
+      case "canvas": {
+        const r = resizedCanvas(d.orig, d.edge, w);
+        // never shrink a canvas off the things drawn on it
+        if (!d.keep.every(([x, y]) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h)) return;
+        v.set({ doc: { ...v.doc, canvases: v.doc.canvases.map((c) => (c.id === d.id ? { ...c, ...r } : c)) } });
+        return;
+      }
       case "rotate": {
         let deg = (Math.atan2(w[1] - d.center[1], w[0] - d.center[0]) * 180) / Math.PI + 90;
         if (e.shiftKey) deg = Math.round(deg / 15) * 15;
@@ -280,6 +298,15 @@ export function VisionBoard() {
         if (item) v.add(item);
         return;
       }
+      case "canvas": {
+        const now = v.doc.canvases.find((c) => c.id === d.id);
+        if (!now || (now.w === d.orig.w && now.x === d.orig.x && now.y === d.orig.y)) return;
+        // put the original back so undo returns to it, then commit the change
+        const canvases = v.doc.canvases;
+        v.set({ doc: { ...v.doc, canvases: canvases.map((c) => (c.id === d.id ? d.orig : c)) } });
+        v.commit({ ...v.doc, canvases });
+        return;
+      }
       case "move":
       case "resize":
       case "rotate": {
@@ -308,6 +335,21 @@ export function VisionBoard() {
       sw: [item.x + item.w, item.y],
     };
     setDragBoth({ kind: "resize", id: item.id, handle, orig: item, fixed: rotateAround(opposite[handle], [cx, cy], item.rotation ?? 0) });
+  };
+
+  const startCanvasDrag = (e: React.PointerEvent, canvas: VisionCanvas, edge: Edge) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (e.button !== 0) return;
+    capture(e.pointerId);
+    const { doc } = useVision.getState();
+    const keep = doc.items
+      .filter((i) => canvasOf(i, doc.canvases)?.id === canvas.id)
+      .map((i): Pt => {
+        const b = itemBounds(i);
+        return [b.x + b.w / 2, b.y + b.h / 2];
+      });
+    setDragBoth({ kind: "canvas", id: canvas.id, edge, orig: canvas, keep });
   };
 
   const onDoubleClick = (e: React.MouseEvent) => {
@@ -371,6 +413,9 @@ export function VisionBoard() {
       </div>
 
       <div className="vision-overlay">
+        {doc.canvases.map((c) => (
+          <CanvasEdges key={c.id} canvas={c} camera={camera} active={drag?.kind === "canvas" && drag.id === c.id ? drag.edge : null} onEdge={startCanvasDrag} />
+        ))}
         {doc.canvases.map((c, i) => (
           <CanvasLabel key={c.id} index={i} id={c.id} left={(c.x - camera.x) * camera.zoom} top={(c.y - camera.y) * camera.zoom} canRemove={doc.canvases.length > 1} />
         ))}
@@ -382,6 +427,38 @@ export function VisionBoard() {
 }
 
 /* ───────── pieces ───────── */
+
+const EDGES: Edge[] = ["n", "e", "s", "w", "nw", "ne", "se", "sw"];
+
+/** Grab strips on a canvas's edges and corners: dragging one resizes the canvas, staying A4. */
+function CanvasEdges({
+  canvas,
+  camera,
+  active,
+  onEdge,
+}: {
+  canvas: VisionCanvas;
+  camera: Camera;
+  active: Edge | null;
+  onEdge: (e: React.PointerEvent, c: VisionCanvas, edge: Edge) => void;
+}) {
+  const z = camera.zoom;
+  return (
+    <div
+      className="canvas-frame"
+      style={{ left: (canvas.x - camera.x) * z, top: (canvas.y - camera.y) * z, width: canvas.w * z, height: canvas.h * z }}
+    >
+      {EDGES.map((edge) => (
+        <span
+          key={edge}
+          className={`vision-ui canvas-edge ${edge} ${active === edge ? "on" : ""}`}
+          title="drag to resize (stays A4)"
+          onPointerDown={(e) => onEdge(e, canvas, edge)}
+        />
+      ))}
+    </div>
+  );
+}
 
 function CanvasLabel({ index, id, left, top, canRemove }: { index: number; id: string; left: number; top: number; canRemove: boolean }) {
   const [ask, setAsk] = useState(false);
@@ -494,6 +571,32 @@ function startTextEdit(item: TextItem, isNew: boolean) {
 }
 
 export const fitVisionCamera = (): Camera => fitVision(boardViewport());
+
+/** The camera of the last automatic fit: while the view is still there, panels opening re-centre it. */
+let lastFit: Camera | null = null;
+const sameCamera = (a: Camera, b: Camera | null) => !!b && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs(a.zoom - b.zoom) < 1e-4;
+
+/** Minimum canvas width, in world units. */
+const MIN_CANVAS_W = 160;
+
+/**
+ * A canvas resized by dragging `edge` to `p`, kept A4: the opposite edge (or corner) stays put,
+ * and a side edge keeps the top (left for the top and bottom edges) where it was.
+ */
+export function resizedCanvas(c: Rect, edge: Edge, p: Pt): Rect {
+  const right = c.x + c.w;
+  const bottom = c.y + c.h;
+  const fromX = edge.includes("e") ? p[0] - c.x : edge.includes("w") ? right - p[0] : 0;
+  const fromY = (edge.includes("s") ? p[1] - c.y : edge.includes("n") ? bottom - p[1] : 0) / A4_RATIO;
+  const w = Math.round(Math.max(MIN_CANVAS_W, edge.length === 2 ? Math.max(fromX, fromY) : edge === "e" || edge === "w" ? fromX : fromY));
+  const h = Math.round(w * A4_RATIO);
+  return {
+    x: edge.includes("w") ? right - w : c.x,
+    y: edge.includes("n") ? bottom - h : c.y,
+    w,
+    h,
+  };
+}
 
 function rotateAround(p: Pt, c: Pt, deg: number): Pt {
   if (!deg) return p;

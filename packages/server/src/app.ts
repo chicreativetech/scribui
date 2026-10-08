@@ -6,10 +6,11 @@ import { createAdaptorServer } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { Hono, type Context } from "hono";
 import { WebSocketServer, type WebSocket } from "ws";
-import { Annotation, AnnotationsFile, PRODUCT, VisionFile, type Device, type Platform, type RawElement } from "@scribui/core";
+import { Annotation, AnnotationsFile, PRODUCT, recapturable, VisionFile, type Device, type Platform, type RawElement, type ScreenManifest } from "@scribui/core";
 import { z } from "zod";
 import { isLoopback, lanAddress, LanAuth, parseCookies } from "./lan.js";
 import { qrSvg } from "./qr.js";
+import { ChatSession, type ChatState } from "./chat.js";
 import { resolveRound, sendRound } from "./send.js";
 import { CaptureQueue, type Job } from "./queue.js";
 import { ReviewStore, RoundLockedError } from "./store.js";
@@ -95,7 +96,8 @@ export type ServerEvent =
   | { type: "status-changed"; round: number; status: string }
   | { type: "lan-changed"; enabled: boolean; paired: number }
   | { type: "annotations-changed"; round: number; by: string }
-  | { type: "vision-changed"; by: string };
+  | { type: "vision-changed"; by: string }
+  | { type: "chat"; state: ChatState };
 
 export type ServerOptions = {
   projectDir: string;
@@ -151,6 +153,8 @@ export function createApp(opts: ServerOptions) {
     for (const s of sockets) if (s.readyState === 1) s.send(msg);
   };
 
+  const chat = new ChatSession(opts.projectDir, (state) => broadcast({ type: "chat", state }));
+
   /* ─────────── captures: one queue for rounds and single views ─────────── */
   let capture: CaptureState = { running: false, phase: "idle" };
   const queue: CaptureQueue = new CaptureQueue(() => {
@@ -196,6 +200,10 @@ export function createApp(opts: ServerOptions) {
     if (done.status === "failed") throw new HttpError(422, done.error ?? "could not save the view");
     return done.result as ViewSaveResult;
   };
+
+  /** A round can be captured automatically: web, started with a runner, and some screen it can take. */
+  const canAutoCapture = (manifest: ScreenManifest) =>
+    !!opts.runner && manifest.app.platform === "web" && manifest.screens.some(recapturable);
 
   const app = new Hono();
 
@@ -252,8 +260,9 @@ export function createApp(opts: ServerOptions) {
       rounds: await store.listRounds(),
       latest: await store.latestRound(),
       lan: { enabled: lanState.enabled, paired: lan.paired },
-      // Android and iOS screens are captured by hand (the desktop app's Device tab), never by a round
-      canCapture: !!opts.runner && "app" in manifest && manifest.app.platform === "web",
+      // Android and iOS screens are captured by hand (the desktop app's Device tab), never by a round;
+      // on the web, only when some screen can be captured without a hand
+      canCapture: "app" in manifest && canAutoCapture(manifest),
       autoRecapture: opts.autoRecapture !== false,
       capture,
     });
@@ -340,6 +349,7 @@ export function createApp(opts: ServerOptions) {
     const captures = await store.readCaptures(n);
     const annotations = await store.readAnnotations(n);
     const entries = manifest?.screens ?? [];
+    const canRecapture = !!manifest && canAutoCapture(manifest);
     const known = new Set(entries.map((s) => s.id));
     const failures = new Map((status.screens ?? []).filter((s) => !s.ok).map((s) => [s.screenId, s.error]));
     const capInfo = new Map((status.screens ?? []).map((s) => [s.screenId, s]));
@@ -358,6 +368,8 @@ export function createApp(opts: ServerOptions) {
           error: failures.get(s.id),
           reusedFrom: capInfo.get(s.id)?.reusedFrom,
           reason: capInfo.get(s.id)?.reason,
+          // a capture whose screen is no longer in screens.json can't be taken again
+          recapturable: canRecapture && entries.some((e) => e.id === s.id && recapturable(e)),
           platform: cap?.platform,
           device: cap?.device,
           size: cap ? { width: cap.root.bounds.w, height: cap.root.bounds.h } : undefined,
@@ -367,7 +379,7 @@ export function createApp(opts: ServerOptions) {
             : undefined,
         };
       });
-    return c.json({ round: n, status, app: manifest?.app, screens, annotations, canRecapture: !!opts.runner && manifest?.app.platform === "web" });
+    return c.json({ round: n, status, app: manifest?.app, screens, annotations, canRecapture });
   });
 
   app.post("/api/rounds/:n/recapture", async (c) => {
@@ -456,6 +468,38 @@ export function createApp(opts: ServerOptions) {
     return sendFile(c, p);
   });
 
+  /* ─────────── AI chat: runs a coding agent on this computer ─────────── */
+  // Only the computer running ScribUI, never a paired tablet, and only from the canvas itself:
+  // a web page elsewhere must not be able to start an agent that edits the project.
+  app.use("/api/chat/*", async (c, next) => {
+    if (!isLoopback(remoteOf(c))) return c.json({ error: "the AI chat only runs on the computer running ScribUI" }, 403);
+    const host = c.req.header("host") ?? "";
+    if (!/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host)) return c.json({ error: "forbidden" }, 403);
+    const origin = c.req.header("origin");
+    if (origin && origin !== "null" && new URL(origin).host !== host) return c.json({ error: "forbidden" }, 403);
+    if (c.req.method !== "GET" && !c.req.header("content-type")?.startsWith("application/json")) return c.json({ error: "expected JSON" }, 415);
+    return next();
+  });
+  app.get("/api/chat/state", (c) => c.json({ state: chat.state(), agents: chat.agents(), folder: opts.projectDir }));
+  const ChatSend = z.object({ agent: z.enum(["claude", "codex", "cursor", "custom"]), text: z.string().min(1).max(100_000), command: z.string().max(2000).optional() });
+  app.post("/api/chat/send", async (c) => {
+    const body = ChatSend.parse(await c.req.json());
+    try {
+      chat.send(body.agent, body.text, body.command);
+    } catch (e) {
+      throw new HttpError(409, (e as Error).message);
+    }
+    return c.json(chat.state());
+  });
+  app.post("/api/chat/stop", (c) => {
+    chat.stop();
+    return c.json(chat.state());
+  });
+  app.post("/api/chat/clear", (c) => {
+    chat.clear();
+    return c.json(chat.state());
+  });
+
   /* ─────────── canvas ─────────── */
   app.get("*", async (c) => {
     if (!opts.canvasDir) return c.text("ScribUI server running; canvas build not found", 200);
@@ -466,7 +510,7 @@ export function createApp(opts: ServerOptions) {
     return sendFile(c, join(opts.canvasDir, "index.html"));
   });
 
-  return { app, store, lan, lanState, controls, sockets, lanSockets, broadcast, runCapture, saveView, queue, getCapture: () => capture };
+  return { app, store, lan, lanState, controls, sockets, lanSockets, broadcast, runCapture, saveView, queue, chat, getCapture: () => capture };
 }
 
 async function sendFile(c: Context, p: string, immutable = false) {
@@ -491,7 +535,7 @@ class HttpError extends Error {
  * Resolves once listening.
  */
 export async function startServer(opts: ServerOptions) {
-  const { app, store, lan, lanState, controls, sockets, lanSockets, broadcast, runCapture, saveView, queue } = createApp(opts);
+  const { app, store, lan, lanState, controls, sockets, lanSockets, broadcast, runCapture, saveView, queue, chat } = createApp(opts);
   const port = opts.port ?? PRODUCT.defaultPort;
   const host = opts.host ?? (opts.lan ? "0.0.0.0" : "127.0.0.1");
 
@@ -541,7 +585,8 @@ export async function startServer(opts: ServerOptions) {
   const onStatus = async (round: number, status: string) => {
     if (status !== "applied" || !opts.runner || opts.autoRecapture === false || queue.has("round")) return;
     const manifest = await store.readManifest().catch(() => null);
-    if (manifest?.app.platform !== "web") return;
+    // views captured by hand without a url: the canvas asks for them in the app tab instead
+    if (manifest?.app.platform !== "web" || !manifest.screens.some(recapturable)) return;
     setTimeout(() => {
       if (!queue.has("round")) runCapture({ trigger: "agent-applied" });
     }, 1500); // give the dev server a moment to hot-reload
@@ -562,6 +607,7 @@ export async function startServer(opts: ServerOptions) {
     queue,
     close: async () => {
       stopWatch();
+      chat.stop();
       for (const s of sockets) s.close();
       wss.close();
       // close() waits for open connections; a request still in flight would leave its

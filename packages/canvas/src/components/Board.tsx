@@ -675,7 +675,10 @@ export function boardViewport(): Viewport {
   if (!r) return { x: 0, y: 0, w: 1000, h: 700 };
   const edge = (sel: string) => document.querySelector(sel)?.getBoundingClientRect();
   const tools = edge(".rail");
-  const side = edge(".inspector:not(.closed)") ?? edge(".actions-float");
+  // the leftmost of the panels on the right: the chat, the inspector, or the action buttons
+  const side = [edge(".chat"), edge(".inspector:not(.closed)"), edge(".actions-float")]
+    .filter((b): b is DOMRect => !!b)
+    .sort((a, b) => a.left - b.left)[0];
   const top = edge(".bar");
   const left = tools && tools.right < r.left + r.width / 2 ? tools.right - r.left : 0;
   const right = side && side.left > r.left + r.width / 2 ? r.right - side.left : 0;

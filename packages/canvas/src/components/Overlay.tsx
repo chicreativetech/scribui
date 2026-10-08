@@ -84,9 +84,12 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
             ) : (
               info?.reusedFrom !== undefined &&
               w > 90 &&
-              (!round?.canRecapture ? (
-                // captured by hand (Android, iOS): only the Device tab captures it again
-                <span className="stale" title={`Copied unchanged from round ${pad(info.reusedFrom)}. Capture it again in the Device tab to update it.`}>
+              (!info.recapturable ? (
+                // captured by hand (Android, iOS, web views without a url): only the Device or App tab captures it again
+                <span
+                  className="stale"
+                  title={`Copied unchanged from round ${pad(info.reusedFrom)}. Capture it again in the ${round?.app?.platform === "web" ? "App" : "Device"} tab to update it.`}
+                >
                   ↺ R{pad(info.reusedFrom)}
                 </span>
               ) : (

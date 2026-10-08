@@ -1,11 +1,13 @@
 import { useEffect } from "react";
 import { newAnnotationId, type Annotation } from "@scribui/core";
 import { connectEvents } from "./api";
+import { useChat } from "./chat";
 import { fitCamera } from "./layout";
 import { TOOLS, isReadOnly, useStore } from "./store";
 import { animateCamera, Board, boardViewport, fitAll, focusTile, panToAnnotation, unfocus, zoomAt } from "./components/Board";
 import { ActionBar, StatusLine, ToolRail, TopBar } from "./components/Chrome";
 import { CapturePanel, LanDialog, NextStepBanner } from "./components/Capture";
+import { ChatPanel } from "./components/Chat";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
 import { Inspector } from "./components/Inspector";
 import { hasLiveTab, LiveView, showLive, toggleView } from "./components/Live";
@@ -27,6 +29,7 @@ export function App() {
   const project = useStore((s) => s.project);
   const firstCapture = useStore((s) => s.captureState.running || !!s.externalCapture);
   const inspectorOpen = useStore((s) => s.inspectorOpen);
+  const chatOpen = useChat((s) => s.open);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -100,6 +103,8 @@ export function App() {
         } else if (e.type === "annotations-changed") {
           // another tab or device edited this round
           if (e.round === st.round?.round && e.by !== clientId()) void st.load(e.round);
+        } else if (e.type === "chat") {
+          useChat.setState({ server: e.state });
         } else if (e.type === "vision-changed") {
           // another tab or device drew on the vision board
           const v = useVision.getState();
@@ -244,7 +249,7 @@ export function App() {
   const onSend = () => useStore.getState().set({ sendOpen: true });
 
   return (
-    <div className={`app ${inspectorOpen ? "with-panel" : ""} ${view === "live" ? "live-view" : ""}`}>
+    <div className={`app ${inspectorOpen ? "with-panel" : ""} ${chatOpen ? "with-chat" : ""} ${view === "live" ? "live-view" : ""}`}>
       <main className="stage">
         <Board />
         <VisionBoard />
@@ -312,6 +317,7 @@ export function App() {
       <TopBar />
       <ActionBar onSend={onSend} />
       <Inspector />
+      <ChatPanel />
       <StatusLine onCommand={runCommand} />
       <SendDialog />
       <SentDialog />

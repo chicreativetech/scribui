@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell, webFrameMain, type WebContents } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, screen, session, shell, webFrameMain, type WebContents } from "electron";
 import { detectTools } from "@scribui/capture";
 import { PRODUCT, type Platform } from "@scribui/core";
 import { ReviewStore } from "@scribui/server";
@@ -12,6 +12,7 @@ import { DeviceView } from "./deviceView.js";
 import type { Rect, Size } from "./liveLayout.js";
 import { LiveView } from "./liveView.js";
 import { captureFromCanvas, LIVE_FRAME, saveViaServer, type SaveView } from "./webCapture.js";
+import { placeWindow, readWindowState, writeWindowState } from "./windowState.js";
 
 /**
  * One window per project: the project's server runs inside the app (or the
@@ -112,9 +113,17 @@ async function createProject(root: string, opts: OpenOptions): Promise<OpenResul
   const appPartition = surface === "iframe" ? `persist:project-${id}` : `persist:app-${id}`;
   hardenSession(appPartition);
 
+  // maximized the first time; after that, the way the last project window was left
+  const stateFile = join(app.getPath("userData"), "window-state.json");
+  const place = placeWindow(
+    readWindowState(stateFile),
+    screen.getAllDisplays().map((d) => d.workArea),
+    byWindow.size,
+  );
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
+    ...place.bounds,
     minWidth: 720,
     minHeight: 480,
     title: `${manifest.app.name} · ScribUI`,
@@ -132,7 +141,31 @@ async function createProject(root: string, opts: OpenOptions): Promise<OpenResul
       spellcheck: false,
     },
   });
-  win.once("ready-to-show", () => win.show());
+  win.once("ready-to-show", () => {
+    if (place.maximized) win.maximize();
+    win.show();
+    if (place.fullScreen) win.setFullScreen(true);
+  });
+  // remember how it was left: the size it has when not maximized or full screen, and whether it was
+  const saveState = () => {
+    if (win.isDestroyed() || win.isMinimized()) return;
+    writeWindowState(stateFile, { bounds: win.getNormalBounds(), maximized: win.isMaximized(), fullScreen: win.isFullScreen() });
+  };
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  const saveSoon = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveState, 400);
+  };
+  win.on("resize", saveSoon);
+  win.on("move", saveSoon);
+  win.on("maximize", saveSoon);
+  win.on("unmaximize", saveSoon);
+  win.on("enter-full-screen", saveSoon);
+  win.on("leave-full-screen", saveSoon);
+  win.on("close", () => {
+    clearTimeout(saveTimer);
+    saveState();
+  });
   // the window keeps the project's name, not the canvas page's title
   win.on("page-title-updated", (e) => e.preventDefault());
   const wc = win.webContents;
