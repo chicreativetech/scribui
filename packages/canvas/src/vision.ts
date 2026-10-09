@@ -3,7 +3,6 @@ import {
   a4Around,
   A4_CANVAS,
   canvasOf,
-  isA4,
   itemBounds,
   TEXT_LINE,
   VISION_FONT,
@@ -75,13 +74,10 @@ export const useVision = create<VisionState & VisionActions>((set, get) => ({
   async load() {
     try {
       const v = await api.vision();
-      // canvases are A4: older boards' canvases grow to the A4 around them, so nothing drawn falls off
-      const reshaped = v.canvases.some((c) => !isA4(c));
-      const doc = { canvases: v.canvases.map((c) => (isA4(c) ? c : { id: c.id, ...a4Around(c) })), items: v.items };
+      const doc = { canvases: v.canvases, items: v.items };
       if (doc.canvases.length === 0) doc.canvases = [{ id: newId("c"), x: 0, y: 0, ...defaultCanvasSize() }];
       const sel = get().selectedId;
       set({ doc, loaded: true, selectedId: sel && doc.items.some((i) => i.id === sel) ? sel : null });
-      if (reshaped) scheduleSave();
     } catch (e) {
       set({ loaded: true });
       useStore.getState().toast({ text: `vision board: ${(e as Error).message}`, tone: "err" });
@@ -190,7 +186,7 @@ function scheduleSave() {
 
 export const newId = (prefix: string) => prefix + Math.random().toString(36).slice(2, 8).padEnd(6, "0");
 
-/** Canvas size for new canvases: A4 portrait. */
+/** Canvas size for new canvases: A4 portrait (the user can resize it to anything). */
 export function defaultCanvasSize(): { w: number; h: number } {
   return { ...A4_CANVAS };
 }
@@ -210,6 +206,8 @@ export function translateItem(i: VisionItem, dx: number, dy: number): VisionItem
       return { ...i, points: i.points.map(([x, y, p]) => [r(x + dx), r(y + dy), p] as [number, number, number]) };
     case "line":
       return { ...i, from: [r(i.from[0] + dx), r(i.from[1] + dy)], to: [r(i.to[0] + dx), r(i.to[1] + dy)] };
+    case "fill":
+      return { ...i, loops: i.loops.map((l) => l.map(([x, y]) => [r(x + dx), r(y + dy)] as [number, number])) };
     default:
       return { ...i, x: r(i.x + dx), y: r(i.y + dy) };
   }

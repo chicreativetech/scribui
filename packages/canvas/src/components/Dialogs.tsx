@@ -18,7 +18,10 @@ export function SendDialog() {
   const canvases = useMemo(() => visionPages(visionDoc).length, [visionDoc]);
 
   useEffect(() => {
-    if (open) setError(null);
+    if (!open) return;
+    setError(null);
+    // a drawing still open goes with the round
+    useStore.getState().finishDrawing(false);
   }, [open]);
 
   useEffect(() => {

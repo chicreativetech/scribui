@@ -215,6 +215,8 @@ kbd {
 .glyph-rect { width: 14px; height: 14px; border: 1px solid var(--fg); }
 .glyph-ellipse { width: 14px; height: 14px; border: 1px solid var(--fg); border-radius: 50%; }
 .glyph-text { font: 700 14px/1 var(--sans); }
+.glyph-fill { display: block; fill: var(--fg); }
+.item.active .glyph-fill { fill: var(--accent-ink); }
 .toggles { display: flex; flex-direction: column; gap: 7px; margin-top: 33px; flex: none; }
 .item.wide { width: 106px; }
 
@@ -283,6 +285,24 @@ kbd {
 .chip.region { color: var(--fg-dim); }
 .chip.confirmed::after { content: "✓"; color: var(--green); margin-left: 2px; }
 .chip.kind { color: var(--fg-dim); }
+/* the drawing in progress: how many strokes, and Done */
+.drawing-chip {
+  position: absolute; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  font-size: 10.5px; line-height: 1; padding: 3px 3px 3px 7px; background: var(--surface); color: var(--fg-dim);
+  border: 1px solid var(--line-2); border-radius: 2px;
+}
+.drawing-chip .chip-btn {
+  display: inline-flex; align-items: center; gap: 5px; font: inherit; font-weight: 700; color: var(--accent-ink);
+  background: var(--accent); border: 0; border-radius: 2px; padding: 4px 6px; cursor: pointer;
+}
+.drawing-chip .chip-btn kbd { color: inherit; border-color: currentColor; opacity: 0.8; }
+/* a sketch's text part, typed where it goes */
+.sketch-text {
+  position: absolute; z-index: 15; margin: 0; padding: 0; border: 0; outline: 1px dashed var(--accent); outline-offset: 2px;
+  background: transparent; resize: none; overflow: hidden; white-space: pre;
+  font-family: Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 500; line-height: 1.25;
+}
+.sketch-text::placeholder { color: currentColor; opacity: 0.35; }
 .hover-label {
   position: absolute; pointer-events: none; font-size: 10.5px; line-height: 1; padding: 4px 6px; white-space: nowrap;
   background: var(--cyan); color: #06121a; border-radius: 2px; transform: translateY(-100%); margin-top: -3px;

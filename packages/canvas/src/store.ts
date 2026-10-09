@@ -2,24 +2,28 @@ import { create } from "zustand";
 import {
   compile,
   indexFor,
+  newAnnotationId,
   numberAnnotations,
   resolveAll,
+  sketchPartsBounds,
   type Annotation,
   type AnnotationKind,
   type CompileOutput,
   type ScreenCapture,
+  type SketchPart,
   type SketchStyle,
   type UIElement,
 } from "@scribui/core";
 import { api, type CaptureState, type LanState, type ProjectPayload, type RoundListItem, type RoundPayload, type ScreenInfo } from "./api";
 import { layoutBoard, type Camera, type GroupLayout, type TileLayout } from "./layout";
+import { measureText } from "./vision";
 
 /** Drawing tools: on the board they sketch on screens, on the vision board they draw anywhere. */
-export type SketchTool = "line" | "box" | "ellipse" | "text";
+export type SketchTool = "line" | "box" | "ellipse" | "text" | "fill";
 export type Tool = "select" | Exclude<AnnotationKind, "sketch"> | SketchTool;
 /** Tools whose look the settings box can change. */
 export type StyledTool = "freehand" | SketchTool;
-export const SKETCH_TOOLS: SketchTool[] = ["line", "box", "ellipse", "text"];
+export const SKETCH_TOOLS: SketchTool[] = ["line", "box", "ellipse", "text", "fill"];
 export const isSketchTool = (t: Tool): t is SketchTool => (SKETCH_TOOLS as Tool[]).includes(t);
 
 export const TOOLS: { tool: Tool; key: string; label: string; hint: string }[] = [
@@ -29,12 +33,13 @@ export const TOOLS: { tool: Tool; key: string; label: string; hint: string }[] =
   { tool: "arrow", key: "A", label: "arrow", hint: "drag start → end; may end on another tile" },
   { tool: "rectangle", key: "R", label: "rect", hint: "drag a box where something should go" },
   { tool: "remove", key: "X", label: "remove", hint: "click an element to strike it out" },
-  { tool: "freehand", key: "P", label: "draw", hint: "draw a free path" },
+  { tool: "freehand", key: "P", label: "draw", hint: "draw freely, in as many strokes as you like" },
   { tool: "rule", key: "U", label: "rule", hint: "shift-click elements on any screens, then ⏎ and type" },
   { tool: "line", key: "I", label: "line", hint: "drag a straight line" },
   { tool: "box", key: "B", label: "box", hint: "drag a box; shift for a square" },
   { tool: "ellipse", key: "Q", label: "ellipse", hint: "drag an ellipse; shift for a circle" },
   { tool: "text", key: "T", label: "text", hint: "click where the text goes, then type" },
+  { tool: "fill", key: "G", label: "fill", hint: "click inside a closed area to fill it; click a line to recolour it" },
 ];
 
 /** Hints that differ on the vision board. */
@@ -49,6 +54,7 @@ export const DEFAULT_STYLES: Record<StyledTool, SketchStyle> = {
   box: { color: "#262626", width: 3 },
   ellipse: { color: "#262626", width: 3 },
   text: { color: "#262626", width: 1, size: 32 },
+  fill: { color: "#3E63DD", width: 1 },
 };
 
 function loadStyles(): Record<StyledTool, SketchStyle> {
@@ -61,6 +67,12 @@ function loadStyles(): Record<StyledTool, SketchStyle> {
 }
 
 export type HoverInfo = { screenId: string; stack: UIElement[]; level: number; px: [number, number] } | null;
+
+/**
+ * The sketch the sketch tools are adding to: strokes, lines, boxes, ellipses and text, in
+ * screenshot pixels. `typing` is the index of a text part whose words are being typed.
+ */
+export type OpenDrawing = { screenId: string; parts: SketchPart[]; typing?: number };
 
 export type EditorState = { annotationId: string; isNew: boolean } | null;
 export type PickerState = { annotationId: string } | null;
@@ -123,6 +135,13 @@ type State = {
   liveVisited: boolean;
   /** The tile whose remove button is asking for confirmation. */
   removeAsk: string | null;
+  /**
+   * The sketch in progress: everything the sketch tools draw on a screen joins it, whatever
+   * the tool, until it's finished (⏎, Ready, a tool that isn't a sketch tool, another screen).
+   */
+  drawing: OpenDrawing | null;
+  /** Undo and redo within the open sketch: what it was before each change, and after each undo. */
+  sketchHistory: { past: (OpenDrawing | null)[]; future: (OpenDrawing | null)[] };
 };
 
 type Actions = {
@@ -141,6 +160,15 @@ type Actions = {
   dismissToast(id: number): void;
   set(p: Partial<State>): void;
   setToolStyle(tool: StyledTool, patch: Partial<SketchStyle>): void;
+  /** Add a part to the open sketch; one on another screen finishes that sketch first. `typing`: a text part to type into. */
+  addPart(screenId: string, part: SketchPart, opts?: { typing?: boolean }): void;
+  /** Set the words of the text part being typed; the typing ends with `done`, and empty text is dropped. */
+  typePart(text: string, done?: boolean): void;
+  /** Turn the open sketch into one annotation and open its note (unless `note` is false). */
+  finishDrawing(note?: boolean): void;
+  /** Replace part `i` of the open sketch (the fill tool recolours and fills parts). */
+  setOpenPart(i: number, part: SketchPart): void;
+
   recapture(screenIds: string[]): Promise<void>;
   captureNext(opts?: { build?: boolean; all?: boolean }): Promise<void>;
   removeScreen(id: string): Promise<void>;
@@ -225,6 +253,8 @@ export const useStore = create<Store>((set, get) => ({
   toolStyles: loadStyles(),
   liveVisited: false,
   removeAsk: null,
+  drawing: null,
+  sketchHistory: { past: [], future: [] },
 
   /** Recapture some screens into the current open round. */
   async recapture(ids) {
@@ -315,6 +345,8 @@ export const useStore = create<Store>((set, get) => ({
         editor: null,
         picker: null,
         saveState: "saved",
+        drawing: same && !readOnly(round) ? get().drawing : null,
+        sketchHistory: same && !readOnly(round) ? get().sketchHistory : { past: [], future: [] },
       });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
@@ -330,6 +362,8 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   setTool(tool) {
+    if (tool !== "freehand" && !isSketchTool(tool)) get().finishDrawing();
+    else get().typePart(textOfTyping(get().drawing), true);
     set({ tool, ruleTargets: tool === "rule" ? get().ruleTargets : [], picker: null });
   },
 
@@ -344,6 +378,8 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
     const resolved = resolveAll(next, s.trees);
+    // a change outside a sketch: undone sketch steps can't be redone any more
+    if (!s.drawing && (s.sketchHistory.past.length || s.sketchHistory.future.length)) set({ sketchHistory: { past: [], future: [] } });
     // a run of changes with the same key (a slider being dragged) is one undo step
     const merge = !!opts?.coalesce && lastCoalesce.key === opts.coalesce && Date.now() - lastCoalesce.at < 800;
     lastCoalesce = { key: opts?.coalesce ?? "", at: Date.now() };
@@ -386,6 +422,13 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   undo() {
+    // in a sketch, its own steps first
+    get().typePart(textOfTyping(get().drawing), true);
+    const h = get().sketchHistory;
+    if (h.past.length) {
+      const prev = h.past[h.past.length - 1]!;
+      return set({ drawing: prev, sketchHistory: { past: h.past.slice(0, -1), future: [get().drawing, ...h.future] } });
+    }
     const s = get();
     const prev = s.history.past[s.history.past.length - 1];
     if (!prev || readOnly(s.round)) return;
@@ -399,6 +442,12 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   redo() {
+    get().typePart(textOfTyping(get().drawing), true);
+    const h = get().sketchHistory;
+    if (h.future.length) {
+      const next = h.future[0]!;
+      return set({ drawing: next, sketchHistory: { past: [...h.past, get().drawing], future: h.future.slice(1) } });
+    }
     const s = get();
     const next = s.history.future[0];
     if (!next || readOnly(s.round)) return;
@@ -427,6 +476,55 @@ export const useStore = create<Store>((set, get) => ({
 
   set(p) {
     set(p);
+  },
+
+  addPart(screenId, part, opts) {
+    if (get().drawing?.typing !== undefined) get().typePart(textOfTyping(get().drawing), true);
+    if (get().drawing && get().drawing!.screenId !== screenId) get().finishDrawing();
+    const parts = [...(get().drawing?.parts ?? []), part];
+    changeDrawing({ screenId, parts, ...(opts?.typing ? { typing: parts.length - 1 } : {}) });
+    set({ selectedId: null });
+  },
+
+  typePart(text, done) {
+    const d = get().drawing;
+    if (!d || d.typing === undefined) return;
+    const i = d.typing;
+    const part = d.parts[i];
+    if (part?.type !== "text") return;
+    const size = part.style.size ?? 32;
+    const parts = d.parts.slice();
+    parts[i] = { ...part, text, ...measureText(text, size) };
+    if (!done) return set({ drawing: { ...d, parts } });
+    // typing ends; a text part without words goes, and so does the undo step that added it
+    if (text.trim()) return set({ drawing: { screenId: d.screenId, parts } });
+    const kept = parts.filter((_, j) => j !== i);
+    const h = get().sketchHistory;
+    set({ drawing: kept.length ? { screenId: d.screenId, parts: kept } : null, sketchHistory: { ...h, past: h.past.slice(0, -1) } });
+  },
+
+  finishDrawing(note = true) {
+    if (get().drawing?.typing !== undefined) get().typePart(textOfTyping(get().drawing), true);
+    const d = get().drawing;
+    if (!d) return;
+    set({ drawing: null, sketchHistory: { past: [], future: [] } });
+    if (!d.parts.length || !get().tiles.some((t) => t.id === d.screenId) || readOnly(get().round)) return;
+    get().add(
+      {
+        id: newAnnotationId(),
+        screenId: d.screenId,
+        kind: "sketch",
+        geometry: { type: "rect", ...sketchPartsBounds(d.parts) },
+        sketch: { shape: "drawing", style: d.parts[0]!.style, parts: d.parts },
+      },
+      { edit: note },
+    );
+  },
+
+  setOpenPart(i, part) {
+    const d = get().drawing;
+    if (!d?.parts[i]) return;
+    changeDrawing({ ...d, parts: d.parts.map((p, j) => (j === i ? part : p)) });
   },
 
   setToolStyle(tool, patch) {
@@ -514,6 +612,19 @@ export function describeElement(el: UIElement): string {
   // unnamed elements are told apart by size
   const size = !id && !label ? ` ${el.bounds.w}×${el.bounds.h}` : "";
   return `${el.type}${id}${label}${size}`;
+}
+
+/** The words of the open sketch's text part being typed. */
+export function textOfTyping(d: OpenDrawing | null): string {
+  const p = d?.typing !== undefined ? d.parts[d.typing] : undefined;
+  return p?.type === "text" ? p.text : "";
+}
+
+/** Change the open sketch as one undo step. */
+function changeDrawing(next: OpenDrawing | null) {
+  const { drawing: cur, sketchHistory: h } = useStore.getState();
+  const snap = cur ? { screenId: cur.screenId, parts: cur.parts } : null;
+  useStore.setState({ drawing: next, sketchHistory: { past: [...h.past.slice(-199), snap], future: [] } });
 }
 
 export function unresolvedCount(annotations: Annotation[]): number {

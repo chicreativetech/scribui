@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { bboxOf, indexFor, type Annotation, type Rect } from "@scribui/core";
+import { bboxOf, indexFor, sketchPartsBounds, type Annotation, type Rect, type SketchPart } from "@scribui/core";
 import { worldToScreen, type TileLayout } from "../layout";
 import { describeElement, elementOf, isReadOnly, useCapturingScreens, useMarkers, useStore } from "../store";
 import { measureText } from "../vision";
@@ -20,6 +20,7 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
   const focusId = useStore((s) => s.focusId);
   const tool = useStore((s) => s.tool);
   const removeAsk = useStore((s) => s.removeAsk);
+  const drawing = useStore((s) => s.drawing);
   const ro = !round || round.status.status === "sent" || round.status.status === "applied";
   const capturing = useCapturingScreens();
   const { markers, rules } = useMarkers();
@@ -144,7 +145,7 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
               <span className="arrow">{num}</span>
               {label}
             </button>
-            {a.ink && !isReadOnly() && (
+            {a.ink && a.kind !== "sketch" && !isReadOnly() && (
               <KindChip a={a} />
             )}
           </div>
@@ -166,6 +167,8 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
           </div>
         );
       })()}
+
+      {drawing && byTile.get(drawing.screenId) && <OpenSketch t={byTile.get(drawing.screenId)!} toScreen={S} vw={vw} vh={vh} />}
 
       {editor && <Editor key={editor.annotationId} id={editor.annotationId} isNew={editor.isNew} toScreen={S} tiles={byTile} />}
       {picker && <Picker key={picker.annotationId} id={picker.annotationId} toScreen={S} tiles={byTile} />}
@@ -252,6 +255,59 @@ function KindChip({ a }: { a: Annotation }) {
   );
 }
 
+/* ───────── the sketch in progress ───────── */
+
+/** Ready, under the open sketch; and the field its text part is typed in. */
+function OpenSketch({ t, toScreen, vw, vh }: { t: TileLayout; toScreen: (t: TileLayout, p: Pt) => Pt; vw: number; vh: number }) {
+  const drawing = useStore((s) => s.drawing)!;
+  const zoom = useStore((s) => s.camera.zoom);
+  const b = sketchPartsBounds(drawing.parts);
+  const [x, y] = toScreen(t, [b.x + b.w, b.y + b.h]);
+  const n = drawing.parts.length;
+  const typing = drawing.typing !== undefined ? drawing.parts[drawing.typing] : undefined;
+  return (
+    <>
+      <div className="drawing-chip" style={{ left: Math.min(x + 8, vw - 180), top: Math.min(y + 8, vh - 40) }} onPointerDown={(e) => e.stopPropagation()}>
+        <span>
+          sketch · {n} part{n === 1 ? "" : "s"}
+        </span>
+        <button className="chip-btn" onClick={() => useStore.getState().finishDrawing()} title="finish the sketch and add a note for the agent (⏎)">
+          Ready <kbd>⏎</kbd>
+        </button>
+      </div>
+      {typing?.type === "text" && <SketchText key={`${typing.x},${typing.y}`} part={typing} at={toScreen(t, [typing.x, typing.y])} scale={zoom / t.scale} />}
+    </>
+  );
+}
+
+function SketchText({ part, at, scale }: { part: Extract<SketchPart, { type: "text" }>; at: Pt; scale: number }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => ref.current?.focus(), []);
+  const size = (part.style.size ?? 32) * scale;
+  const type = (text: string, done?: boolean) => useStore.getState().typePart(text, done);
+  return (
+    <textarea
+      ref={ref}
+      className="sketch-text"
+      value={part.text}
+      rows={Math.max(1, part.text.split("\n").length)}
+      placeholder="Text"
+      spellCheck={false}
+      style={{ left: at[0], top: at[1], fontSize: size, color: part.style.color, width: Math.max(part.w * scale, size * 4) + size }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onChange={(e) => type(e.target.value)}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if ((e.key === "Enter" && !e.shiftKey) || e.key === "Escape") {
+          e.preventDefault();
+          type(part.text, true);
+          document.querySelector<HTMLElement>(".board")?.focus();
+        }
+      }}
+    />
+  );
+}
+
 /* ───────── text editor ───────── */
 
 function Editor({
@@ -332,7 +388,7 @@ function Editor({
     >
       <div className="head">
         <span>
-          <b>{num}</b> {a.kind === "rule" ? "rule for all screens" : a.kind === "sketch" ? `${a.sketch?.shape} sketch` : a.kind}
+          <b>{num}</b> {a.kind === "rule" ? "rule for all screens" : a.kind === "sketch" ? (a.sketch?.shape === "drawing" ? "sketch" : `${a.sketch?.shape} sketch`) : a.kind}
         </span>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{target}</span>
       </div>
@@ -342,6 +398,8 @@ function Editor({
         placeholder={
           a.kind === "sketch" && a.sketch?.shape === "text"
             ? "Text to add here"
+            : a.kind === "sketch" && a.sketch?.shape === "drawing"
+            ? "Note for the agent: what is this sketch?"
             : a.kind === "rule"
             ? "e.g. Primary buttons are full width, 48pt tall"
             : a.kind === "comment"

@@ -1,6 +1,6 @@
 import { bboxOf, type Point } from "./geometry.js";
 import { strokeOutlinePath } from "./render.js";
-import type { Rect, SketchShape, SketchStyle, VisionCanvas, VisionItem } from "./schemas.js";
+import type { Rect, SketchPart, SketchShape, SketchStyle, VisionCanvas, VisionItem } from "./schemas.js";
 
 /**
  * The vision board: white canvases the user sketches a visual direction on.
@@ -30,6 +30,8 @@ export function itemBounds(item: VisionItem): Rect {
       const r = item.style.width / 2;
       return { x: b.x - r, y: b.y - r, w: b.w + 2 * r, h: b.h + 2 * r };
     }
+    case "fill":
+      return bboxOf(item.loops.flat());
     default:
       return rotatedBounds(item, item.rotation ?? 0);
   }
@@ -58,7 +60,7 @@ export function canvasOf(item: VisionItem, canvases: VisionCanvas[]): VisionCanv
   return canvases.find((k) => contains(k, c));
 }
 
-/** Vision canvases are A4 portrait: height = width × √2. */
+/** New vision canvases are A4 portrait: height = width × √2. */
 export const A4_RATIO = Math.SQRT2;
 /** A new canvas: A4 at 96 dpi. */
 export const A4_CANVAS = { w: 794, h: 1123 };
@@ -69,9 +71,6 @@ export function a4Around(r: Rect): Rect {
   const h = w * A4_RATIO;
   return { x: Math.round(r.x + (r.w - w) / 2), y: Math.round(r.y + (r.h - h) / 2), w: Math.round(w), h: Math.round(h) };
 }
-
-/** Already A4 portrait, give or take rounding. */
-export const isA4 = (r: { w: number; h: number }) => Math.abs(r.h - r.w * A4_RATIO) <= 1.5;
 
 /**
  * A new canvas for something drawn off every canvas: `size` big (larger when the
@@ -116,7 +115,7 @@ export function wrapCanvas(drawn: Rect, canvases: Rect[], size: { w: number; h: 
 
 export type ShapeInput =
   | { shape: "line"; from: Point; to: Point; style: SketchStyle }
-  | { shape: Exclude<SketchShape, "line">; rect: Rect; style: SketchStyle; text?: string; rotation?: number };
+  | { shape: Exclude<SketchShape, "line" | "drawing">; rect: Rect; style: SketchStyle; text?: string; rotation?: number };
 
 /** One drawn shape as SVG. Used for vision items and board sketches alike. */
 export function renderShapeSvg(s: ShapeInput): string {
@@ -143,6 +142,101 @@ export function renderShapeSvg(s: ShapeInput): string {
   }
 }
 
+/* ─────────────────────────── sketch parts ─────────────────────────── */
+
+/** A paint-bucket fill: its outlines, holes left open by the even-odd rule. */
+export function fillSvg(loops: Point[][], color: string): string {
+  const d = loops
+    .filter((l) => l.length > 2)
+    .map((l) => `M ${l.map(([x, y]) => `${n(x)} ${n(y)}`).join(" L ")} Z`)
+    .join(" ");
+  return d ? `<path d="${d}" fill="${esc(color)}" fill-rule="evenodd"/>` : "";
+}
+
+/** A sketch's parts as SVG, fills first so the lines they fill stay on top. */
+export function renderSketchPartsSvg(parts: SketchPart[]): string {
+  return [...parts.filter((p) => p.type === "fill"), ...parts.filter((p) => p.type !== "fill")].map(renderSketchPartSvg).join("");
+}
+
+/** One part of a board sketch as SVG, in screenshot pixels. */
+export function renderSketchPartSvg(p: SketchPart): string {
+  switch (p.type) {
+    case "fill":
+      return fillSvg(p.loops, p.style.color);
+    case "stroke": {
+      const d = strokeOutlinePath(p.points, p.style.width);
+      return d ? `<path d="${d}" fill="${esc(p.style.color)}"/>` : "";
+    }
+    case "line":
+      return renderShapeSvg({ shape: "line", from: p.from, to: p.to, style: p.style });
+    case "box":
+    case "ellipse":
+      return renderShapeSvg({ shape: p.type, rect: p, style: p.style });
+    case "text":
+      return renderShapeSvg({ shape: "text", rect: p, style: p.style, text: p.text });
+  }
+}
+
+/** The area a sketch's parts cover, strokes included. */
+export function sketchPartsBounds(parts: SketchPart[]): Rect {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  const add = (x: number, y: number, pad = 0) => {
+    x0 = Math.min(x0, x - pad);
+    y0 = Math.min(y0, y - pad);
+    x1 = Math.max(x1, x + pad);
+    y1 = Math.max(y1, y + pad);
+  };
+  for (const p of parts) {
+    const pad = p.type === "text" || p.type === "fill" ? 0 : p.style.width / 2;
+    if (p.type === "stroke") for (const [x, y] of p.points) add(x, y, pad);
+    else if (p.type === "fill") for (const l of p.loops) for (const [x, y] of l) add(x, y);
+    else if (p.type === "line") {
+      add(p.from[0], p.from[1], pad);
+      add(p.to[0], p.to[1], pad);
+    } else {
+      add(p.x, p.y, pad);
+      add(p.x + p.w, p.y + p.h, pad);
+    }
+  }
+  if (x0 === Infinity) return { x: 0, y: 0, w: 0, h: 0 };
+  return { x: Math.floor(x0), y: Math.floor(y0), w: Math.max(1, Math.ceil(x1 - x0)), h: Math.max(1, Math.ceil(y1 - y0)) };
+}
+
+/** A sketch part moved by (dx, dy). */
+export function moveSketchPart(p: SketchPart, dx: number, dy: number): SketchPart {
+  const r = (v: number) => Math.round(v * 10) / 10;
+  switch (p.type) {
+    case "stroke":
+      return { ...p, points: p.points.map(([x, y, q]) => [r(x + dx), r(y + dy), q] as [number, number, number]) };
+    case "line":
+      return { ...p, from: [r(p.from[0] + dx), r(p.from[1] + dy)], to: [r(p.to[0] + dx), r(p.to[1] + dy)] };
+    case "fill":
+      return { ...p, loops: p.loops.map((l) => l.map(([x, y]) => [r(x + dx), r(y + dy)] as Point)) };
+    default:
+      return { ...p, x: r(p.x + dx), y: r(p.y + dy) };
+  }
+}
+
+/** What a sketch is made of, for the agent: `2 boxes, a line and the text "Pay"`. */
+export function describeSketchParts(parts: SketchPart[]): string {
+  const counts = new Map<string, number>();
+  for (const p of parts) if (p.type !== "text") counts.set(p.type, (counts.get(p.type) ?? 0) + 1);
+  const words: Record<string, [string, string]> = {
+    stroke: ["a freehand stroke", "freehand strokes"],
+    line: ["a line", "lines"],
+    box: ["a box", "boxes"],
+    ellipse: ["an ellipse", "ellipses"],
+    fill: ["a filled area", "filled areas"],
+  };
+  const out = ["box", "ellipse", "line", "stroke", "fill"].filter((k) => counts.has(k)).map((k) => (counts.get(k) === 1 ? words[k]![0] : `${counts.get(k)} ${words[k]![1]}`));
+  for (const p of parts) if (p.type === "text" && p.text.trim()) out.push(`the text "${p.text.trim().replace(/\s+/g, " ")}"`);
+  if (out.length < 2) return out[0] ?? "";
+  return `${out.slice(0, -1).join(", ")} and ${out[out.length - 1]}`;
+}
+
 /** Size of text in a font size, for when it can't be measured (export, tests). */
 export function estimateTextBox(text: string, size: number): { w: number; h: number } {
   const lines = text.split("\n");
@@ -153,6 +247,8 @@ export function estimateTextBox(text: string, size: number): { w: number; h: num
 /** One vision item as SVG; `href` maps an image's `src` to a URL or data URI. */
 export function renderVisionItemSvg(item: VisionItem, href: (src: string) => string): string {
   switch (item.type) {
+    case "fill":
+      return fillSvg(item.loops, item.style.color);
     case "stroke": {
       const d = strokeOutlinePath(item.points, item.style.width);
       return d ? `<path d="${d}" fill="${esc(item.style.color)}"/>` : "";

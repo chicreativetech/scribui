@@ -158,7 +158,7 @@ export const AnnotationKind = z.enum([
   "remove",
   "freehand",
   "rule",
-  /** A drawn line, box, ellipse or text on a screen: new content, placed where it is drawn. */
+  /** A drawn line, box, ellipse, text or freehand drawing on a screen: new content, placed where it is drawn. */
   "sketch",
 ]);
 export type AnnotationKind = z.infer<typeof AnnotationKind>;
@@ -198,8 +198,25 @@ export const SketchStyle = z.object({
 });
 export type SketchStyle = z.infer<typeof SketchStyle>;
 
-export const SketchShape = z.enum(["line", "box", "ellipse", "text"]);
+/** drawing: a sketch of several parts (strokes, lines, boxes, ellipses, text), in `sketch.parts`. */
+export const SketchShape = z.enum(["line", "box", "ellipse", "text", "drawing"]);
 export type SketchShape = z.infer<typeof SketchShape>;
+
+const PartBox = { x: z.number(), y: z.number(), w: z.number(), h: z.number() };
+
+/** A paint-bucket fill: closed outlines, drawn with the even-odd rule so holes stay open; its colour is `style.color`. */
+const Loops = z.array(z.array(Pt));
+
+/** One part of a sketch, in screenshot pixels with its own look. */
+export const SketchPart = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("stroke"), points: z.array(z.tuple([z.number(), z.number(), z.number()])), style: SketchStyle }),
+  z.object({ type: z.literal("line"), from: Pt, to: Pt, style: SketchStyle }),
+  z.object({ type: z.literal("box"), ...PartBox, style: SketchStyle }),
+  z.object({ type: z.literal("ellipse"), ...PartBox, style: SketchStyle }),
+  z.object({ type: z.literal("text"), ...PartBox, text: z.string(), style: SketchStyle }),
+  z.object({ type: z.literal("fill"), loops: Loops, style: SketchStyle }),
+]);
+export type SketchPart = z.infer<typeof SketchPart>;
 
 export const Resolution = z.object({
   status: z.enum(["resolved", "region", "unresolved"]),
@@ -226,9 +243,10 @@ export const Annotation = z.object({
   resolution: Resolution.optional(),
   /**
    * Sketch annotations: the shape and its look. Lines use a two-point path,
-   * boxes and ellipses a rect, text a rect around it with the words in `text`.
+   * boxes and ellipses a rect, text a rect around it with the words in `text`,
+   * a drawing a rect around its parts.
    */
-  sketch: z.object({ shape: SketchShape, style: SketchStyle }).optional(),
+  sketch: z.object({ shape: SketchShape, style: SketchStyle, parts: z.array(SketchPart).optional() }).optional(),
 });
 export type Annotation = z.infer<typeof Annotation>;
 
@@ -275,6 +293,7 @@ export const VisionItem = z.discriminatedUnion("type", [
     /** Relative to `.scribui/vision/`, e.g. `images/i3k2l9.png`. */
     src: z.string(),
   }),
+  z.object({ id: z.string(), type: z.literal("fill"), loops: Loops, style: SketchStyle }),
 ]);
 export type VisionItem = z.infer<typeof VisionItem>;
 

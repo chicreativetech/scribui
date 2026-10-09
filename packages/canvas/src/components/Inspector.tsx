@@ -113,7 +113,7 @@ function NotesPane() {
                   <div className={`num ${a.kind === "rule" ? "u" : unresolved ? "w" : ""}`}>{num}</div>
                   <div style={{ minWidth: 0 }}>
                     <div className="kind">
-                      <span>{a.kind === "sketch" && a.sketch ? `✎ ${a.sketch.shape}` : KIND_GLYPH[a.kind]}</span>
+                      <span>{a.kind === "sketch" && a.sketch ? `✎ ${a.sketch.shape === "drawing" ? "sketch" : a.sketch.shape}` : KIND_GLYPH[a.kind]}</span>
                       {target && <span className="t">{describeElement(target)}</span>}
                       {!target && a.resolution?.status === "region" && <span className="t">empty area</span>}
                       {a.resolution?.elements && a.resolution.elements.length > 1 && (

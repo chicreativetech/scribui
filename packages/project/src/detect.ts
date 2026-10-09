@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { run } from "@scribui/capture";
 import type { Platform } from "@scribui/core";
+import type { ReviewStore } from "@scribui/server";
 
 /**
  * What a folder holds before ScribUI is set up there: the kind of app, its
@@ -95,7 +96,7 @@ export function detectProject(root: string): ProjectInfo {
 
   const mobile = !!android || !!ios || rn || expo || flutter;
   return {
-    name: pkg.name && !pkg.name.startsWith("@") ? pkg.name : basename(root),
+    name: projectName(root, pkg.name),
     kind: mobile ? "mobile" : "web",
     platform: !mobile ? "web" : android && !ios ? "android" : ios && !android ? "ios" : "android",
     hasPackageJson: !!pkgText,
@@ -103,6 +104,60 @@ export function detectProject(root: string): ProjectInfo {
     ...(android ? { android } : {}),
     ...(ios ? { ios } : {}),
   };
+}
+
+/** Folder names that say what's in them, not which app it is: the app is named by the folder above. */
+const GENERIC_DIRS = new Set(["ios", "android", "app", "apps", "mobile", "web", "client", "frontend", "front-end", "ui", "src", "native", "macos", "flutter", "expo"]);
+/** Xcode project names that templates give every app (Flutter's Runner, Capacitor's App). */
+const GENERIC_XCODE = new Set(["runner", "app"]);
+
+/**
+ * The app's name for the window title and the top bar: package.json's name, else the Xcode
+ * project's or Gradle's root project name, else the folder's (the folder above when this one
+ * is just "ios", "android" or the like).
+ */
+export function projectName(root: string, pkgName?: string): string {
+  if (pkgName) return pkgName.replace(/^@[^/]+\//, "");
+  for (const d of ["", "ios"]) {
+    try {
+      const proj = readdirSync(join(root, d)).find((f) => f.endsWith(".xcodeproj"));
+      const name = proj?.slice(0, -".xcodeproj".length);
+      if (name && !GENERIC_XCODE.has(name.toLowerCase())) return name;
+    } catch {
+      /* no such folder */
+    }
+  }
+  for (const d of ["", "android"]) {
+    const settings = read(join(root, d, "settings.gradle.kts")) || read(join(root, d, "settings.gradle"));
+    const name = /rootProject\.name\s*=\s*["']([^"']+)["']/.exec(settings)?.[1];
+    if (name && !GENERIC_DIRS.has(name.toLowerCase())) return name;
+  }
+  return folderName(root);
+}
+
+/** The folder's name, or its parent's when the folder is just "ios", "android", "app"… */
+export function folderName(root: string): string {
+  const own = basename(root);
+  const parent = basename(dirname(root));
+  return GENERIC_DIRS.has(own.toLowerCase()) && parent ? parent : own;
+}
+
+/** A name ScribUI wrote from a generic folder ("ios"): worth replacing with a better one. */
+export const isGenericName = (name: string, root: string) => name === basename(root) && GENERIC_DIRS.has(name.toLowerCase());
+
+/**
+ * Projects set up in a folder like "ios" got that folder's name: give them a real one
+ * (see projectName). Names the user chose are left alone.
+ */
+export async function renameGenericProject(store: ReviewStore): Promise<void> {
+  try {
+    const m = await store.readManifest();
+    if (!isGenericName(m.app.name, store.root)) return;
+    const name = detectProject(store.root).name;
+    if (name !== m.app.name) await store.updateApp({ name });
+  } catch {
+    /* no or invalid screens.json: whoever reads it next says so */
+  }
 }
 
 export const DEV_PORTS = [3000, 5173, 5174, 8080, 4200, 8000, 4321, 3001, 5000, 4173, 1234, 9000, 8888, 3030];
