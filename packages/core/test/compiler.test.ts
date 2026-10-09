@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compile, numberAnnotations, phraseTarget, resolveAll, type Annotation } from "../src/index.js";
+import { compile, numberAnnotations, phraseTarget, renderAnnotationSvg, resolveAll, sketchPartsBounds, type Annotation, type SketchPart } from "../src/index.js";
 import { el, ellipse, screen } from "./helpers.js";
 
 const tree = screen([
@@ -61,6 +61,36 @@ describe("compiler templates", () => {
   it("freehand → note", () => {
     const out = run([A("a", { kind: "freehand", geometry: { type: "path", points: [[50, 240], [150, 260], [250, 240]] }, text: "wobbly" })]);
     expect(out.review.instructions[0]).toMatchObject({ action: "note", instruction: 'Note on the "Pay now" button (id: pay): wobbly.' });
+  });
+
+  it("a sketch of several parts → one instruction, naming its parts and what it's drawn over", () => {
+    const style = { color: "#E5484D", width: 8 };
+    const parts: SketchPart[] = [
+      { type: "box", x: 14, y: 94, w: 372, h: 212, style },
+      { type: "line", from: [30, 160], to: [370, 160], style },
+      { type: "stroke", points: [[40, 200, 0.5], [80, 240, 0.5]], style },
+      { type: "stroke", points: [[100, 200, 0.5], [140, 240, 0.5]], style },
+      { type: "text", x: 40, y: 260, w: 120, h: 40, text: "Swipe  me", style: { ...style, size: 32 } },
+    ];
+    const sketch = (text?: string): Annotation =>
+      A("a", {
+        kind: "sketch",
+        geometry: { type: "rect", ...sketchPartsBounds(parts) },
+        sketch: { shape: "drawing", style, parts },
+        ...(text ? { text } : {}),
+      });
+    const out = run([sketch("make the card a carousel")]);
+    expect(out.review.instructions).toHaveLength(1);
+    expect(out.review.instructions[0]).toMatchObject({
+      action: "add",
+      instruction:
+        'Sketch at marker 1 (a box, a line, 2 freehand strokes and the text "Swipe me") in the area at (x 10, y 90, 380 × 220), above the "Later" button (id: later), drawn over the container (id: card): make the card a carousel.',
+    });
+    expect(run([sketch()]).review.instructions[0]).toMatchObject({ needsText: true });
+    // the annotated screenshot shows every part, in its colour
+    const svg = renderAnnotationSvg(sketch(), { unit: 1, label: "1" });
+    for (const tag of ["<rect", "<path d=\"M 30 160 L 370 160\"", "<text", "Swipe  me"]) expect(svg).toContain(tag);
+    expect(svg.match(/<path d="[^"]+" fill="#E5484D"\/>/g)).toHaveLength(2);
   });
 
   it("unresolved → flagged, asks the user", () => {

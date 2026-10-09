@@ -1,6 +1,7 @@
 import { PRODUCT } from "@scribui/core";
 import type { CaptureRunResult, CaptureState, Job, ReviewStore, ServerOptions } from "@scribui/server";
 import { captureRound, type CaptureOptions, type CaptureResult } from "./capture.js";
+import { renameGenericProject } from "./detect.js";
 import { findRunning, startOnFreePort } from "./instances.js";
 import { ignoreLockInGit, lockAlive, ProjectLock, readLock, type LockInfo } from "./lock.js";
 
@@ -56,6 +57,7 @@ export async function hostProject(
   store: ReviewStore,
   opts: { app: string; port?: number; server: Omit<ServerOptions, "projectDir" | "port">; onWait?: (owner: Owner) => void; waitLimitMs?: number },
 ): Promise<HostResult> {
+  await renameGenericProject(store);
   const port: number = opts.port ?? PRODUCT.defaultPort;
   const deadline = Date.now() + (opts.waitLimitMs ?? WAIT_LIMIT_MS);
   let told = false;

@@ -5,7 +5,7 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, screen, session, shell,
 import { detectTools } from "@scribui/capture";
 import { PRODUCT, type Platform } from "@scribui/core";
 import { ReviewStore } from "@scribui/server";
-import { hostProject, makeRunner, saveCapturedView } from "@scribui/project";
+import { hostProject, makeRunner, renameGenericProject, saveCapturedView } from "@scribui/project";
 import { liveInput } from "./deviceInput.js";
 import { installTool } from "./installs.js";
 import { DeviceView } from "./deviceView.js";
@@ -80,6 +80,7 @@ async function createProject(root: string, opts: OpenOptions): Promise<OpenResul
   if (!existsSync(root)) return { ok: false, error: `${root} doesn't exist (moved or deleted?)` };
   const store = new ReviewStore(root);
   if (!store.exists()) return { ok: false, setup: true, dir: root, error: `${root} isn't a ScribUI project yet.` };
+  await renameGenericProject(store);
   let manifest;
   try {
     manifest = await store.readManifest();

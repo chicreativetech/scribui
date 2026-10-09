@@ -1,7 +1,7 @@
 import { getStroke } from "perfect-freehand";
 import { bboxOf, type Point } from "./geometry.js";
 import type { Annotation, InkData, Rect } from "./schemas.js";
-import { renderShapeSvg } from "./vision.js";
+import { renderShapeSvg, renderSketchPartsSvg } from "./vision.js";
 
 /**
  * SVG rendering of annotations, shared by the canvas (live) and the compiler
@@ -260,7 +260,14 @@ export function renderAnnotationSvg(a: Annotation, o: RenderOptions): string {
     case "sketch": {
       if (!a.sketch) break;
       const { shape, style } = a.sketch;
-      if (shape === "line") {
+      if (shape === "drawing" && a.sketch.parts) {
+        parts.push(renderSketchPartsSvg(a.sketch.parts));
+      } else if (shape === "drawing") {
+        for (const k of a.ink?.strokes ?? []) {
+          const d = strokeOutlinePath(k.points, style.width);
+          if (d) parts.push(`<path d="${d}" fill="${esc(style.color)}"/>`);
+        }
+      } else if (shape === "line") {
         const pts = g.type === "path" ? g.points : [];
         if (pts.length < 2) break;
         parts.push(renderShapeSvg({ shape, from: pts[0]!, to: pts[pts.length - 1]!, style }));

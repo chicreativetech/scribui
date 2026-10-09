@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { Annotation, SketchStyle, VisionItem } from "@scribui/core";
+import type { Annotation, SketchPart, SketchStyle, VisionItem } from "@scribui/core";
 import { isSketchTool, tileOf, TOOLS, useStore, VISION_HINTS, type StyledTool } from "../store";
 import { measureText, useVision } from "../vision";
 
@@ -10,7 +10,7 @@ import { measureText, useVision } from "../vision";
 
 const SWATCHES = ["#262626", "#8A8A8A", "#FFFFFF", "#FC9803", "#F2D100", "#E5484D", "#30A46C", "#3E63DD", "#8E4EC6"];
 
-type Shape = "freehand" | "line" | "box" | "ellipse" | "text" | "image";
+type Shape = "freehand" | "line" | "box" | "ellipse" | "text" | "image" | "fill";
 
 export function ToolSettings() {
   const view = useStore((s) => s.view);
@@ -27,11 +27,14 @@ export function ToolSettings() {
   if (tool === "select") return null;
 
   const info = TOOLS.find((t) => t.tool === tool);
-  const styled = (isSketchTool(tool) || (tool === "freehand" && vision)) as boolean;
+  const styled = isSketchTool(tool) || tool === "freehand";
   return (
     <Box title={info?.label ?? tool} keyHint={info?.key} hint={(vision && VISION_HINTS[tool]) || info?.hint}>
-      {!vision && isSketchTool(tool) && <p className="ts-note">Draws on screens only. Use Vision to draw anywhere.</p>}
-      {!vision && tool === "freehand" && <p className="ts-note">On screens, a loop circles something and a line is a note.</p>}
+      {!vision && (isSketchTool(tool) || tool === "freehand") && (
+        <p className="ts-note">
+          Draws on screens. Mix the sketch tools freely: it's all one sketch until you press Ready (⏎), then add a note for the agent.
+        </p>
+      )}
       {styled && (
         <StyleControls
           shape={tool as StyledTool}
@@ -82,7 +85,7 @@ function StyleControls({ shape, style, onChange }: { shape: Shape; style: Sketch
       <Row label="Colour">
         <Swatches label="colour" value={style.color} onPick={(color) => onChange({ color })} />
       </Row>
-      {shape !== "text" && (
+      {shape !== "text" && shape !== "fill" && (
         <Row label="Stroke" value={`${style.width}px`}>
           <input type="range" min={1} max={40} step={1} value={style.width} onChange={(e) => onChange({ width: Number(e.target.value) })} aria-label="stroke width" />
         </Row>
@@ -140,7 +143,7 @@ function Swatches({ label, value, none, onPick }: { label: string; value?: strin
 
 /* ───────── vision item ───────── */
 
-const ITEM_TITLE: Record<VisionItem["type"], string> = { stroke: "drawing", line: "line", box: "box", ellipse: "ellipse", text: "text", image: "image" };
+const ITEM_TITLE: Record<VisionItem["type"], string> = { stroke: "drawing", line: "line", box: "box", ellipse: "ellipse", text: "text", image: "image", fill: "fill" };
 
 function ItemSettings({ item }: { item: VisionItem }) {
   const v = useVision.getState();
@@ -160,7 +163,7 @@ function ItemSettings({ item }: { item: VisionItem }) {
   const setRotation = (deg: number) => v.update(item.id, (i) => ({ ...i, rotation: deg }) as VisionItem, { coalesce: `${item.id}:rot` });
 
   return (
-    <Box title={ITEM_TITLE[item.type]} hint={item.type === "text" ? "double-click to edit the words" : "drag to move, corners resize"}>
+    <Box title={ITEM_TITLE[item.type]} hint={item.type === "text" ? "double-click to edit the words" : item.type === "fill" ? "drag to move; the fill tool recolours it" : "drag to move, corners resize"}>
       {item.type !== "image" && <StyleControls shape={item.type === "stroke" ? "freehand" : item.type} style={item.style} onChange={restyle} />}
       {rotatable && (
         <div className="ts-controls">
@@ -196,6 +199,7 @@ function SketchSettings({ a }: { a: Annotation }) {
   const scale = tileOf(a.screenId)?.scale ?? 1;
   const sk = a.sketch!;
   const shown: SketchStyle = { ...sk.style, width: round(sk.style.width / scale), ...(sk.style.size ? { size: round(sk.style.size / scale) } : {}) };
+  if (sk.shape === "drawing") return <DrawingSettings a={a} scale={scale} />;
   const onChange = (patch: Partial<SketchStyle>) =>
     useStore.getState().update(
       a.id,
@@ -215,6 +219,39 @@ function SketchSettings({ a }: { a: Annotation }) {
   return (
     <Box title={`${sk.shape} sketch`} hint="new content for this screen, placed where it is drawn">
       <StyleControls shape={sk.shape} style={shown} onChange={onChange} />
+    </Box>
+  );
+}
+
+/** A sketch of several parts: colour and stroke apply to all of them, fill to its boxes and ellipses. */
+function DrawingSettings({ a, scale }: { a: Annotation; scale: number }) {
+  const sk = a.sketch!;
+  const parts = sk.parts ?? [];
+  const filled = parts.some((p) => p.type === "box" || p.type === "ellipse");
+  const lined = parts.find((p) => p.type !== "text");
+  const shown: SketchStyle = { ...sk.style, width: round((lined?.style.width ?? sk.style.width) / scale), fill: parts.find((p) => p.type === "box" || p.type === "ellipse")?.style.fill };
+  const onChange = (patch: Partial<SketchStyle>) =>
+    useStore.getState().update(
+      a.id,
+      (x) => {
+        const restyle = (p: SketchPart): SketchPart => {
+          const style = { ...p.style };
+          if (patch.color) style.color = patch.color;
+          if (patch.width && p.type !== "text") style.width = patch.width * scale;
+          if ("fill" in patch && (p.type === "box" || p.type === "ellipse")) {
+            if (patch.fill) style.fill = patch.fill;
+            else delete style.fill;
+          }
+          return { ...p, style };
+        };
+        const next = (x.sketch!.parts ?? []).map(restyle);
+        return { ...x, sketch: { ...x.sketch!, style: next[0]?.style ?? x.sketch!.style, parts: next } };
+      },
+      { coalesce: `${a.id}:${Object.keys(patch).join()}` },
+    );
+  return (
+    <Box title="sketch" hint="its parts restyled together; the note says what it is">
+      <StyleControls shape={filled ? "box" : "freehand"} style={shown} onChange={onChange} />
     </Box>
   );
 }

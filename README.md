@@ -144,8 +144,9 @@ Every mark snaps to a real UI element. Press a key to pick a tool:
 - **Remove** (`X`): click an element to strike it out.
 - **Arrow** (`A`): drag from an element to where it should go. End on another element ("move it next to this"), on empty space ("move it here"), or on a different screen (a flow between screens).
 - **Rectangle** (`R`): draw a box on empty space and type what to add there.
-- **Draw** (`P`): a free-form note.
 - **Rule** (`U`): click an element and shift-click more, even on other screens. Press `⏎` and type a rule that applies everywhere, like *"Primary buttons are full width"*. Rules go to `rules.md` and apply to all future work, not just this round.
+
+**Sketch** what you want with draw (`P`), line (`I`), box (`B`), ellipse (`Q`), text (`T`) and fill (`G`). The fill tool is a paint bucket: click inside a closed area to fill it, even one drawn from several lines and strokes; small gaps in hand-drawn lines are bridged. Click a line or a shape's outline to recolour it. Everything you sketch on a screen is one sketch, whatever the tool and however often you lift the pen, until you press **Ready** (or `⏎`). Then add one note for the whole sketch. Undo and redo (`⌘Z`, `⇧⌘Z` or the buttons) step through the sketch while you draw it. The agent sees the sketch in the screenshot, with its parts, the words of its text, what it's drawn over and your note.
 
 After each mark, the element it attached to flashes, and a chip under the mark names it, e.g. `button#payButton "Pay now"`. When that's wrong, switch to select (`V`), click the chip and pick the parent, a child or "empty area". A yellow chip means ScribUI couldn't tell what you meant; press `N` to jump to the next one. Typing into a comment right next to a circle, arrow or remove merges it into that mark.
 
@@ -245,13 +246,13 @@ A developer tool with a terminal soul: a keyboard-first, monospace interface wit
 | `A` | arrow | drag start → end; may end on another tile (a flow) |
 | `R` | rectangle | drag a box where something should go |
 | `X` | remove | click an element to strike it out |
-| `P` | draw | free path |
+| `P` `I` `B` `Q` `T` `G` | sketch | draw, line, box, ellipse, text, fill: all one sketch until `⏎` (Ready) |
 | `U` | rule | shift-click elements on any screens, `⏎`, type a rule |
 
 - **Element layer.** Hover shows the element under the cursor, `alt` walks from child to parent, and `E` shows every outline so you can check capture quality.
 - **Resolution chips.** Each mark shows what it resolved to (`button#payButton "Pay now"`). Click a chip to pick the parent, a child or "empty area" instead. Your choice is never overwritten.
 - **Inspector.** `notes`, a live `review.md` preview, the element `tree`, and `rules.md`.
-- **Pen.** A stylus (Apple Pencil, S Pen, Surface Pen) or drawing tablet turns on pen mode. Loops become circles, hooked lines become arrows, crossings become removals and short strokes become handwriting, and a chip lets you change the result with one tap. Handwriting stays ink: the agent gets a cropped PNG.
+- **Pen.** A stylus (Apple Pencil, S Pen, Surface Pen) or drawing tablet turns on pen mode. Loops become circles, hooked lines become arrows, crossings become removals and short strokes become handwriting, and a chip lets you change the result with one tap. Handwriting stays ink: the agent gets a cropped PNG. With the sketch tools the pen just draws, as a mouse does.
 - **Live.** The canvas updates when the agent captures a new round or marks one applied.
 - **Also:** `⌘Z`/`⌘⇧Z` undo and redo, autosave, `F` fits the board, a double-click focuses a screen, `:theme light` switches theme, `?` lists all keys.
 

@@ -175,6 +175,11 @@ export function App() {
         }
         if (e.key === "Escape") return st.set({ removeAsk: null });
       }
+      // a sketch in progress: ⏎ or Escape finishes it and opens its note
+      if ((e.key === "Enter" || e.key === "Escape") && st.drawing) {
+        e.preventDefault();
+        return st.finishDrawing();
+      }
       if (e.key === "Escape") {
         if (st.picker) return st.set({ picker: null });
         if (st.ruleTargets.length) return st.set({ ruleTargets: [] });

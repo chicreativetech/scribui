@@ -4,17 +4,25 @@ import {
   bboxOf,
   classifyStrokes,
   indexFor,
+  moveSketchPart,
   newAnnotationId,
+  sketchPartsBounds,
   renderAnnotationSvg,
   renderShapeSvg,
+  renderSketchPartSvg,
+  renderSketchPartsSvg,
   strokeOutlinePath,
   type Annotation,
   type InkData,
   type InkStroke,
+  type Rect,
+  type SketchPart,
+  type SketchStyle,
   type UIElement,
 } from "@scribui/core";
 import { fitCamera, quantize, screenToWorld, type Camera, type TileLayout } from "../layout";
-import { isReadOnly, tileOf, useMarkers, useStore } from "../store";
+import { isReadOnly, isSketchTool, textOfTyping, tileOf, useMarkers, useStore } from "../store";
+import { paintBucket } from "../paint";
 import { measureText } from "../vision";
 import { Overlay } from "./Overlay";
 import { Tile } from "./Tile";
@@ -28,7 +36,8 @@ type Drag =
   | { kind: "sketch"; shape: "line" | "box" | "ellipse"; tile: TileLayout; from: Pt; to: Pt }
   | { kind: "arrow"; tile: TileLayout; from: Pt; toWorld: Pt }
   | { kind: "move"; id: string; tile: TileLayout; start: Pt; orig: Annotation; moved: boolean }
-  | { kind: "pen"; tile: TileLayout; pts: [number, number, number][]; t0: number };
+  /** draw: a stroke of the draw tool, for the open drawing; otherwise pen ink to classify. */
+  | { kind: "pen"; tile: TileLayout; pts: [number, number, number][]; t0: number; draw?: boolean };
 
 type PenGroup = { tile: TileLayout; strokes: InkStroke[]; timer: ReturnType<typeof setTimeout> | null };
 
@@ -212,6 +221,8 @@ export function Board() {
     }
     const target = e.target as Element;
     if (target.closest(".overlay > *")) return;
+    // a click on the board ends the typing of a sketch's text
+    if (st.drawing?.typing !== undefined) st.typePart(textOfTyping(st.drawing), true);
     // we manage focus ourselves; the default would steal it from a just-opened editor
     e.preventDefault();
     ref.current?.focus({ preventScroll: true });
@@ -240,13 +251,17 @@ export function Board() {
         st.set({ penMode: true });
         st.toast({ text: "pen mode on: pen draws, fingers pan and zoom", tone: "info" });
       }
+      penActive.current = true;
+    }
+    // the line, box, ellipse and text tools take the pen like a mouse; the draw tool and the rest read its strokes
+    if (e.pointerType === "pen" && !isReadOnly() && !isSketchTool(st.tool)) {
       const t = tileNear(w);
       if (!t) return;
-      penActive.current = true;
       capture(e);
       const p = toPx(t, w);
-      setDragBoth({ kind: "pen", tile: t, pts: [[p[0], p[1], e.pressure || 0.5]], t0: performance.now() });
-      if (penGroup.current?.timer) clearTimeout(penGroup.current.timer);
+      const draw = st.tool === "freehand";
+      setDragBoth({ kind: "pen", tile: t, pts: [[p[0], p[1], e.pressure || 0.5]], t0: performance.now(), draw });
+      if (!draw && penGroup.current?.timer) clearTimeout(penGroup.current.timer);
       return;
     }
 
@@ -308,8 +323,11 @@ export function Board() {
         break;
       }
       case "circle":
-      case "freehand":
         setDragBoth({ kind: "path", tool: st.tool, tile: t, pts: [px] });
+        break;
+      case "freehand":
+        // one stroke of a drawing: lift the mouse and keep drawing, ⏎ finishes it
+        setDragBoth({ kind: "pen", tile: t, pts: [[px[0], px[1], 0.5]], t0: performance.now(), draw: true });
         break;
       case "rectangle":
         setDragBoth({ kind: "rect", tile: t, from: px, to: px });
@@ -322,21 +340,14 @@ export function Board() {
       case "ellipse":
         setDragBoth({ kind: "sketch", shape: st.tool, tile: t, from: px, to: px });
         break;
+      case "fill":
+        fillAt(t, px);
+        break;
       case "text": {
-        // sketch styles are set in points; annotations live in screenshot pixels
-        const style = st.toolStyles.text;
-        const size = (style.size ?? 32) * t.scale;
-        const box = measureText("", size);
-        st.add(
-          {
-            id: newAnnotationId(),
-            screenId: t.id,
-            kind: "sketch",
-            geometry: { type: "rect", x: px[0], y: Math.round(px[1] - size * 0.62), w: box.w, h: box.h },
-            sketch: { shape: "text", style: { ...style, size } },
-          },
-          { edit: true },
-        );
+        // a text part of the open sketch, typed in place
+        const style = inPx(st.toolStyles.text, t);
+        const size = style.size ?? 32;
+        st.addPart(t.id, { type: "text", x: px[0], y: Math.round(px[1] - size * 0.62), ...measureText("", size), text: "", style }, { typing: true });
         break;
       }
     }
@@ -426,6 +437,7 @@ export function Board() {
       touches.current.delete(e.pointerId);
       if (touches.current.size < 2) pinch.current = null;
     }
+    if (e.pointerType === "pen") penActive.current = false;
     const d = dragRef.current;
     setDragBoth(null);
     if (!d) return;
@@ -459,17 +471,17 @@ export function Board() {
         return;
       }
       case "sketch": {
+        // a part of the open sketch
         const t = d.tile;
-        const style = st.toolStyles[d.shape];
-        const sketch = { shape: d.shape, style: { ...style, width: style.width * t.scale } };
+        const style = inPx(st.toolStyles[d.shape], t);
         if (d.shape === "line") {
           if (Math.hypot(d.to[0] - d.from[0], d.to[1] - d.from[1]) < 6 * t.scale) return;
-          st.add({ id: newAnnotationId(), screenId: t.id, kind: "sketch", geometry: { type: "path", points: [d.from, d.to] }, sketch }, { edit: true });
+          st.addPart(t.id, { type: "line", from: d.from, to: d.to, style });
           return;
         }
         const r = normRect(d.from, d.to);
         if (r.w < 6 * t.scale || r.h < 6 * t.scale) return;
-        st.add({ id: newAnnotationId(), screenId: t.id, kind: "sketch", geometry: { type: "rect", ...r }, sketch }, { edit: true });
+        st.addPart(t.id, { type: d.shape, ...r, style });
         return;
       }
       case "arrow": {
@@ -497,6 +509,10 @@ export function Board() {
       case "pen": {
         penActive.current = false;
         if (d.pts.length < 2) return;
+        if (d.draw) {
+          st.addPart(d.tile.id, { type: "stroke", points: d.pts, style: inPx(st.toolStyles.freehand, d.tile) });
+          return;
+        }
         const stroke: InkStroke = { points: d.pts, t0: d.t0, t1: performance.now() };
         let g = penGroup.current;
         if (!g || g.tile.id !== d.tile.id) {
@@ -545,6 +561,13 @@ export function Board() {
 
   const toolStyles = useStore((s) => s.toolStyles);
   const draftSvg = useMemo(() => renderDraft(drag, camera, toolStyles), [drag, camera, toolStyles]);
+  const open = useStore((s) => s.drawing);
+  const openTile = open ? tiles.find((t) => t.id === open.screenId) : undefined;
+  // the text being typed shows in its field, not here
+  const openSvg = useMemo(
+    () => (open && openTile ? onTile(openTile, renderSketchPartsSvg(open.parts.filter((_, i) => i !== open.typing))) : ""),
+    [open, openTile],
+  );
   const { markers } = useMarkers();
   const zq = quantize(camera.zoom);
   const crossArrows = useMemo(() => renderCrossArrows(annotations, tiles, zq, markers), [annotations, tiles, zq, markers]);
@@ -600,6 +623,7 @@ export function Board() {
               ))}
             </g>
           )}
+          <g dangerouslySetInnerHTML={{ __html: openSvg }} />
           <g dangerouslySetInnerHTML={{ __html: draftSvg }} />
         </svg>
       </div>
@@ -758,6 +782,7 @@ export function translate(a: Annotation, dx: number, dy: number): Annotation {
       break;
   }
   const out: Annotation = { ...a, geometry };
+  if (a.sketch?.parts) out.sketch = { ...a.sketch, parts: a.sketch.parts.map((p) => moveSketchPart(p, dx, dy)) };
   if (a.ink) out.ink = { ...a.ink, strokes: a.ink.strokes.map((s) => ({ points: s.points.map(([x, y, p]) => [r(x + dx), r(y + dy), p] as [number, number, number]) })) };
   return out;
 }
@@ -825,12 +850,70 @@ function renderDraft(d: Drag | null, cam: Camera, styles: ReturnType<typeof useS
     }
     case "pen": {
       const t = d.tile;
+      if (d.draw) return onTile(t, renderSketchPartSvg({ type: "stroke", points: d.pts, style: inPx(styles.freehand, t) }));
       const path = strokeOutlinePath(d.pts, 3.2 * t.scale);
       return `<g transform="translate(${t.x} ${t.y}) scale(${1 / t.scale})"><path d="${path}" fill="${ACCENT}"/></g>`;
     }
     default:
       return "";
   }
+}
+
+/**
+ * The fill tool on a screen: fills a closed area of the sketches there (the open one and
+ * finished ones), fills a box or an ellipse, or recolours what was clicked.
+ */
+function fillAt(t: TileLayout, px: Pt) {
+  const st = useStore.getState();
+  const open = st.drawing?.screenId === t.id ? st.drawing : null;
+  const shapes: SketchPart[] = [];
+  const owners: { ann?: Annotation; i: number }[] = [];
+  open?.parts.forEach((p, i) => {
+    if (i === open.typing) return;
+    shapes.push(p);
+    owners.push({ i });
+  });
+  for (const a of st.annotations)
+    if (a.screenId === t.id && a.kind === "sketch" && a.sketch?.parts)
+      a.sketch.parts.forEach((p, i) => {
+        shapes.push(p);
+        owners.push({ ann: a, i });
+      });
+  if (!shapes.length) return st.toast({ text: "sketch a closed shape first, then fill it", tone: "info" });
+
+  // screenshot pixels per screen pixel: the click tolerance and gap closing feel the same at any zoom
+  const unit = t.scale / st.camera.zoom;
+  const b = sketchPartsBounds(shapes);
+  const pad = 12 * unit + 4;
+  const color = st.toolStyles.fill.color;
+  const res = paintBucket(shapes, px, { bounds: { x: b.x - pad, y: b.y - pad, w: b.w + 2 * pad, h: b.h + 2 * pad }, closed: false, tol: 4 * unit, gap: 3 * unit });
+  const withParts = (a: Annotation, parts: SketchPart[]): Annotation => ({ ...a, sketch: { ...a.sketch!, parts }, geometry: { type: "rect", ...sketchPartsBounds(parts) } });
+
+  if (res.kind === "none") return st.toast({ text: res.why === "image" ? "images can't be filled" : "that area isn't closed: fill works inside a closed shape", tone: "info" });
+  if (res.kind === "recolor" || res.kind === "shape") {
+    const o = owners[res.index]!;
+    const restyle = (p: SketchPart): SketchPart => ({ ...p, style: res.kind === "shape" ? { ...p.style, fill: color } : { ...p.style, color } });
+    if (!o.ann) return st.setOpenPart(o.i, restyle(shapes[res.index]!));
+    return st.update(o.ann.id, (a) => withParts(a, a.sketch!.parts!.map((p, j) => (j === o.i ? restyle(p) : p))));
+  }
+  const part: SketchPart = { type: "fill", loops: res.loops, style: { color, width: 1 } };
+  // an area inside a finished sketch joins it; otherwise it's part of the open sketch
+  const f = sketchPartsBounds([part]);
+  const slack = 3 * unit + 2;
+  const within = (r: Rect) => f.x >= r.x - slack && f.y >= r.y - slack && f.x + f.w <= r.x + r.w + slack && f.y + f.h <= r.y + r.h + slack;
+  const host = open ? undefined : st.annotations.find((a) => a.screenId === t.id && a.kind === "sketch" && a.sketch?.parts && within(sketchPartsBounds(a.sketch.parts)));
+  if (host) return st.update(host.id, (a) => withParts(a, [...a.sketch!.parts!, part]));
+  st.addPart(t.id, part);
+}
+
+/** SVG in a tile's screenshot pixels, placed in world space. */
+function onTile(t: TileLayout, svg: string): string {
+  return `<g transform="translate(${t.x} ${t.y}) scale(${1 / t.scale})">${svg}</g>`;
+}
+
+/** A tool's look in a tile's screenshot pixels: styles are set in points. */
+export function inPx(style: SketchStyle, t: TileLayout): SketchStyle {
+  return { ...style, width: style.width * t.scale, ...(style.size ? { size: style.size * t.scale } : {}) };
 }
 
 /** Arrows that end on another tile, drawn in world space across tiles. */

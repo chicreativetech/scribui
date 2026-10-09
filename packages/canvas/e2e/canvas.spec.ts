@@ -296,35 +296,48 @@ test("starts on the vision board the first time only, then on the board", async 
   await expect(page.getByRole("tab", { name: "Board" })).toHaveAttribute("aria-selected", "true");
 });
 
-test("vision: canvases are A4 and resize from their edges, staying A4", async ({ page }) => {
-  await page.request.put("/api/vision", { data: { version: 1, canvases: [{ id: "c1", x: 0, y: 0, w: 390, h: 844 }], items: [] } });
+test("vision: an edge changes one side of a canvas, a corner scales it", async ({ page }) => {
+  await page.request.put("/api/vision", { data: { version: 1, canvases: [{ id: "c1", x: 0, y: 0, w: 600, h: 800 }], items: [] } });
   await page.reload();
   await page.getByRole("tab", { name: "Vision" }).click();
   const canvas = page.locator(".vision-canvas").first();
   const a = (await canvas.boundingBox())!;
-  // an older, phone-shaped canvas became the A4 around it
-  expect(a.height / a.width).toBeCloseTo(Math.SQRT2, 1);
 
   // the canvas is centred between the tool rail and the panels on the right
   const rail = (await page.locator(".rail").boundingBox())!;
   const side = (await page.locator(".inspector").boundingBox())!;
   expect(Math.abs(a.x + a.width / 2 - (rail.x + rail.width + side.x) / 2)).toBeLessThan(4);
 
-  // drag the right edge out: wider and taller, still A4, top-left in place
-  await page.mouse.move(a.x + a.width, a.y + a.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(a.x + a.width + 60, a.y + a.height / 2, { steps: 6 });
-  await page.mouse.up();
+  const drag = async (from: [number, number], by: [number, number]) => {
+    await page.mouse.move(...from);
+    await page.mouse.down();
+    await page.mouse.move(from[0] + by[0], from[1] + by[1], { steps: 6 });
+    await page.mouse.up();
+  };
+  // the right edge: only wider, top-left in place
+  await drag([a.x + a.width, a.y + a.height / 2], [60, 0]);
   const b = (await canvas.boundingBox())!;
   expect(b.width).toBeGreaterThan(a.width + 40);
-  expect(b.height / b.width).toBeCloseTo(Math.SQRT2, 1);
+  expect(Math.abs(b.height - a.height)).toBeLessThan(1);
   expect(Math.abs(b.x - a.x) + Math.abs(b.y - a.y)).toBeLessThan(2);
+
+  // the bottom edge: only taller
+  await drag([b.x + b.width / 2, b.y + b.height], [0, -50]);
+  const c = (await canvas.boundingBox())!;
+  expect(c.height).toBeLessThan(b.height - 30);
+  expect(Math.abs(c.width - b.width)).toBeLessThan(1);
+
+  // a corner: bigger, same shape
+  await drag([c.x + c.width, c.y + c.height], [80, 80]);
+  const d = (await canvas.boundingBox())!;
+  expect(d.width).toBeGreaterThan(c.width + 40);
+  expect(d.height / d.width).toBeCloseTo(c.height / c.width, 1);
 
   await page.waitForTimeout(450);
   const v = (await (await page.request.get("/api/vision")).json()) as { canvases: { w: number; h: number }[] };
-  expect(v.canvases[0]!.h / v.canvases[0]!.w).toBeCloseTo(Math.SQRT2, 2);
+  expect(v.canvases[0]!.w).toBeGreaterThan(600);
   await page.keyboard.press("Meta+z");
-  await expect.poll(async () => (await canvas.boundingBox())!.width).toBeCloseTo(a.width, 0);
+  await expect.poll(async () => (await canvas.boundingBox())!.width).toBeCloseTo(c.width, 0);
   await page.request.put("/api/vision", { data: { version: 1, canvases: [], items: [] } });
 });
 
@@ -343,12 +356,211 @@ test("board: sketch tools draw on screens only, with the tool's colour", async (
   await page.mouse.down();
   await page.mouse.move(...(await at(page, "cart", 500, 600)), { steps: 6 });
   await page.mouse.up();
+  // the sketch stays open for more parts until it's ready
+  await page.keyboard.press("Enter");
   await page.keyboard.type("a round badge");
   await page.keyboard.press("Enter");
-  const list = (await saved(page)) as (Ann & { sketch?: { shape: string; style: { color: string } } })[];
+  type Sketched = Ann & { sketch?: { shape: string; parts?: { type: string; style: { color: string } }[] } };
+  const list = (await saved(page)) as Sketched[];
   expect(list).toHaveLength(1);
-  expect(list[0]).toMatchObject({ kind: "sketch", text: "a round badge", sketch: { shape: "ellipse", style: { color: "#3E63DD" } } });
+  expect(list[0]).toMatchObject({ kind: "sketch", text: "a round badge", sketch: { shape: "drawing", parts: [{ type: "ellipse", style: { color: "#3E63DD" } }] } });
   expect(list[0]!.resolution?.status).toBe("region");
+});
+
+test("board: all the sketch tools add to one sketch until it's ready", async ({ page }) => {
+  const drag = async (from: [number, number], to: [number, number]) => {
+    await page.mouse.move(...(await at(page, "cart", ...from)));
+    await page.mouse.down();
+    await page.mouse.move(...(await at(page, "cart", ...to)), { steps: 6 });
+    await page.mouse.up();
+  };
+  const chip = page.locator(".drawing-chip");
+  // freehand strokes: lift the pen and keep drawing
+  await page.keyboard.press("p");
+  await drag([100, 300], [600, 300]);
+  await drag([600, 300], [600, 700]);
+  // a box, a line and text join the same sketch
+  await page.keyboard.press("b");
+  await drag([120, 320], [580, 680]);
+  await page.keyboard.press("i");
+  await drag([120, 500], [580, 500]);
+  await expect(chip).toContainText("4 parts");
+  expect(await annotations(page)).toHaveLength(0);
+  // undo and redo step through the sketch, not the notes before it
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(chip).toContainText("3 parts");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(chip).toContainText("4 parts");
+  await page.getByRole("button", { name: "undo" }).click();
+  await page.getByRole("button", { name: "undo" }).click();
+  await expect(chip).toContainText("2 parts");
+  await page.getByRole("button", { name: "redo" }).click();
+  await expect(chip).toContainText("3 parts");
+  await page.keyboard.press("t");
+  await page.mouse.click(...(await at(page, "cart", 150, 400)));
+  await expect(page.locator(".sketch-text")).toBeFocused();
+  await page.keyboard.type("Swipe me");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".sketch-text")).toHaveCount(0);
+  await expect(chip).toContainText("4 parts");
+
+  await chip.getByRole("button", { name: /Ready/ }).click();
+  await expect(chip).toHaveCount(0);
+  await page.keyboard.type("a card with a swipe hint");
+  await page.keyboard.press("Enter");
+
+  type Sketched = Ann & { sketch?: { shape: string; parts?: { type: string; text?: string }[] } };
+  const list = (await saved(page)) as Sketched[];
+  expect(list).toHaveLength(1);
+  expect(list[0]).toMatchObject({ kind: "sketch", text: "a card with a swipe hint", sketch: { shape: "drawing" } });
+  expect(list[0]!.sketch!.parts!.map((p) => p.type)).toEqual(["stroke", "stroke", "box", "text"]);
+  expect(list[0]!.sketch!.parts![3]!.text).toBe("Swipe me");
+
+  // a tool that isn't a sketch tool finishes an open sketch too
+  await page.keyboard.press("p");
+  await drag([100, 900], [500, 950]);
+  await page.keyboard.press("v");
+  await expect(page.locator(".popover textarea")).toBeFocused();
+  await page.keyboard.press("Escape");
+  expect((await saved(page)).filter((a) => a.kind === "sketch")).toHaveLength(2);
+});
+
+test("board: the fill tool fills a box, a closed area of lines, and recolours a line", async ({ page }) => {
+  const drag = async (from: [number, number], to: [number, number]) => {
+    await page.mouse.move(...(await at(page, "cart", ...from)));
+    await page.mouse.down();
+    await page.mouse.move(...(await at(page, "cart", ...to)), { steps: 4 });
+    await page.mouse.up();
+  };
+  const click = async (x: number, y: number) => page.mouse.click(...(await at(page, "cart", x, y)));
+  await page.keyboard.press("b");
+  await drag([100, 200], [400, 400]);
+  // a triangle of three lines
+  await page.keyboard.press("i");
+  await drag([100, 600], [500, 600]);
+  await drag([500, 600], [300, 900]);
+  await drag([300, 900], [100, 600]);
+  await page.keyboard.press("g");
+  await page.locator(".tool-settings").getByRole("button", { name: "colour #E5484D" }).click();
+  await click(250, 300);
+  await click(300, 700);
+  // outside every closed shape there's nothing to fill
+  await click(700, 300);
+  await expect(page.locator(".toast")).toContainText("isn't closed");
+  await page.locator(".tool-settings").getByRole("button", { name: "colour #30A46C" }).click();
+  await click(300, 600);
+  await expect(page.locator(".drawing-chip")).toContainText("5 parts");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("a red card and a play button");
+  await page.keyboard.press("Enter");
+
+  type Part = { type: string; style: { color: string; fill?: string }; loops?: [number, number][][] };
+  const list = (await saved(page)) as (Ann & { sketch?: { parts?: Part[] } })[];
+  const parts = list[0]!.sketch!.parts!;
+  expect(parts.map((p) => p.type)).toEqual(["box", "line", "line", "line", "fill"]);
+  expect(parts[0]!.style.fill).toBe("#E5484D");
+  expect(parts[1]!.style.color).toBe("#30A46C");
+  // the fill covers the triangle and no more
+  const xs = parts[4]!.loops!.flat().map((p) => p[0]);
+  const ys = parts[4]!.loops!.flat().map((p) => p[1]);
+  expect(Math.min(...xs)).toBeGreaterThan(80);
+  expect(Math.max(...xs)).toBeLessThan(520);
+  expect(Math.min(...ys)).toBeGreaterThan(580);
+  expect(Math.max(...ys)).toBeLessThan(920);
+});
+
+test("board: the fill tool fills a shape drawn over a filled one, and undoes", async ({ page }) => {
+  const drag = async (from: [number, number], to: [number, number]) => {
+    await page.mouse.move(...(await at(page, "cart", ...from)));
+    await page.mouse.down();
+    await page.mouse.move(...(await at(page, "cart", ...to)), { steps: 4 });
+    await page.mouse.up();
+  };
+  const loop = async (cx: number, cy: number, rad: number) => {
+    await page.mouse.move(...(await at(page, "cart", cx + rad, cy)));
+    await page.mouse.down();
+    for (let i = 1; i <= 40; i++) await page.mouse.move(...(await at(page, "cart", cx + Math.cos((i / 40) * Math.PI * 2) * rad, cy + Math.sin((i / 40) * Math.PI * 2) * rad)));
+    await page.mouse.up();
+  };
+  const click = async (x: number, y: number) => page.mouse.click(...(await at(page, "cart", x, y)));
+  const colour = (c: string) => page.locator(".tool-settings").getByRole("button", { name: `colour ${c}` }).click();
+  type Part = { type: string; style: { color: string; fill?: string }; loops?: [number, number][][] };
+  const parts = () => page.evaluate(() => (window as never as { __scribui: { getState(): { drawing: { parts: Part[] } | null } } }).__scribui.getState().drawing?.parts ?? []);
+
+  // a box filled red, a box drawn over it filled green
+  await page.keyboard.press("b");
+  await drag([100, 200], [500, 500]);
+  await page.keyboard.press("g");
+  await colour("#E5484D");
+  await click(150, 250);
+  await page.keyboard.press("b");
+  await drag([200, 300], [400, 450]);
+  await page.keyboard.press("g");
+  await colour("#30A46C");
+  await click(300, 400);
+  let p = await parts();
+  expect(p.map((x) => [x.type, x.style.fill])).toEqual([["box", "#E5484D"], ["box", "#30A46C"]]);
+
+  // a freehand loop filled blue, a smaller one drawn in it filled yellow
+  await page.keyboard.press("p");
+  await loop(300, 750, 120);
+  await page.keyboard.press("g");
+  await colour("#3E63DD");
+  await click(200, 750);
+  await page.keyboard.press("p");
+  await loop(300, 750, 50);
+  await page.keyboard.press("g");
+  await colour("#F2D100");
+  await click(300, 750);
+  p = await parts();
+  expect(p.map((x) => x.type)).toEqual(["box", "box", "stroke", "fill", "stroke", "fill"]);
+  expect(p[3]!.style.color).toBe("#3E63DD");
+  expect(p[5]!.style.color).toBe("#F2D100");
+  const xs = p[5]!.loops!.flat().map((q) => q[0]);
+  expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(130);
+  // clicking the same area again recolours that fill
+  await colour("#8E4EC6");
+  await click(300, 750);
+  p = await parts();
+  expect(p).toHaveLength(6);
+  expect(p[5]!.style.color).toBe("#8E4EC6");
+  // and undo puts its colour back
+  await page.keyboard.press("ControlOrMeta+z");
+  expect((await parts())[5]!.style.color).toBe("#F2D100");
+});
+
+test("vision: the fill tool fills a closed area of a canvas, under its lines", async ({ page }) => {
+  const line = (id: string, from: [number, number], to: [number, number]) => ({ id, type: "line", from, to, style: { color: "#262626", width: 4 } });
+  await page.request.put("/api/vision", {
+    data: { version: 1, canvases: [{ id: "c1", x: 0, y: 0, w: 600, h: 800 }], items: [line("l1", [100, 100], [500, 100]), line("l2", [500, 100], [300, 400]), line("l3", [300, 400], [100, 100])] },
+  });
+  await page.getByRole("tab", { name: "Vision" }).click();
+  const box = (await page.locator(".vision-canvas").first().boundingBox())!;
+  const at = (x: number, y: number) => [box.x + (x * box.width) / 600, box.y + (y * box.height) / 800] as const;
+  await page.keyboard.press("g");
+  await page.mouse.click(...at(300, 200));
+  await expect(page.locator(".status")).toContainText("saved");
+  await page.waitForTimeout(450);
+  const v = (await (await page.request.get("/api/vision")).json()) as { items: { type: string; loops?: [number, number][][] }[] };
+  expect(v.items.map((i) => i.type)).toEqual(["fill", "line", "line", "line"]);
+  const ys = v.items[0]!.loops!.flat().map((p) => p[1]);
+  expect(Math.min(...ys)).toBeGreaterThan(90);
+  expect(Math.max(...ys)).toBeLessThan(410);
+
+  // a box drawn over a filled one: the fill goes to the box on top
+  const rect = (id: string, x: number, y: number, w: number, h: number, fill?: string) => ({ id, type: "box", x, y, w, h, style: { color: "#262626", width: 4, ...(fill ? { fill } : {}) } });
+  await page.request.put("/api/vision", {
+    data: { version: 1, canvases: [{ id: "c1", x: 0, y: 0, w: 600, h: 800 }], items: [rect("a", 100, 450, 400, 300, "#E5484D"), rect("b", 200, 520, 200, 150)] },
+  });
+  await page.reload();
+  await page.getByRole("tab", { name: "Vision" }).click();
+  await page.keyboard.press("g");
+  await page.mouse.click(...at(300, 600));
+  await expect(page.locator(".status")).toContainText("saved");
+  await page.waitForTimeout(450);
+  const after = (await (await page.request.get("/api/vision")).json()) as { items: { id: string; style: { fill?: string } }[] };
+  expect(after.items.map((i) => [i.id, i.style.fill])).toEqual([["a", "#E5484D"], ["b", "#3E63DD"]]);
+  await page.request.put("/api/vision", { data: { version: 1, canvases: [], items: [] } });
 });
 
 test("send writes the review and locks the round", async ({ page }) => {

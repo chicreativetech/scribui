@@ -13,6 +13,7 @@ import type {
   UIElement,
 } from "./schemas.js";
 import { isRealId, TreeIndex } from "./tree.js";
+import { describeSketchParts } from "./vision.js";
 
 export type CompileInput = {
   round: number;
@@ -311,6 +312,14 @@ function buildInstruction(ctx: Ctx, a: Annotation, comments: Annotation[]): Inst
           destination: { region: box },
         });
       }
+      if (shape === "drawing") {
+        // the sketch may be new content or a change drawn over something: the note says which
+        const made = describeSketchParts(a.sketch?.parts ?? []);
+        const of = made ? ` (${made})` : "";
+        const over = describeCovered(ctx, a.screenId, box);
+        if (!hasComment) return done("add", `Add what is sketched at marker ${n}${of} ${at}${over}.`, { destination: { region: box }, needsText: true });
+        return done("add", `Sketch at marker ${n}${of} ${at}${over}: ${comment}`, { destination: { region: box } });
+      }
       const what = text ? text.replace(/[.\s]+$/, "") : `the ${SHAPE_WORDS[shape]} sketched at marker ${n}`;
       return done("add", `Add ${what} ${at}. ${inkNote}`, {
         destination: { region: box },
@@ -328,6 +337,25 @@ const SHAPE_WORDS = { line: "line", box: "box", ellipse: "ellipse" } as const;
 function screenName(ctx: Ctx, id: string): string {
   const title = ctx.titles.get(id);
   return title ? `${title} (${id})` : id;
+}
+
+/** ", drawn over X and Y" for the meaningful elements mostly inside a drawing's area. */
+function describeCovered(ctx: Ctx, screenId: string, region: Rect): string {
+  const idx = ctx.indexes.get(screenId);
+  if (!idx) return "";
+  const covered = idx.all
+    .map((f) => f.el)
+    .filter((el) => !idx.isHuge(el, 0.5) && (el.label || isRealId(el)) && area(el.bounds) > 0)
+    .filter((el) => {
+      const i = intersect(el.bounds, region);
+      return !!i && area(i) >= 0.6 * area(el.bounds);
+    })
+    .sort((a, b) => area(b.bounds) - area(a.bounds));
+  // the outermost ones: a card, not also its title and button
+  const inside = (a: Rect, b: Rect) => a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h;
+  const outer = covered.filter((el, i) => !covered.slice(0, i).some((o) => inside(el.bounds, o.bounds))).slice(0, 3);
+  if (!outer.length) return "";
+  return `, drawn over ${joinList(outer.map((el) => `the ${phraseTarget(toTargetRef(el), el.idSource)}`))}`;
 }
 
 /** ", between X and Y" for an empty region, using the nearest meaningful elements above and below. */

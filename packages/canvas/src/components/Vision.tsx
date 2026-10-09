@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { A4_RATIO, canvasOf, itemBounds, renderVisionItemSvg, TEXT_LINE, VISION_FONT, type Rect, type SketchStyle, type VisionCanvas, type VisionItem } from "@scribui/core";
+import { canvasOf, itemBounds, renderVisionItemSvg, TEXT_LINE, VISION_FONT, type Rect, type SketchStyle, type VisionCanvas, type VisionItem } from "@scribui/core";
 import { useChat } from "../chat";
 import { visionImageUrl } from "../api";
 import { screenToWorld, type Camera } from "../layout";
 import { isSketchTool, TOOLS, useStore, type Tool } from "../store";
 import { fitVision, importImage, measureText, newId, translateItem, useVision, type TextItem } from "../vision";
+import { paintBucket } from "../paint";
 import { boardViewport, clampZoom, zoomAt } from "./Board";
 import { VISION_TOOLS } from "./Chrome";
 
@@ -23,6 +24,32 @@ type Drag =
   | { kind: "rotate"; id: string; orig: BoxItem; center: Pt }
   /** Resizing a canvas; `keep` are the centres of its items, which must stay on it. */
   | { kind: "canvas"; id: string; edge: Edge; orig: VisionCanvas; keep: Pt[] };
+
+/**
+ * The fill tool on the vision board: fills a closed area of a canvas (its edge closes an
+ * area too), fills a box or an ellipse, or recolours what was clicked.
+ */
+function fillVision(p: Pt) {
+  const v = useVision.getState();
+  const st = useStore.getState();
+  const canvas = v.doc.canvases.find((c) => p[0] >= c.x && p[0] <= c.x + c.w && p[1] >= c.y && p[1] <= c.y + c.h);
+  if (!canvas) return;
+  const items = v.doc.items.filter((i) => canvasOf(i, v.doc.canvases)?.id === canvas.id);
+  const unit = 1 / v.camera.zoom;
+  const color = st.toolStyles.fill.color;
+  const res = paintBucket(items, p, { bounds: canvas, closed: true, tol: 4 * unit, gap: 3 * unit });
+  if (res.kind === "none") return st.toast({ text: res.why === "image" ? "images can't be filled" : "nothing to fill there", tone: "info" });
+  if (res.kind === "area") {
+    // under the lines around it, over the fills before it
+    const fill: VisionItem = { id: newId("v"), type: "fill", loops: res.loops, style: { color, width: 1 } };
+    const at = v.doc.items.findIndex((i) => i.type !== "fill");
+    const items = v.doc.items.slice();
+    items.splice(at < 0 ? items.length : at, 0, fill);
+    return v.commit({ ...v.doc, items });
+  }
+  const shape = res.kind === "shape";
+  v.update(items[res.index]!.id, (i) => (i.type === "image" ? i : { ...i, style: shape ? { ...i.style, fill: color } : { ...i.style, color } }) as VisionItem);
+}
 
 const isBox = (i: VisionItem): i is BoxItem => i.type === "box" || i.type === "ellipse" || i.type === "image" || i.type === "text";
 const href = (src: string) => visionImageUrl(src);
@@ -197,6 +224,8 @@ export function VisionBoard() {
       case "box":
       case "ellipse":
         return setDragBoth({ kind: "shape", shape: t, from: w, to: w });
+      case "fill":
+        return fillVision(w);
       case "text": {
         if (hit?.type === "text") return startTextEdit(hit, false);
         const style = st.toolStyles.text;
@@ -430,7 +459,7 @@ export function VisionBoard() {
 
 const EDGES: Edge[] = ["n", "e", "s", "w", "nw", "ne", "se", "sw"];
 
-/** Grab strips on a canvas's edges and corners: dragging one resizes the canvas, staying A4. */
+/** Grab strips on a canvas's edges and corners: an edge resizes one side, a corner scales the canvas. */
 function CanvasEdges({
   canvas,
   camera,
@@ -452,7 +481,7 @@ function CanvasEdges({
         <span
           key={edge}
           className={`vision-ui canvas-edge ${edge} ${active === edge ? "on" : ""}`}
-          title="drag to resize (stays A4)"
+          title={edge.length === 2 ? "drag to scale" : edge === "e" || edge === "w" ? "drag to change the width" : "drag to change the height"}
           onPointerDown={(e) => onEdge(e, canvas, edge)}
         />
       ))}
@@ -576,20 +605,30 @@ export const fitVisionCamera = (): Camera => fitVision(boardViewport());
 let lastFit: Camera | null = null;
 const sameCamera = (a: Camera, b: Camera | null) => !!b && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs(a.zoom - b.zoom) < 1e-4;
 
-/** Minimum canvas width, in world units. */
-const MIN_CANVAS_W = 160;
+/** Smallest canvas side, in world units. */
+const MIN_CANVAS = 160;
 
 /**
- * A canvas resized by dragging `edge` to `p`, kept A4: the opposite edge (or corner) stays put,
- * and a side edge keeps the top (left for the top and bottom edges) where it was.
+ * A canvas resized by dragging `edge` to `p`; the opposite edge (or corner) stays put.
+ * An edge changes only the width or only the height; a corner scales, keeping the shape.
  */
 export function resizedCanvas(c: Rect, edge: Edge, p: Pt): Rect {
   const right = c.x + c.w;
   const bottom = c.y + c.h;
-  const fromX = edge.includes("e") ? p[0] - c.x : edge.includes("w") ? right - p[0] : 0;
-  const fromY = (edge.includes("s") ? p[1] - c.y : edge.includes("n") ? bottom - p[1] : 0) / A4_RATIO;
-  const w = Math.round(Math.max(MIN_CANVAS_W, edge.length === 2 ? Math.max(fromX, fromY) : edge === "e" || edge === "w" ? fromX : fromY));
-  const h = Math.round(w * A4_RATIO);
+  const fromX = edge.includes("e") ? p[0] - c.x : edge.includes("w") ? right - p[0] : c.w;
+  const fromY = edge.includes("s") ? p[1] - c.y : edge.includes("n") ? bottom - p[1] : c.h;
+  let w: number;
+  let h: number;
+  if (edge.length === 2) {
+    const ratio = c.h / c.w;
+    w = Math.max(fromX, fromY / ratio, MIN_CANVAS, MIN_CANVAS / ratio);
+    h = w * ratio;
+  } else {
+    w = Math.max(MIN_CANVAS, fromX);
+    h = Math.max(MIN_CANVAS, fromY);
+  }
+  w = Math.round(w);
+  h = Math.round(h);
   return {
     x: edge.includes("w") ? right - w : c.x,
     y: edge.includes("n") ? bottom - h : c.y,
