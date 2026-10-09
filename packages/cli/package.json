@@ -1,6 +1,6 @@
 {
   "name": "scribui",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Visual review layer between you and your coding agent: annotate app screens, get precise file-based instructions.",
   "license": "MIT",
   "type": "module",
