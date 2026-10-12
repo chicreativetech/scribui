@@ -71,17 +71,46 @@ export const deviceApi: DesktopDevice | null =
   typeof window !== "undefined" ? ((window as unknown as { scribuiDesktop?: { device?: DesktopDevice } }).scribuiDesktop?.device ?? null) : null;
 
 const pad = (n: number) => String(n).padStart(3, "0");
+/** iOS start buttons: half iPhones, half iPads (the list is alphabetical, so iPads would fill it); the rest are in the dropdown. */
+const QUICK_SIMS = 6;
+function quickSims<T extends { name: string }>(all: T[]): T[] {
+  const phones = all.filter((s) => s.name.startsWith("iPhone"));
+  const rest = all.filter((s) => !s.name.startsWith("iPhone"));
+  const nPhones = Math.min(phones.length, Math.max(QUICK_SIMS / 2, QUICK_SIMS - rest.length));
+  return [...phones.slice(0, nPhones), ...rest.slice(0, QUICK_SIMS - nPhones)];
+}
 const STEPS: Record<Progress["step"], string> = {
   screenshot: "Taking the screenshot",
   elements: "Reading the elements",
   verifying: "Checking the screen held still",
   retrying: "The screen moved; trying again",
 };
-const KEY_LABEL: Record<LiveKey, { icon: string; title: string }> = {
-  back: { icon: "◁", title: "Back" },
-  home: { icon: "○", title: "Home" },
-  recents: { icon: "▢", title: "Recent apps" },
-  lock: { icon: "⏻", title: "Power: lock or wake the screen" },
+/** Device bar icons: one 16px grid and stroke, so every button reads the same size (text glyphs don't). */
+const glyph = (children: React.ReactNode) => (
+  <svg className="device-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {children}
+  </svg>
+);
+const ICON = {
+  refresh: glyph(<><path d="M13 8a5 5 0 1 1-1.46-3.54" /><path d="M13 2.5v3h-3" /></>),
+  // a phone turning a quarter
+  rotate: glyph(<><rect x="2" y="5.5" width="6.5" height="9" rx="1" /><path d="M8 2a5.5 5.5 0 0 1 5.5 5.5" /><path d="M11.75 6 13.5 7.75 15.25 6" /></>),
+  back: glyph(<><path d="M13 8H3.5" /><path d="M7.5 4 3.5 8l4 4" /></>),
+  home: glyph(<><path d="M2.5 7.5 8 3l5.5 4.5" /><path d="M4 6.5V13h8V6.5" /></>),
+  recents: glyph(<><rect x="2.5" y="5" width="8.5" height="8.5" rx="1" /><path d="M5 2.5h7.5a1 1 0 0 1 1 1V11" /></>),
+  lock: glyph(<><path d="M8 2v5.5" /><path d="M4.6 4.6a5 5 0 1 0 6.8 0" /></>),
+};
+/** Hover hint under a device bar button: what it is, then what it does. */
+const Tip = ({ name, does }: { name: string; does: string }) => (
+  <span className="device-tip" role="tooltip">
+    <b>{name}</b> <span className="dim">— {does}</span>
+  </span>
+);
+const KEY_LABEL: Record<LiveKey, { icon: React.ReactNode; name: string; does: string }> = {
+  back: { icon: ICON.back, name: "Back", does: "presses the device's Back button" },
+  home: { icon: ICON.home, name: "Home", does: "goes to the home screen" },
+  recents: { icon: ICON.recents, name: "Recent apps", does: "opens the app switcher" },
+  lock: { icon: ICON.lock, name: "Power", does: "locks or wakes the screen" },
 };
 const EDIT: Record<string, EditKey> = {
   Enter: "enter",
@@ -530,19 +559,22 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
             </option>
           ))}
         </select>
-        <button className={`toggle ${listing ? "spin" : ""}`} title="look for devices again" onClick={() => void refresh()}>
-          ⟳
+        <button className={`toggle ${listing ? "spin" : ""}`} aria-label="look for devices again" onClick={() => void refresh()}>
+          {ICON.refresh}
+          <Tip name="Look for devices" does="lists connected phones, emulators and simulators again" />
         </button>
         {caps && (
           <span className="device-keys">
             {caps.keys.map((k) => (
-              <button key={k} className="toggle" title={KEY_LABEL[k].title} disabled={!interactive} onClick={() => send({ type: "key", key: k })}>
+              <button key={k} className="toggle" aria-label={KEY_LABEL[k].name} disabled={!interactive} onClick={() => send({ type: "key", key: k })}>
                 {KEY_LABEL[k].icon}
+                <Tip name={KEY_LABEL[k].name} does={KEY_LABEL[k].does} />
               </button>
             ))}
             {caps.rotate && (
-              <button className="toggle" title="rotate the device (turns auto-rotate off)" disabled={!interactive} onClick={() => send({ type: "rotate" })}>
-                ⟲
+              <button className="toggle" aria-label="rotate the device" disabled={!interactive} onClick={() => send({ type: "rotate" })}>
+                {ICON.rotate}
+                <Tip name="Rotate" does="turns the device between portrait and landscape (auto-rotate goes off)" />
               </button>
             )}
           </span>
@@ -697,14 +729,14 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
                   ))}
                 {!!list?.startable.length && (
                   <p className="device-avds">
-                    {list.startable.slice(0, ios ? 6 : undefined).map((a) => (
+                    {(ios ? quickSims(list.startable) : list.startable).map((a) => (
                       <button key={a.id} className="live-capture" disabled={!!starting} onClick={() => void start(a.id)}>
                         ▶ Start {a.name}
                       </button>
                     ))}
                   </p>
                 )}
-                {!!list && ios && list.startable.length > 6 && <p className="faint">More simulators are in the list above.</p>}
+                {!!list && ios && list.startable.length > QUICK_SIMS && <p className="faint">More simulators are in the list above.</p>}
                 {!devices.length && !list?.startable.length && list && (
                   <p className="faint">
                     {ios

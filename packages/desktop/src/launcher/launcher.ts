@@ -1,5 +1,5 @@
 /**
- * The projects window: recent projects, "Open folder…", the capture tools
+ * The projects window: recent projects, "Add project…", the capture tools
  * found on this machine (installed from here when the app can), and the
  * setup of a folder that isn't a ScribUI project yet. Talks to the main
  * process only through `window.scribuiLauncher` (launcherPreload).
