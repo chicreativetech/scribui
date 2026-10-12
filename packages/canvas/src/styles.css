@@ -574,8 +574,22 @@ kbd {
 /* device tab (mobile projects in the desktop app) */
 .device-pick { max-width: 240px; }
 .device-keys { display: inline-flex; align-items: center; gap: 2px; }
-.device-keys .toggle { min-width: 26px; font-size: 14px; }
+.device-pane .live-bar .toggle:has(.device-icon) { width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.device-icon { display: block; flex: none; }
+.device-pane .live-bar .toggle:has(.device-icon) { position: relative; }
+.device-tip {
+  position: absolute; z-index: 60; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: var(--surface-3); border: 1px solid var(--line-2); padding: 5px 8px; white-space: nowrap;
+  color: var(--fg); font: 400 11px/1.3 var(--sans); pointer-events: none; opacity: 0; transition: opacity 0.1s;
+}
+.device-tip b { font-weight: 600; }
+.toggle:hover > .device-tip { opacity: 1; transition-delay: 0.35s; }
+.device-pane .live-bar .toggle.spin { animation: none; }
+.device-pane .live-bar .toggle.spin .device-icon { animation: live-spin 0.9s linear infinite; }
 .device-keys .toggle:disabled, .device-pane .live-bar .toggle:disabled { opacity: 0.35; cursor: default; }
+/* dim only the icon, so the hover hint stays readable on a disabled button */
+.device-pane .live-bar .toggle:disabled:has(.device-icon) { opacity: 1; }
+.device-pane .live-bar .toggle:disabled .device-icon { opacity: 0.35; }
 .device-pane .live-bar .toggle.spin { animation: live-spin 0.9s linear infinite; }
 .device-room { position: relative; align-items: flex-start; justify-content: center; background: var(--bg); }
 .device-room.fit { overflow: hidden; align-items: center; }

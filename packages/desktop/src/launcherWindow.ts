@@ -14,7 +14,7 @@ import { checkNow, installNow, onUpdateState, updateState } from "./updates.js";
 import { checkAnswers, createProject, devServers, normalizeUrl, setupInfo } from "./setup.js";
 
 /**
- * The projects window: recent projects, "Open folder…", the capture tools
+ * The projects window: recent projects, "Add project…", the capture tools
  * found on this machine (installed from here when the app can), and the
  * setup of a folder that isn't a ScribUI project yet.
  */

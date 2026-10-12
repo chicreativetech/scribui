@@ -144,6 +144,7 @@
       .field .hint { margin: 0; }
       .flabel { font-weight: 600; }
       .tools-list { border: 1px solid var(--line); }
+      .tools-intro { margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--line); }
       @media (max-width: 600px) { .cards { grid-template-columns: 1fr; } .card { min-height: 0; } }
     </style>
     <script src="./launcher.js" defer></script>
@@ -155,7 +156,7 @@
       <section aria-labelledby="projects-title">
         <div class="head">
           <h2 id="projects-title">Projects</h2>
-          <button class="btn primary" id="open">Open folder…</button>
+          <button class="btn primary" id="open">Add project…</button>
         </div>
         <ul id="projects"></ul>
       </section>
@@ -164,6 +165,7 @@
           <h2 id="tools-title">Capture tools<span class="sub">on this computer</span></h2>
           <button class="btn" id="recheck">Check again</button>
         </div>
+        <p class="hint tools-intro">ScribUI takes screenshots of your app with these programs: Playwright for web apps, adb and Android Studio for Android, Xcode and AXe for iOS. You only need the ones for the platforms you build for; anything missing can be installed from here.</p>
         <div id="tools"><div class="checking">Checking…</div></div>
       </section>
       </div>
