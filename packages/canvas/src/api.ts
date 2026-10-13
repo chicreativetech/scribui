@@ -1,4 +1,3 @@
-import type { ChatServerState } from "./chat";
 import type { Annotation, Device, ScreenCapture, ScreenManifest, StatusFile, VisionFile } from "@scribui/core";
 
 export type ScreenInfo = {
@@ -136,8 +135,7 @@ export type ServerEvent =
   | { type: "lan-changed"; enabled: boolean; paired: number }
   | { type: "status-changed"; round: number; status: string }
   | { type: "annotations-changed"; round: number; by: string }
-  | { type: "vision-changed"; by: string }
-  | { type: "chat"; state: ChatServerState };
+  | { type: "vision-changed"; by: string };
 
 /** WebSocket with automatic reconnect. */
 export function connectEvents(onEvent: (e: ServerEvent) => void, onState: (connected: boolean) => void) {
