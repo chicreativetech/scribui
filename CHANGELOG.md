@@ -4,6 +4,14 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
+## 0.2.1 (unreleased)
+
+- **The AI chat is gone.** ScribUI hands your notes to the coding agent you already use, in your terminal or editor, instead of running it inside the app. **Send** writes the round and shows the prompt to paste into your agent, as before the chat.
+- The send button says what goes, like **Send 3 notes**, and is greyed out until there's a note to send.
+- The device bar (Device tab) and the browser bar (App tab) have clearer icons, all the same size, with a hint on hover saying what each button does.
+- iOS: the quick start buttons offer iPhones as well as iPads.
+- The projects window's **Open folder…** is now **Add project…**, and the capture tools section says what the tools are for.
+
 ## 0.2.0 (2026-10-09)
 
 - **Android and iOS screens are captured by hand,** like web views: open the project in the desktop app, move through your app in the Device tab and press Capture view. Nothing runs through your app on its own any more: setup no longer asks your agent to list screens or write navigation flows, there's no automatic first round, and Recapture is for web projects only. After the agent applies a round, the canvas names the screens it changed so you can capture them again (pick **replace "…"**).

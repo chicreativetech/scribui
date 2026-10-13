@@ -2,7 +2,6 @@ import { useMemo, type ReactNode } from "react";
 import { TOOLS, VISION_HINTS, isReadOnly, noteCount, unresolvedCount, useStore, type Tool } from "../store";
 import { useVision } from "../vision";
 import { Spinner } from "./Capture";
-import { ChatToggle } from "./Chat";
 import { hasLiveTab, showLive } from "./Live";
 import selectIcon from "../assets/icons/select.png";
 import commentIcon from "../assets/icons/comment.png";
@@ -129,7 +128,7 @@ export function showView(view: "vision" | "board") {
   if (view === "vision" && !VISION_TOOLS.includes(st.tool)) st.setTool("select");
 }
 
-/* ───────── recapture, send & chat ───────── */
+/* ───────── recapture & send ───────── */
 
 export function ActionBar({ onSend }: { onSend: () => void }) {
   const round = useStore((s) => s.round);
@@ -168,7 +167,6 @@ export function ActionBar({ onSend }: { onSend: () => void }) {
           )}
         </button>
       )}
-      <ChatToggle />
       <button
         className="send-btn"
         onClick={onSend}

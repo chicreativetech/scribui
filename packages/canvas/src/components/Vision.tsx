@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { canvasOf, itemBounds, renderVisionItemSvg, TEXT_LINE, VISION_FONT, type Rect, type SketchStyle, type VisionCanvas, type VisionItem } from "@scribui/core";
-import { useChat } from "../chat";
 import { visionImageUrl } from "../api";
 import { screenToWorld, type Camera } from "../layout";
 import { isSketchTool, TOOLS, useStore, type Tool } from "../store";
@@ -86,14 +85,13 @@ export function VisionBoard() {
   // centre the canvases in the space between the panels the first time the board is shown, and again
   // when a panel opens or closes, as long as the view hasn't been moved since
   const inspectorOpen = useStore((s) => s.inspectorOpen);
-  const chatOpen = useChat((s) => s.open);
   useEffect(() => {
     if (!shown || !loaded) return;
     const v = useVision.getState();
     if (fitted && !sameCamera(v.camera, lastFit)) return;
     lastFit = fitVisionCamera();
     v.set({ fitted: true, camera: lastFit });
-  }, [shown, loaded, fitted, inspectorOpen, chatOpen]);
+  }, [shown, loaded, fitted, inspectorOpen]);
 
   const local = useCallback((e: { clientX: number; clientY: number }): Pt => {
     const r = ref.current!.getBoundingClientRect();
