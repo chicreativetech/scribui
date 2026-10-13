@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { focusTile } from "./Board";
 import { Spinner } from "./Capture";
-import { deviceApi, DeviceTab } from "./Device";
+import { deviceApi, DeviceTab, ICON, Tip } from "./Device";
 
 /**
  * The app tab: the running web app, for capturing views by hand.
@@ -232,16 +232,19 @@ function WebLive() {
         >
           {native && (
             <>
-              <button type="button" className="toggle" title="back" disabled={!state?.canGoBack} onClick={() => void native.back()}>
-                ‹
+              <button type="button" className="toggle" aria-label="back" disabled={!state?.canGoBack} onClick={() => void native.back()}>
+                {ICON.back}
+                <Tip name="Back" does="goes to the previous page in your app" />
               </button>
-              <button type="button" className="toggle" title="forward" disabled={!state?.canGoForward} onClick={() => void native.forward()}>
-                ›
+              <button type="button" className="toggle" aria-label="forward" disabled={!state?.canGoForward} onClick={() => void native.forward()}>
+                {ICON.forward}
+                <Tip name="Forward" does="goes to the next page again" />
               </button>
             </>
           )}
-          <button type="button" className={`toggle ${state?.loading ? "spin" : ""}`} title="reload the app (its state is lost)" onClick={reload}>
-            ⟳
+          <button type="button" className={`toggle ${state?.loading ? "spin" : ""}`} aria-label="reload the app" onClick={reload}>
+            {ICON.refresh}
+            <Tip name="Reload" does="loads the page again (your app's state is lost)" />
           </button>
           <input ref={addressRef} value={address} onChange={(e) => setAddress(e.target.value)} placeholder={base || "http://localhost:3000"} spellCheck={false} />
         </form>
