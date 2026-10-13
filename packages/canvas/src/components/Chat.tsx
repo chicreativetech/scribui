@@ -1,22 +1,41 @@
 import { useEffect, useRef } from "react";
 import { agentLabel, chatConnected, useChat, type ChatChoice } from "../chat";
+import { isReadOnly, noteCount, useStore } from "../store";
 import { Spinner } from "./Capture";
 
-/* ───────── the Chat box in the top bar: shows and hides the panel ───────── */
+/* ───────── the Chat button, in the recapture & send box left of send: shows and hides the panel ───────── */
 
 export function ChatToggle() {
   const open = useChat((s) => s.open);
   const running = useChat((s) => s.server.running);
   return (
-    <div className="float chat-toggle">
-      <button
-        className={`item ${open ? "on" : ""}`}
-        onClick={() => useChat.getState().toggle()}
-        aria-pressed={open}
-        title="AI chat: prompt your coding agent without leaving ScribUI"
-      >
-        {running && !open && <Spinner />}
-        Chat
+    <button
+      className={`chat-btn ${open ? "on" : ""}`}
+      onClick={() => useChat.getState().toggle()}
+      aria-pressed={open}
+      title="AI chat: ask your coding agent anything without leaving ScribUI"
+    >
+      {running && !open && <Spinner />}
+      Chat
+    </button>
+  );
+}
+
+/** Notes waiting on the board: the chat doesn't take them, Send to agent does. Shown above the composer until the round is sent. */
+function RoundCard() {
+  const round = useStore((s) => s.round);
+  const notes = useStore((s) => noteCount(s.annotations));
+  if (!round || round.status.status !== "open" || isReadOnly() || !notes) return null;
+  return (
+    <div className="chat-round">
+      <span title={`round ${String(round.round).padStart(3, "0")}`}>
+        <b>
+          {notes} note{notes === 1 ? "" : "s"}
+        </b>{" "}
+        ready
+      </span>
+      <button className="send-btn" onClick={() => useStore.getState().set({ sendOpen: true })} title="send this round's notes to your agent (⌘⏎)">
+        Send to agent
       </button>
     </div>
   );
@@ -48,13 +67,20 @@ export function ChatPanel() {
         )}
       </div>
       {unavailable ? (
-        <div className="chat-empty">{unavailable}.</div>
+        <>
+          <div className="chat-empty">{unavailable}.</div>
+          <RoundCard />
+        </>
       ) : !choice ? (
-        <Connect />
+        <>
+          <Connect />
+          <RoundCard />
+        </>
       ) : (
         <>
           {choice === "custom" && <CommandField />}
           <Log />
+          <RoundCard />
           <Composer />
         </>
       )}
@@ -153,7 +179,7 @@ function Log() {
               can edit its files.
               <br />
               <br />
-              <b>Send to agent</b> puts the round's prompt here.
+              Your notes on the screens go with <b>Send to agent</b>, not with a chat message.
             </>
           )}
         </div>
@@ -217,7 +243,7 @@ function Composer() {
           </button>
         ) : (
           <button className="send-btn" onClick={send} disabled={!draft.trim()}>
-            {connected ? "Send" : "Copy"}
+            {connected ? "Ask" : "Copy"}
           </button>
         )}
       </div>

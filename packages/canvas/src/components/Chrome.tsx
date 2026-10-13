@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { TOOLS, VISION_HINTS, isReadOnly, unresolvedCount, useStore, type Tool } from "../store";
+import { TOOLS, VISION_HINTS, isReadOnly, noteCount, unresolvedCount, useStore, type Tool } from "../store";
 import { useVision } from "../vision";
 import { Spinner } from "./Capture";
 import { ChatToggle } from "./Chat";
@@ -38,7 +38,7 @@ export function TopBar() {
     (project && "app" in project.manifest ? project.manifest.app.platform : undefined);
   const mobile = platform === "android" || platform === "ios";
   const status = round?.status.status;
-  const count = annotations.filter((a) => !(a.kind === "comment" && a.attachedTo)).length;
+  const count = useMemo(() => noteCount(annotations), [annotations]);
 
   return (
     <header className="bar">
@@ -118,7 +118,6 @@ export function TopBar() {
           Board
         </button>
       </div>
-      <ChatToggle />
     </header>
   );
 }
@@ -130,7 +129,7 @@ export function showView(view: "vision" | "board") {
   if (view === "vision" && !VISION_TOOLS.includes(st.tool)) st.setTool("select");
 }
 
-/* ───────── recapture & send ───────── */
+/* ───────── recapture, send & chat ───────── */
 
 export function ActionBar({ onSend }: { onSend: () => void }) {
   const round = useStore((s) => s.round);
@@ -138,8 +137,12 @@ export function ActionBar({ onSend }: { onSend: () => void }) {
   const ext = useStore((s) => s.externalCapture);
   const canCapture = useStore((s) => !!s.project?.canCapture);
   const status = round?.status.status;
+  const notes = useStore((s) => noteCount(s.annotations));
   const ro = isReadOnly();
   const capturing = cs.running || !!ext;
+  // the button says what goes: "Send 5 notes"; with nothing to send it greys out
+  const label =
+    status === "sent" ? "Sent to agent" : status === "applied" ? "Applied" : notes ? `Send ${notes} note${notes === 1 ? "" : "s"}` : "Send to agent";
 
   return (
     <div className="float actions-float">
@@ -165,13 +168,14 @@ export function ActionBar({ onSend }: { onSend: () => void }) {
           )}
         </button>
       )}
+      <ChatToggle />
       <button
         className="send-btn"
         onClick={onSend}
-        disabled={!round || ro || status === "capturing" || capturing}
-        title={ro ? undefined : "send to agent (⌘⏎)"}
+        disabled={!round || ro || status === "capturing" || capturing || !notes}
+        title={ro ? undefined : notes ? "send this round's notes to your agent (⌘⏎)" : "add notes to the screens, then send them to your agent"}
       >
-        {status === "sent" ? "Sent to agent" : status === "applied" ? "Applied" : "Send to agent"}
+        {label}
       </button>
     </div>
   );

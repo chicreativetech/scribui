@@ -85,24 +85,25 @@ const STEPS: Record<Progress["step"], string> = {
   verifying: "Checking the screen held still",
   retrying: "The screen moved; trying again",
 };
-/** Device bar icons: one 16px grid and stroke, so every button reads the same size (text glyphs don't). */
+/** Device and app bar icons: one 16px grid and stroke, so every button reads the same size (text glyphs don't). */
 const glyph = (children: React.ReactNode) => (
-  <svg className="device-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+  <svg className="bar-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {children}
   </svg>
 );
-const ICON = {
+export const ICON = {
   refresh: glyph(<><path d="M13 8a5 5 0 1 1-1.46-3.54" /><path d="M13 2.5v3h-3" /></>),
   // a phone turning a quarter
   rotate: glyph(<><rect x="2" y="5.5" width="6.5" height="9" rx="1" /><path d="M8 2a5.5 5.5 0 0 1 5.5 5.5" /><path d="M11.75 6 13.5 7.75 15.25 6" /></>),
   back: glyph(<><path d="M13 8H3.5" /><path d="M7.5 4 3.5 8l4 4" /></>),
+  forward: glyph(<><path d="M3 8h9.5" /><path d="M8.5 4l4 4-4 4" /></>),
   home: glyph(<><path d="M2.5 7.5 8 3l5.5 4.5" /><path d="M4 6.5V13h8V6.5" /></>),
   recents: glyph(<><rect x="2.5" y="5" width="8.5" height="8.5" rx="1" /><path d="M5 2.5h7.5a1 1 0 0 1 1 1V11" /></>),
   lock: glyph(<><path d="M8 2v5.5" /><path d="M4.6 4.6a5 5 0 1 0 6.8 0" /></>),
 };
-/** Hover hint under a device bar button: what it is, then what it does. */
-const Tip = ({ name, does }: { name: string; does: string }) => (
-  <span className="device-tip" role="tooltip">
+/** Hover hint under a bar button: what it is, then what it does. */
+export const Tip = ({ name, does }: { name: string; does: string }) => (
+  <span className="bar-tip" role="tooltip">
     <b>{name}</b> <span className="dim">— {does}</span>
   </span>
 );

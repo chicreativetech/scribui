@@ -627,6 +627,11 @@ function changeDrawing(next: OpenDrawing | null) {
   useStore.setState({ drawing: next, sketchHistory: { past: [...h.past.slice(-199), snap], future: [] } });
 }
 
+/** The round's notes, as the top bar counts them: replies (comments on a note) don't count. */
+export function noteCount(annotations: Annotation[]): number {
+  return annotations.filter((a) => !(a.kind === "comment" && a.attachedTo)).length;
+}
+
 export function unresolvedCount(annotations: Annotation[]): number {
   return annotations.filter(
     (a) => a.kind !== "rule" && !(a.kind === "comment" && a.attachedTo) && a.resolution?.status === "unresolved",
