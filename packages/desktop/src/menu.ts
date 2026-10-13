@@ -20,7 +20,7 @@ export function buildMenu() {
       label: "File",
       submenu: [
         {
-          label: "Open Folder…",
+          label: "Open App Folder…",
           accelerator: "CmdOrCtrl+O",
           click: async () => {
             const picked = await pickAndOpen(BrowserWindow.getFocusedWindow());
