@@ -10,7 +10,7 @@ update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 - The send button says what goes, like **Send 3 notes**, and is greyed out until there's a note to send.
 - The device bar (Device tab) and the browser bar (App tab) have clearer icons, all the same size, with a hint on hover saying what each button does.
 - iOS: the quick start buttons offer iPhones as well as iPads.
-- The projects window's **Open folder…** is now **Add project…**, and the capture tools section says what the tools are for.
+- The projects window's **Open folder…** is now **Open app folder…** (in the menu too), and the capture tools section says what the tools are for.
 
 ## 0.2.0 (2026-10-09)
 

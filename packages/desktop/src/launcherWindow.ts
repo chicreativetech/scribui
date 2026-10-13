@@ -14,7 +14,7 @@ import { checkNow, installNow, onUpdateState, updateState } from "./updates.js";
 import { checkAnswers, createProject, devServers, normalizeUrl, setupInfo } from "./setup.js";
 
 /**
- * The projects window: recent projects, "Add project…", the capture tools
+ * The projects window: recent projects, "Open app folder…", the capture tools
  * found on this machine (installed from here when the app can), and the
  * setup of a folder that isn't a ScribUI project yet.
  */
@@ -88,7 +88,7 @@ export async function openAndRemember(dir: string): Promise<OpenResult> {
   return r;
 }
 
-/** "Open Folder…": pick a folder and open it; null when canceled. */
+/** "Open App Folder…": pick a folder and open it; null when canceled. */
 export async function pickAndOpen(parent: BrowserWindow | null): Promise<{ dir: string; result: OpenResult } | null> {
   const opts = { title: "Open a ScribUI project", buttonLabel: "Open", properties: ["openDirectory" as const] };
   const pick = parent ? await dialog.showOpenDialog(parent, opts) : await dialog.showOpenDialog(opts);

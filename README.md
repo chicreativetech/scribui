@@ -15,7 +15,7 @@ The tool never edits your app and has no AI inside. It supplies context; your ag
 
 ### Desktop app
 
-Download it from [Releases](https://github.com/chicreativetech/scribui/releases): the `.dmg` for macOS (Apple Silicon or Intel), the `.exe` installer for Windows, the `.AppImage` or `.deb` for Linux. Open it, then click **Add project…** and pick your app's folder; ScribUI sets the project up from there (see [The desktop app](#the-desktop-app)).
+Download it from [Releases](https://github.com/chicreativetech/scribui/releases): the `.dmg` for macOS (Apple Silicon or Intel), the `.exe` installer for Windows, the `.AppImage` or `.deb` for Linux. Open it, then click **Open app folder…** and pick your app's folder; ScribUI sets the project up from there (see [The desktop app](#the-desktop-app)).
 
 Builds aren't signed yet, so each system asks once:
 
@@ -127,7 +127,7 @@ Run `scribui` in each project. Each one gets its own canvas on the next free por
 
 The desktop app does everything the terminal and the browser canvas do, in one window per project, and shows the app you're reviewing live inside it.
 
-- **Setting up a project:** **Add project…** on a folder that isn't a ScribUI project yet walks you through what `scribui` asks in the terminal: the platform (the detected one is marked), where the web app runs (running dev servers are listed with their page titles) or the mobile app's id and build command, the tools that platform needs, and for mobile, the line to paste into your agent while ScribUI waits for it to list the screens.
+- **Setting up a project:** **Open app folder…** on a folder that isn't a ScribUI project yet walks you through what `scribui` asks in the terminal: the platform (the detected one is marked), where the web app runs (running dev servers are listed with their page titles) or the mobile app's id and build command, the tools that platform needs, and for mobile, the line to paste into your agent while ScribUI waits for it to list the screens.
 - **Installing tools:** the projects window lists the capture tools on your computer and installs the missing ones with **Install**: adb (downloaded from Google), AXe and Android Studio (with Homebrew, or winget on Windows), Playwright, and Xcode's selection when only the Command Line Tools are active. The output shows as it runs.
 - **Web:** the **App** tab is your running app as a normal page, so logins, cookies and pages that refuse to be embedded all work. Size it to desktop, laptop, tablet or phone and press **Capture view**.
 - **Android and iOS:** mobile projects get a **Device** tab with the emulator, phone or simulator live in it, and it's the only way their screens are captured. Use it with the mouse and keyboard (scrolling, typing, Back/Home, rotate) and press **Capture view**: ScribUI freezes the picture, reads the elements and checks the screen held still. iOS needs a Mac with Xcode, plus AXe.
