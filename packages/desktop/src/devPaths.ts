@@ -8,3 +8,5 @@ import { app } from "electron";
  * quits. Imported first in main.ts: other modules read the folder on load.
  */
 if (!app.isPackaged) app.setPath("userData", join(app.getPath("appData"), "ScribUI Dev"));
+// a fidelity or spike harness runs next to a development app that's open, with data of its own
+if (process.env.SCRIBUI_FIDELITY || process.env.SCRIBUI_SPIKE) app.setPath("userData", join(app.getPath("appData"), "ScribUI Harness"));

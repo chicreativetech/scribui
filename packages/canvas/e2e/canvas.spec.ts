@@ -23,7 +23,7 @@ async function reset(page: Page) {
   await page.request.put("/api/rounds/1/annotations", { data: { annotations: [] } });
   await page.goto("/");
   // a project opens on the App tab; these tests are about the review board
-  await page.getByRole("tab", { name: "Board" }).click();
+  await page.getByRole("tab", { name: "Review", exact: true }).click();
   await expect(page.locator(".tile img").first()).toBeVisible();
   await page.waitForFunction(() => (window as never as { __scribui?: unknown }).__scribui);
 }
@@ -577,4 +577,78 @@ test("send writes the review and locks the round", async ({ page }) => {
   await expect(page.locator(".next-banner")).toContainText("Sent to your agent");
   const put = await page.request.put("/api/rounds/1/annotations", { data: { annotations: [] } });
   expect(put.status()).toBe(409);
+});
+
+test("device tab: picking a tool holds the screen, the first mark captures it, later ones join it", async ({ page }) => {
+  // the desktop app's device connection, standing in: a live device whose capture saves a real view
+  const { readFileSync } = await import("node:fs");
+  const png = readFileSync(new URL("../../../fixtures/project/.scribui/rounds/001/screens/cart.png", import.meta.url)).toString("base64");
+  await page.addInitScript((png: string) => {
+    const state = {
+      status: "live",
+      device: { id: "emu", name: "Pixel" },
+      size: { width: 780, height: 1688, scale: 2, rotation: 0 },
+      capabilities: { video: "h264", pointer: true, scroll: true, text: true, physicalKeys: false, keys: ["back", "home"], rotate: false, orientation: "portrait" },
+      message: null,
+    };
+    const w = window as unknown as { __captures: number; scribuiDesktop: unknown };
+    w.__captures = 0;
+    w.scribuiDesktop = {
+      version: 6,
+      platform: "darwin",
+      device: {
+        platform: "android",
+        state: async () => state,
+        list: async () => ({ devices: [{ id: "emu", name: "Pixel", kind: "emulator", state: "ready" }], startable: [], missing: null }),
+        connect: async () => state,
+        disconnect: async () => {},
+        start: async () => state,
+        setVisible() {},
+        resetVideo() {},
+        input() {},
+        capture: async () => {
+          w.__captures++;
+          const r = await fetch("/api/views", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ platform: "web", title: "Phone screen", device: { name: "Pixel", width: 390, height: 844, scale: 2 }, png, tree: { type: "screen", bounds: { x: 0, y: 0, w: 780, h: 1688 }, children: [] } }),
+          });
+          return { kind: "saved", result: await r.json() };
+        },
+        keep: async () => ({}),
+        discard() {},
+        cancel() {},
+        onState: () => () => {},
+        onFrame: () => () => {},
+        onProgress: () => () => {},
+      },
+    };
+  }, png);
+  await page.reload();
+  await page.getByRole("tab", { name: "App", exact: true }).click();
+  const screen = page.locator(".device-screen");
+  await expect(screen).toBeVisible();
+
+  await page.getByRole("button", { name: "Comment", exact: true }).click();
+  await expect(page.locator(".mark-pad")).toBeVisible();
+  const box = (await screen.boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.25);
+  await page.locator(".mark-note input").fill("bigger title");
+  await page.keyboard.press("Enter");
+  const anns = () => page.evaluate(() => (window as unknown as { __scribui: { getState(): { annotations: { screenId: string; kind: string; text?: string; geometry: { x: number; y: number } }[] } } }).__scribui.getState().annotations);
+  await expect.poll(async () => (await anns()).find((a) => a.text === "bigger title")?.geometry.y ?? 0).toBeGreaterThan(0);
+  const first = (await anns()).find((a) => a.text === "bigger title")!;
+  expect(Math.abs(first.geometry.x - 390)).toBeLessThan(8);
+  expect(Math.abs(first.geometry.y - 422)).toBeLessThan(8);
+
+  // a second mark on the held screen joins it: no second capture
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.75);
+  await page.keyboard.press("Enter");
+  await expect.poll(async () => (await anns()).filter((a) => a.screenId === first.screenId).length).toBe(2);
+  expect(await page.evaluate(() => (window as unknown as { __captures: number }).__captures)).toBe(1);
+
+  // Escape stops marking; the screen is live again
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".mark-pad")).toHaveCount(0);
 });

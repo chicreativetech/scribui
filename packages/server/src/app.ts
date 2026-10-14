@@ -78,6 +78,11 @@ export type ViewSaveRequest = {
   unsettled?: boolean;
   /** Mobile: the screen never stopped changing, so it has no elements (only the screen). */
   noElements?: boolean;
+  /** Web, marked up in the app tab: the screenshot is the whole page; `viewportHeight` is the window's height then. */
+  fullPage?: boolean;
+  viewportHeight?: number;
+  /** Web, marked up in the app tab: the page's fingerprint (see ScreenEntry.pageSignature). */
+  signature?: string;
 };
 export type ViewSaveResult = { round: number; screenId: string; title: string };
 export type ViewSaver = (req: ViewSaveRequest) => Promise<ViewSaveResult>;
@@ -300,6 +305,9 @@ export function createApp(opts: ServerOptions) {
         tree: z.any(),
         unsettled: z.boolean().optional(),
         noElements: z.boolean().optional(),
+        fullPage: z.boolean().optional(),
+        viewportHeight: z.number().positive().optional(),
+        signature: z.string().max(200).optional(),
         trigger: z.string().optional(),
       })
       .parse(await c.req.json());

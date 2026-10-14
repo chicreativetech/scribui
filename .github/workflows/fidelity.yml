@@ -60,6 +60,18 @@ jobs:
             fi
           }
           suite || { echo "::notice::the web suite failed; running it once more"; suite; }
+      - name: Marking up the app tab (scale ${{ matrix.scale }})
+        working-directory: packages/desktop
+        env:
+          SCRIBUI_FIDELITY: marking
+        shell: bash
+        run: |
+          args=(--force-color-profile=srgb --force-device-scale-factor=${{ matrix.scale }})
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run -a -s "-screen 0 1920x1200x24" npx electron . "${args[@]}" --no-sandbox
+          else
+            npx electron . "${args[@]}"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

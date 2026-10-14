@@ -2,7 +2,8 @@ import type { WebContents, WebFrameMain } from "electron";
 import { LIVE_ISOLATE, LIVE_RESTORE, readLiveFrame } from "@scribui/capture";
 import type { ViewSaveRequest, ViewSaveResult } from "@scribui/server";
 
-export type LiveCaptureRequest = { title?: string; replace?: string };
+/** `fullPage` and `signature`: a mark made in the app tab, whose screen is the whole page (see markLayer.ts). */
+export type LiveCaptureRequest = { title?: string; replace?: string; fullPage?: boolean; signature?: string };
 /** Saves a view through the project's owner: this app's own server, or another process's over HTTP. */
 export type SaveView = (req: ViewSaveRequest) => Promise<ViewSaveResult>;
 
@@ -78,6 +79,32 @@ export async function screenshotPage(wc: WebContents): Promise<Uint8Array> {
   }
 }
 
+/** The tallest page captured whole, in CSS pixels; longer pages are cut off there. */
+const MAX_PAGE_HEIGHT = 12_000;
+
+/** Screenshot of the whole page, beyond the window, as it is painted (marks made in the app tab). */
+export async function screenshotFullPage(wc: WebContents): Promise<Uint8Array> {
+  await wc.mainFrame.executeJavaScript(FREEZE);
+  try {
+    const m = await cdp<{ cssContentSize: { width: number; height: number } }>(wc, "Page.getLayoutMetrics");
+    const width = Math.ceil(m.cssContentSize.width);
+    const height = Math.min(MAX_PAGE_HEIGHT, Math.ceil(m.cssContentSize.height));
+    const shot = await cdp<{ data: string }>(wc, "Page.captureScreenshot", {
+      format: "png",
+      clip: { x: 0, y: 0, width, height, scale: 1 },
+      captureBeyondViewport: true,
+      fromSurface: true,
+    });
+    return Buffer.from(shot.data, "base64");
+  } finally {
+    await wc.mainFrame.executeJavaScript(UNFREEZE).catch(() => {});
+  }
+}
+
+/** The marks drawn on the page (markLayer.ts) stay out of every screenshot. */
+const HIDE_MARKS = `document.querySelectorAll("scribui-marks").forEach((m) => m.style.setProperty("display", "none", "important"))`;
+const SHOW_MARKS = `document.querySelectorAll("scribui-marks").forEach((m) => m.style.removeProperty("display"))`;
+
 /** Two painted frames: what a layout or zoom change needs before a screenshot. */
 export const nextPaint = (wc: WebContents) =>
   wc.mainFrame.executeJavaScript("new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))") as Promise<boolean>;
@@ -93,17 +120,22 @@ export async function captureFromView(wc: WebContents, req: LiveCaptureRequest, 
   if (!/^https?:/.test(url)) throw new Error("the app hasn't loaded yet");
   const pageTitle = wc.getTitle().trim();
   let shot: Awaited<ReturnType<typeof readLiveFrame>>;
+  let viewportHeight = 0;
   await full?.enter();
   try {
     // no scrollbars in the capture, as Playwright's headless Chromium: where they take room
     // (Windows, Linux, macOS without a trackpad) the page would be laid out 15 px narrower
     await cdp(wc, "Emulation.setScrollbarsHidden", { hidden: true });
+    await wc.mainFrame.executeJavaScript(HIDE_MARKS).catch(() => {});
     await nextPaint(wc);
+    viewportHeight = Number(await wc.mainFrame.executeJavaScript("window.innerHeight")) || 0;
     shot = await readLiveFrame({
       frame: { evaluate: <T>(fn: string) => wc.mainFrame.executeJavaScript(fn) as Promise<T> },
-      element: { screenshot: () => screenshotPage(wc) },
+      element: { screenshot: () => (req.fullPage ? screenshotFullPage(wc) : screenshotPage(wc)) },
+      ...(req.fullPage ? { fullPage: true } : {}),
     });
   } finally {
+    await wc.mainFrame.executeJavaScript(SHOW_MARKS).catch(() => {});
     await cdp(wc, "Emulation.setScrollbarsHidden", { hidden: false }).catch(() => {});
     full?.leave();
   }
@@ -112,6 +144,8 @@ export async function captureFromView(wc: WebContents, req: LiveCaptureRequest, 
     url,
     title: req.title?.trim() || (pageTitle && pageTitle !== url ? pageTitle : "") || new URL(url).pathname,
     ...(req.replace ? { replace: req.replace } : {}),
+    ...(req.fullPage ? { fullPage: true, viewportHeight } : {}),
+    ...(req.signature ? { signature: req.signature } : {}),
     device: shot.device,
     png: shot.png,
     raw: shot.raw,

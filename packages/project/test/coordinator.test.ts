@@ -159,6 +159,15 @@ describe("views captured by hand", () => {
     expect((await store.readCapture(n, "cart-logged-in"))?.root.children[0]?.id).toBe("pay");
   });
 
+  it("web, marked up in the app tab: a whole-page screen with the page's signature, recaptured whole", async () => {
+    const { store, n } = await project();
+    const page = { name: "Chrome 390×844", width: 390, height: 1688, scale: 2 };
+    const r = await saveCapturedView(store, { platform: "web", url: "http://127.0.0.1:5178/cart", device: page, png, raw, fullPage: true, viewportHeight: 844, signature: "390x1688:40:300" });
+    const s = (await store.readManifest()).screens.find((x) => x.id === r.screenId);
+    expect(s).toMatchObject({ url: "/cart", live: true, pageSignature: "390x1688:40:300", viewport: { width: 390, height: 844, fullPage: true } });
+    expect((await store.readStatus(n)).screens?.find((x) => x.screenId === r.screenId)?.reason).toBe("marked up in the app tab");
+  });
+
   it("android: the first capture into a new project starts round 1, then a second adds to it", async () => {
     const dir = mkdtempSync(join(tmpdir(), "scribui-handfirst-"));
     const store = new ReviewStore(dir);

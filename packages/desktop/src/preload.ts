@@ -8,7 +8,7 @@ import { contextBridge, ipcRenderer } from "electron";
  * emulator or phone (mobile projects). The main process checks that every
  * call comes from the canvas's own top frame, and checks every input again.
  */
-type Req = { title?: string; replace?: string };
+type Req = { title?: string; replace?: string; fullPage?: boolean; signature?: string };
 type Box = { x: number; y: number; width: number; height: number };
 
 const config = ipcRenderer.sendSync("scribui:config") as { surface: "view" | "iframe" | null; device: "android" | "ios" | null };
@@ -21,13 +21,18 @@ const listen = (channel: string, cb: (v: unknown) => void) => {
 };
 
 contextBridge.exposeInMainWorld("__scribuiCapture", (req?: Req) =>
-  ipcRenderer.invoke("scribui:capture", { title: typeof req?.title === "string" ? req.title : undefined, replace: typeof req?.replace === "string" ? req.replace : undefined }),
+  ipcRenderer.invoke("scribui:capture", {
+    title: typeof req?.title === "string" ? req.title : undefined,
+    replace: typeof req?.replace === "string" ? req.replace : undefined,
+    fullPage: req?.fullPage === true,
+    signature: typeof req?.signature === "string" ? req.signature : undefined,
+  }),
 );
 
 const box = (b: Box | null) => (b ? { x: +b.x, y: +b.y, width: +b.width, height: +b.height } : null);
 
 contextBridge.exposeInMainWorld("scribuiDesktop", {
-  version: 5,
+  version: 6,
   platform: process.platform,
   ...(config.surface === "view"
     ? {
@@ -41,6 +46,11 @@ contextBridge.exposeInMainWorld("scribuiDesktop", {
           forward: () => ipcRenderer.invoke("scribui:live-go", "forward"),
           devtools: () => ipcRenderer.invoke("scribui:live-go", "devtools"),
           onState: (cb: (s: unknown) => void) => listen("scribui:live-state", cb),
+          /** Marking up the page: the tool (null: browse), the notes to draw on it, and what its mark layer sends (finished marks). */
+          markMode: (tool: string | null, style?: { color: string; width: number }) =>
+            ipcRenderer.send("scribui:live-mark-mode", JSON.parse(JSON.stringify({ tool: tool ?? null, ...(style ? { style } : {}) }))),
+          setMarks: (list: unknown) => ipcRenderer.send("scribui:live-marks", JSON.parse(JSON.stringify(list ?? null))),
+          onMark: (cb: (ev: unknown) => void) => listen("scribui:live-mark", cb),
         },
       }
     : {}),

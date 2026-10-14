@@ -106,6 +106,9 @@
               "landscape"
             ]
           },
+          "pageSignature": {
+            "type": "string"
+          },
           "sources": {
             "type": "array",
             "items": {

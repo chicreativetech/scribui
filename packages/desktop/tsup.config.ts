@@ -14,6 +14,7 @@ export default defineConfig([
       preload: "src/preload.ts",
       launcherPreload: "src/launcherPreload.ts",
       spikeAndroidPreload: "src/spikeAndroidPreload.ts",
+      markLayer: "src/markLayer.ts",
     },
     format: ["cjs"],
     outExtension: () => ({ js: ".cjs" }),

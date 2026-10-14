@@ -66,6 +66,9 @@ function loadStyles(): Record<StyledTool, SketchStyle> {
   }
 }
 
+/** The tools for marking up the App and Device tabs (Marking.tsx). */
+export type MarkTool = "comment" | "circle" | "arrow" | "rectangle" | "remove" | "draw";
+
 export type HoverInfo = { screenId: string; stack: UIElement[]; level: number; px: [number, number] } | null;
 
 /**
@@ -133,6 +136,8 @@ type State = {
   toolStyles: Record<StyledTool, SketchStyle>;
   /** Once opened, the app tab stays mounted so switching views keeps the app's state. */
   liveVisited: boolean;
+  /** Marking up the App or Device tab directly: the tool, or null to use the app. */
+  markTool: MarkTool | null;
   /** The tile whose remove button is asking for confirmation. */
   removeAsk: string | null;
   /**
@@ -246,6 +251,7 @@ export const useStore = create<Store>((set, get) => ({
   view: "board",
   toolStyles: loadStyles(),
   liveVisited: false,
+  markTool: null,
   removeAsk: null,
   drawing: null,
   sketchHistory: { past: [], future: [] },

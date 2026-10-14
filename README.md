@@ -79,7 +79,7 @@ ScribUI looks at the project to decide what it is. A folder without Android or i
    - if nothing answers at the chosen address, waits until your app is up (press Enter to go on anyway).
 
    There's no list of screens to write first: you pick the views yourself.
-3. **A Chrome window opens on the canvas,** showing the **app** tab: your running app, embedded. Use it the way you normally would: log in, click through, open a menu, fill in a form. Switch between the **board** and the **app** with the toggle in the top bar or `L`. The app keeps its state when you switch.
+3. **A Chrome window opens on the canvas,** showing the **app** tab: your running app, embedded. Use it the way you normally would: log in, click through, open a menu, fill in a form. Switch between **Review** and the **app** with the toggle in the top bar or `L`. The app keeps its state when you switch.
 4. **Press Capture view** when you see something you want to comment on. ScribUI screenshots the app exactly as it is, reads its elements, and adds the view to the open round (and to `.scribui/screens.json`, marked `"live": true`). Name it first if you like, or pick **replace "…"** to update a view you captured earlier. The size picker renders the app at desktop, laptop, tablet or phone width, so views line up on the board.
 5. **Annotate** (see below) and press **Send to agent**. Paste the prompt it shows into your agent:
 
@@ -130,6 +130,9 @@ The desktop app does everything the terminal and the browser canvas do, in one w
 - **Setting up a project:** **Open app folder…** on a folder that isn't a ScribUI project yet walks you through what `scribui` asks in the terminal: the platform (the detected one is marked), where the web app runs (running dev servers are listed with their page titles) or the mobile app's id and build command, the tools that platform needs, and for mobile, the line to paste into your agent while ScribUI waits for it to list the screens.
 - **Installing tools:** the projects window lists the capture tools on your computer and installs the missing ones with **Install**: adb (downloaded from Google), AXe and Android Studio (with Homebrew, or winget on Windows), Playwright, and Xcode's selection when only the Command Line Tools are active. The output shows as it runs.
 - **Web:** the **App** tab is your running app as a normal page, so logins, cookies and pages that refuse to be embedded all work. Size it to desktop, laptop, tablet or phone and press **Capture view**.
+- **Mark up the app directly:** pick a tool in the bar above the app (comment, circle, arrow, box, remove, draw) and mark what you see; **Use the app** (`V`) or `Esc` goes back to clicking and typing in it. Each mark becomes a note in **Review**, where you can change it, and **Send** sends them all.
+  - **Web:** the page keeps scrolling while a tool is on and only holds still while you draw a mark or type its note, so you can work down a whole page. The first mark on a page captures the whole page as a screen; more marks on the same page join it as long as the page hasn't changed (a changed page gets a new screen). Your marks stay on the page, on the elements you made them on, as you scroll, and come back when you return to the page; a mark whose element is gone is listed as "not found" instead.
+  - **Android and iOS:** picking a tool holds the picture still. The first mark captures the screen, more marks join it, and `Esc` lets the device run again. The marks are then in Review.
 - **Android and iOS:** mobile projects get a **Device** tab with the emulator, phone or simulator live in it, and it's the only way their screens are captured. Use it with the mouse and keyboard (scrolling, typing, Back/Home, rotate) and press **Capture view**: ScribUI freezes the picture, reads the elements and checks the screen held still. iOS needs a Mac with Xcode, plus AXe.
 - **With the CLI:** when the app is installed, `scribui` and `scribui open` open the project in it; `--no-desktop` keeps the browser for web projects. Android and iOS projects always open in the app (without it, `scribui` says where to download it). Only one process captures a project at a time, so the CLI and MCP hand web captures to the app while it has the project open.
 - **Updates:** the app checks [Releases](https://github.com/chicreativetech/scribui/releases) when it starts and every few hours. On Windows and with the Linux AppImage it downloads updates and installs them when you quit (or **Help → Restart to Update**). Until macOS builds are signed, and for the `.deb`, it tells you a new version is out and links to it. **Help → Check for Updates…** checks now; what changed is in [CHANGELOG.md](CHANGELOG.md).
@@ -239,7 +242,7 @@ A developer tool with a terminal soul: a keyboard-first, monospace interface wit
 
 | Key | Tool | Gesture |
 | --- | --- | --- |
-| `L` | board / app | web: switch between the review board and your running app |
+| `L` | Review / app | switch between Review and your running app |
 | `V` | select | click an element or annotation, drag to pan or move |
 | `C` | comment | click to pin, then type |
 | `O` | circle | drag a loop around something |
