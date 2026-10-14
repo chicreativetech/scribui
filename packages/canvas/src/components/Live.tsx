@@ -3,7 +3,8 @@ import { useStore } from "../store";
 import { focusTile } from "./Board";
 import { Spinner } from "./Capture";
 import { deviceApi, DeviceTab, ICON, Tip } from "./Device";
-import { addWebMark, layerMarks, MarkBar } from "./Marking";
+import { addWebMark, layerMarks, liveTool, surfaceStyles } from "./Marking";
+import { ToolSettings } from "./ToolSettings";
 
 /**
  * The app tab: the running web app, for capturing views by hand.
@@ -37,7 +38,7 @@ type DesktopLive = {
   devtools(): Promise<void>;
   onState(cb: (s: LiveState) => void): () => void;
   /** Desktop 6+: marking up the page (Marking.tsx). */
-  markMode?(tool: string | null, style?: { color: string; width: number }): void;
+  markMode?(tool: string | null, styles?: unknown): void;
   setMarks?(list: { url: string; marks: unknown[]; confirmed: string[] }): void;
   onMark?(cb: (ev: MarkEvent) => void): () => void;
 };
@@ -155,8 +156,8 @@ function WebLive() {
 
   /* ───────── marking up the page ───────── */
 
-  const markTool = useStore((s) => s.markTool);
-  const drawColor = useStore((s) => s.toolStyles.freehand.color);
+  const markTool = useStore((s) => liveTool(s.tool));
+  const toolStyles = useStore((s) => s.toolStyles);
   const canMark = !!native?.markMode && !!state?.url && !state.error;
   const pageUrl = state?.url ?? "";
   const confirmed = useRef<string[]>([]);
@@ -168,8 +169,8 @@ function WebLive() {
 
   // the tool goes to the page while this tab shows; elsewhere the app is just used
   useEffect(() => {
-    native?.markMode?.(shown && canMark ? markTool : null, markTool === "draw" ? { color: drawColor, width: 4 } : undefined);
-  }, [shown, canMark, markTool, drawColor]);
+    native?.markMode?.(shown && canMark ? markTool : null, surfaceStyles());
+  }, [shown, canMark, markTool, toolStyles]);
 
   // what the page's mark layer sends
   useEffect(
@@ -181,8 +182,10 @@ function WebLive() {
             pushMarks.current();
           });
         else if (ev.type === "ready") pushMarks.current();
-        else if (ev.type === "review") useStore.getState().set({ view: "board", markTool: null });
-        else if (ev.type === "exit") useStore.getState().set({ markTool: null });
+        else if (ev.type === "review") {
+          useStore.getState().setTool("select");
+          useStore.getState().set({ view: "board" });
+        } else if (ev.type === "exit") useStore.getState().setTool("select");
       }),
     [],
   );
@@ -326,7 +329,7 @@ function WebLive() {
           {busy ? <Spinner /> : "●"} Capture view
         </button>
       </div>
-      {native?.markMode && <MarkBar disabled={!canMark} />}
+      {native?.markMode && <ToolSettings inline />}
       {!canCapture && !native && (
         <div className="live-note">
           Capturing works in the Chrome window ScribUI opens for web projects. Press <kbd>o</kbd> in the terminal where ScribUI runs to

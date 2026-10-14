@@ -6,7 +6,7 @@ update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
 ## 0.2.1 (unreleased)
 
-- **Mark up the app directly** in the desktop app: pick a tool in the bar above the App or Device tab (comment, circle, arrow, box, remove, draw) and mark what you see, without capturing first. Each mark becomes a note in Review, where you can change it.
+- **Mark up the app directly** in the desktop app, with Review's own tool rail in the App and Device tabs: comment, arrow, box, remove and circle, and the sketch tools (draw, line, box, ellipse, text, fill), without capturing first. Each mark becomes a note in Review, where you can change it.
   - **Web:** the page keeps scrolling while you mark it and holds still only while you draw or type a note. The first mark captures the whole page; more marks on the unchanged page join that screen, and a changed page gets a new one. Marks stay on their elements as you scroll and come back when you return to the page.
   - **Android and iOS:** picking a tool holds the picture still; the first mark captures the screen and later marks join it.
 - **The board is now called Review.**

@@ -20,7 +20,8 @@ import { nextPaint } from "../webCapture.js";
  */
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const MARK_RGB = [255, 90, 54] as const;
+// Review's orange (core ACCENT): the marks are drawn with its renderer
+const MARK_RGB = [255, 79, 0] as const;
 
 const PAGE = (body: string) => `<!doctype html><html><head><meta charset="utf-8"><title>Marking probe</title><style>
   body { margin: 0; font: 16px sans-serif; background: #fff; }
@@ -148,7 +149,7 @@ export async function runMarkingFidelity() {
     const manifest = async () => JSON.parse(readFileSync(mPath, "utf8")) as ScreenManifest;
 
     // 1. a comment on #target
-    await canvas(p, `window.__scribui.getState().set({ markTool: "comment" })`);
+    await canvas(p, `window.__scribui.getState().setTool("comment")`);
     await sleep(300);
     const t = await centerOf(wc, "#target");
     await click(wc, t.x, t.y);
@@ -182,7 +183,7 @@ export async function runMarkingFidelity() {
     check("the second mark is drawn where it was made", await markNear(wc, f.x, f.y));
 
     // a circle dragged around the header
-    await canvas(p, `window.__scribui.getState().set({ markTool: "circle" })`);
+    await canvas(p, `window.__scribui.getState().setTool("circle")`);
     await sleep(300);
     const loop = Array.from({ length: 24 }, (_, i) => [600 + 80 * Math.cos((i / 23) * 2 * Math.PI), 30 + 22 * Math.sin((i / 23) * 2 * Math.PI)] as const);
     wc.sendInputEvent({ type: "mouseMove", x: loop[0]![0], y: loop[0]![1] });
@@ -197,7 +198,7 @@ export async function runMarkingFidelity() {
     await key(wc, "Return");
     const circ = await waitFor("the circle", async () => (await annotations()).find((a) => a.kind === "circle"));
     check("a dragged circle becomes a note with its loop", circ.geometry.type === "path" && circ.geometry.points.length > 10 && circ.text === "lighter header", circ.geometry.type);
-    await canvas(p, `window.__scribui.getState().set({ markTool: "comment" })`);
+    await canvas(p, `window.__scribui.getState().setTool("comment")`);
     await sleep(200);
 
     // 3. back to the top: the first mark is drawn on #target again
@@ -207,7 +208,7 @@ export async function runMarkingFidelity() {
     check("after scrolling back, the first mark is on its element", await markNear(wc, t2.x, t2.y));
 
     // 4. another page and back: the marks come back
-    await canvas(p, `window.__scribui.getState().set({ markTool: null })`);
+    await canvas(p, `window.__scribui.getState().setTool("select")`);
     await sleep(200);
     p.live.navigate(`${url}other`);
     await waitFor("the other page", async () => (!wc.isLoading() && wc.getURL().includes("/other") ? true : null));
@@ -223,7 +224,7 @@ export async function runMarkingFidelity() {
     // 5. the page changes: a mark on it gets a screen of its own
     await page(wc, `document.body.insertAdjacentHTML("afterbegin", '<p style="height: 200px">New content</p>')`);
     await sleep(200);
-    await canvas(p, `window.__scribui.getState().set({ markTool: "remove" })`);
+    await canvas(p, `window.__scribui.getState().setTool("remove")`);
     await sleep(300);
     const t4 = await centerOf(wc, "#target");
     await click(wc, t4.x, t4.y);
@@ -239,10 +240,33 @@ export async function runMarkingFidelity() {
     for (let i = 0; i < bmp.length; i += 16) if (Math.abs(bmp[i + 2]! - MARK_RGB[0]) < 30 && Math.abs(bmp[i + 1]! - MARK_RGB[1]) < 30 && Math.abs(bmp[i]! - MARK_RGB[2]) < 30) marked++;
     check("marks on the page stay out of the screenshot", marked === 0, { marked, width: W });
 
-    // 6. Escape in the page stops marking
+    // 6. a sketch: a box and a line with the sketch tools, Ready, a note; one sketch note with both parts
+    await canvas(p, `window.__scribui.getState().setTool("box")`);
+    await sleep(300);
+    const drag = async (x0: number, y0: number, x1: number, y1: number) => {
+      wc.sendInputEvent({ type: "mouseMove", x: x0, y: y0 });
+      wc.sendInputEvent({ type: "mouseDown", x: x0, y: y0, button: "left", clickCount: 1 });
+      for (let i = 1; i <= 6; i++) {
+        wc.sendInputEvent({ type: "mouseMove", x: Math.round(x0 + ((x1 - x0) * i) / 6), y: Math.round(y0 + ((y1 - y0) * i) / 6), button: "left" } as Electron.MouseInputEvent);
+        await sleep(10);
+      }
+      wc.sendInputEvent({ type: "mouseUp", x: x1, y: y1, button: "left", clickCount: 1 });
+      await sleep(150);
+    };
+    await drag(700, 500, 900, 620);
+    await canvas(p, `window.__scribui.getState().setTool("line")`);
+    await sleep(300);
+    await drag(700, 660, 900, 660);
+    await key(wc, "Return");
+    await type(wc, "a new card here");
+    await key(wc, "Return");
+    const sketch = await waitFor("the sketch", async () => (await annotations()).find((a) => a.kind === "sketch" && a.text === "a new card here"));
+    check("sketch tools make one sketch note with all its parts", sketch.sketch?.parts?.map((x) => x.type).join() === "box,line", sketch.sketch?.parts?.map((x) => x.type));
+
+    // 7. Escape in the page stops marking
     await key(wc, "Escape");
     await sleep(300);
-    check("Escape stops marking", (await canvas<string | null>(p, "window.__scribui.getState().markTool")) === null);
+    check("Escape stops marking", (await canvas<string>(p, "window.__scribui.getState().tool")) === "select");
   } catch (e) {
     check("the suite ran", false, (e as Error).message);
   }

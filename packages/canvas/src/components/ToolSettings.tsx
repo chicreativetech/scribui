@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { Annotation, SketchPart, SketchStyle, VisionItem } from "@scribui/core";
-import { isSketchTool, tileOf, TOOLS, useStore, VISION_HINTS, type StyledTool } from "../store";
+import { isSketchTool, tileOf, TOOLS, useStore, VISION_HINTS, type StyledTool, type Tool } from "../store";
 import { measureText, useVision } from "../vision";
 
 /**
@@ -12,12 +12,17 @@ const SWATCHES = ["#262626", "#8A8A8A", "#FFFFFF", "#FC9803", "#F2D100", "#E5484
 
 type Shape = "freehand" | "line" | "box" | "ellipse" | "text" | "image" | "fill";
 
-export function ToolSettings() {
+/**
+ * The active tool's settings: a box beside the rail, or with `inline`, the strip
+ * above the app in the App and Device tabs (the app's own view would cover a box).
+ */
+export function ToolSettings({ inline }: { inline?: boolean } = {}) {
   const view = useStore((s) => s.view);
   const tool = useStore((s) => s.tool);
   const styles = useStore((s) => s.toolStyles);
   const selectedAnn = useStore((s) => (s.selectedId ? s.annotations.find((a) => a.id === s.selectedId) : undefined));
   const item = useVision((s) => (s.selectedId ? s.doc.items.find((i) => i.id === s.selectedId) : undefined));
+  if (inline) return <ToolStrip tool={tool} styles={styles} />;
   if (view === "live") return null;
   const vision = view === "vision";
 
@@ -43,6 +48,31 @@ export function ToolSettings() {
         />
       )}
     </Box>
+  );
+}
+
+/** The settings strip above the app: what the tool does there, and the sketch tools' looks. */
+function ToolStrip({ tool, styles }: { tool: Tool; styles: Record<StyledTool, SketchStyle> }) {
+  const info = TOOLS.find((t) => t.tool === tool);
+  const styled = isSketchTool(tool) || tool === "freehand";
+  return (
+    <div className="tool-strip" role="region" aria-label="tool settings" onPointerDown={(e) => e.stopPropagation()}>
+      {tool === "select" ? (
+        <span className="ts-hint">Use your app as usual. Pick a tool on the left to mark it up: your notes go to Review.</span>
+      ) : (
+        <>
+          <b>{info?.label ?? tool}</b>
+          {info?.key && <kbd>{info.key}</kbd>}
+          <span className="ts-hint">
+            {styled ? "all one sketch until Ready (⏎), then a note" : info?.hint}
+            {" · Esc to stop"}
+          </span>
+          {styled && (
+            <StyleControls shape={tool as StyledTool} style={styles[tool as StyledTool]} onChange={(patch) => useStore.getState().setToolStyle(tool as StyledTool, patch)} />
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

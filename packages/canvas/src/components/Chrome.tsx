@@ -3,6 +3,7 @@ import { TOOLS, VISION_HINTS, isReadOnly, noteCount, unresolvedCount, useStore, 
 import { useVision } from "../vision";
 import { Spinner } from "./Capture";
 import { hasLiveTab, showLive } from "./Live";
+import { LIVE_UNSUPPORTED } from "./Marking";
 import selectIcon from "../assets/icons/select.png";
 import commentIcon from "../assets/icons/comment.png";
 import circleIcon from "../assets/icons/circle.png";
@@ -42,15 +43,6 @@ export function TopBar() {
   return (
     <header className="bar">
       <div className="pills">
-        {view === "live" && (
-          <div className="float pill-box brand-pill" aria-label="ScribUI">
-            <span className="logo">
-              <span className="logo-back" />
-              <span className="logo-front" />
-              <span className="logo-name">ScribUI</span>
-            </span>
-          </div>
-        )}
         <div className="float pill-box" title={appName}>
           <span className="app-name">{appName}</span>
           {mobile && (
@@ -215,8 +207,12 @@ export const VISION_TOOLS: Tool[] = ["select", ...SKETCH];
 function ToolButton({ tool, ro }: { tool: Tool; ro: boolean }) {
   const active = useStore((s) => s.tool === tool);
   const vision = useStore((s) => s.view === "vision");
+  const live = useStore((s) => s.view === "live");
   const t = TOOLS.find((x) => x.tool === tool)!;
-  const hint = (vision && VISION_HINTS[tool]) || t.hint;
+  // in the App and Device tabs the tools mark up the app itself; select is using the app
+  const off = live && LIVE_UNSUPPORTED.has(tool);
+  const hint = off ? "rules point at elements across screens: make them in Review" : live && tool === "select" ? "use your app: click, type and scroll" : (vision && VISION_HINTS[tool]) || t.hint;
+  ro = live ? off : ro;
   return (
     <button
       className={`item tool ${active ? "active" : ""}`}
@@ -294,7 +290,8 @@ export function ToolRail() {
   const inspectorOpen = useStore((s) => s.inspectorOpen);
   const lan = useStore((s) => s.lan);
   const set = useStore((s) => s.set);
-  const vision = useStore((s) => s.view === "vision");
+  const view = useStore((s) => s.view);
+  const vision = view === "vision";
   const undo = () => (vision ? useVision.getState().undo() : useStore.getState().undo());
   const redo = () => (vision ? useVision.getState().redo() : useStore.getState().redo());
 
@@ -371,7 +368,7 @@ export function ToolRail() {
           onClick={() => set({ inspectorOpen: !inspectorOpen })}
           title="inspector (tab)"
         />
-        {!vision && (
+        {view === "board" && (
           <Toggle
             on={showOutlines}
             icon={<img className="icon" src={elementsIcon} width={7} height={10} alt="" />}

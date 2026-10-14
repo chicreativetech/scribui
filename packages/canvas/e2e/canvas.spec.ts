@@ -629,11 +629,11 @@ test("device tab: picking a tool holds the screen, the first mark captures it, l
   const screen = page.locator(".device-screen");
   await expect(screen).toBeVisible();
 
-  await page.getByRole("button", { name: "Comment", exact: true }).click();
+  await page.getByRole("button", { name: "comment (C)" }).click();
   await expect(page.locator(".mark-pad")).toBeVisible();
   const box = (await screen.boundingBox())!;
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.25);
-  await page.locator(".mark-note input").fill("bigger title");
+  await page.locator(".ms-note input").fill("bigger title");
   await page.keyboard.press("Enter");
   const anns = () => page.evaluate(() => (window as unknown as { __scribui: { getState(): { annotations: { screenId: string; kind: string; text?: string; geometry: { x: number; y: number } }[] } } }).__scribui.getState().annotations);
   await expect.poll(async () => (await anns()).find((a) => a.text === "bigger title")?.geometry.y ?? 0).toBeGreaterThan(0);
@@ -642,10 +642,28 @@ test("device tab: picking a tool holds the screen, the first mark captures it, l
   expect(Math.abs(first.geometry.y - 422)).toBeLessThan(8);
 
   // a second mark on the held screen joins it: no second capture
-  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await page.getByRole("button", { name: "remove (X)" }).click();
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.75);
   await page.keyboard.press("Enter");
   await expect.poll(async () => (await anns()).filter((a) => a.screenId === first.screenId).length).toBe(2);
+  expect(await page.evaluate(() => (window as unknown as { __captures: number }).__captures)).toBe(1);
+
+  // the sketch tools on the held screen: a stroke and an ellipse, Ready, then the note
+  await page.getByRole("button", { name: "draw (P)" }).click();
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.55, { steps: 6 });
+  await page.mouse.up();
+  await page.getByRole("button", { name: "ellipse (Q)" }).click();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.6, { steps: 6 });
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Ready ⏎" }).click();
+  await page.locator(".ms-note input").fill("a new section");
+  await page.keyboard.press("Enter");
+  const sketched = () => page.evaluate(() => (window as unknown as { __scribui: { getState(): { annotations: { kind: string; text?: string; sketch?: { parts?: { type: string }[] } }[] } } }).__scribui.getState().annotations.find((a) => a.kind === "sketch")?.sketch?.parts?.map((p) => p.type).join());
+  await expect.poll(sketched).toBe("stroke,ellipse");
   expect(await page.evaluate(() => (window as unknown as { __captures: number }).__captures)).toBe(1);
 
   // Escape stops marking; the screen is live again
