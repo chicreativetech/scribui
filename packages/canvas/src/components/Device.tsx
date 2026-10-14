@@ -289,6 +289,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
 
   const markTool = useStore((s) => liveTool(s.tool));
   const marking = !!markTool && shown && state.status === "live";
+  // marks: made, not on the captured screen yet
   const [session, setSession] = useState<{ screenId: string | null; marks: SurfaceMark[] } | null>(null);
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -333,8 +334,11 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
           }
         }
         addDeviceMark(m, screenId, shownSize);
+        // on the screen now: shown (and opened) as its note
+        setSession((s) => (s ? { ...s, marks: s.marks.filter((x) => x !== m) } : s));
       })
       .catch((e: Error) => {
+        setSession((s) => (s ? { ...s, marks: s.marks.filter((x) => x !== m) } : s));
         const msg = e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
         if (!/cancelled/.test(msg)) useStore.getState().toast({ text: msg, tone: "err" });
       });
@@ -704,7 +708,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
                   send({ type: "scroll", ...point(e), dx: -e.deltaX * k, dy: -e.deltaY * k });
                 }}
               />
-              {session && markTool && <MarkPad tool={markTool} marks={session.marks} onMark={onMark} />}
+              {session && markTool && <MarkPad tool={markTool} screenId={session.screenId} pending={session.marks} onMark={onMark} />}
               {!painted && <div className="device-wait">waiting for the picture…</div>}
               {state.status === "reconnecting" && (
                 <div className="device-wait">

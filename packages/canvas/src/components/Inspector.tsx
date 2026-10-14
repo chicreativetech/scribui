@@ -3,6 +3,7 @@ import type { Annotation, UIElement } from "@scribui/core";
 import { api } from "../api";
 import { compileCurrent, describeElement, elementOf, useMarkers, useStore } from "../store";
 import { focusTile, panToAnnotation } from "./Board";
+import { OPEN_NOTE } from "./Marking";
 
 export function Inspector() {
   const open = useStore((s) => s.inspectorOpen);
@@ -105,10 +106,13 @@ function NotesPane() {
                   key={a.id}
                   className={`note ${selectedId === a.id ? "sel" : ""}`}
                   onClick={() => {
-                    useStore.getState().select(a.id);
-                    panToAnnotation(a);
+                    const st = useStore.getState();
+                    st.select(a.id);
+                    // App and Device tabs: the note opens where it's shown
+                    if (st.view === "live") window.dispatchEvent(new CustomEvent(OPEN_NOTE, { detail: a.id }));
+                    else panToAnnotation(a);
                   }}
-                  onDoubleClick={() => useStore.getState().set({ editor: { annotationId: a.id, isNew: false } })}
+                  onDoubleClick={() => useStore.getState().view !== "live" && useStore.getState().set({ editor: { annotationId: a.id, isNew: false } })}
                 >
                   <div className={`num ${a.kind === "rule" ? "u" : unresolved ? "w" : ""}`}>{num}</div>
                   <div style={{ minWidth: 0 }}>

@@ -18,6 +18,8 @@ import { MarkSurface, type ShownMark, type Styles, type SurfaceMark, type Surfac
  * and makes it a note. The canvas sends back the notes on this page, drawn where
  * their element is now: they follow it as the page scrolls or shifts, and come
  * back when the page is opened again. Screenshots hide the element (webCapture.ts).
+ * A shown note opens when clicked (or picked in the canvas's notes list), to
+ * change its words or delete it: the canvas makes the change.
  */
 
 type Anchor = { selector: string; x: number; y: number };
@@ -36,6 +38,8 @@ let pending: (Draft & { label: string })[] = [];
 let host: HTMLElement | null = null;
 let surface: MarkSurface | null = null;
 let chip: HTMLButtonElement | null = null;
+/** The note the canvas last said is selected: only a change opens or closes one here. */
+let canvasSelected: string | null = null;
 
 /* ─────────────────────────── page coordinates ─────────────────────────── */
 
@@ -136,7 +140,7 @@ function show() {
       missing++;
       continue;
     }
-    list.push({ annotation: m.annotation, ...(m.label ? { label: m.label } : {}), offset: d });
+    list.push({ annotation: m.annotation, ...(m.label ? { label: m.label } : {}), offset: d, editable: true });
   }
   for (const p of pending) list.push({ annotation: { id: p.tempId, screenId: "", ...p.annotation }, label: p.label, faint: true });
   surface.setShown(list);
@@ -166,6 +170,17 @@ function mount() {
         origin: () => [-window.scrollX, -window.scrollY],
         onWheel: passWheel,
         onExit: () => ipcRenderer.send("scribui-mark:exit"),
+        onSelect: (id) => {
+          canvasSelected = id;
+          ipcRenderer.send("scribui-mark:select", id);
+        },
+        onEdit: (id, text) => ipcRenderer.send("scribui-mark:edit", { id, text }),
+        onDelete: (id) => ipcRenderer.send("scribui-mark:delete", id),
+        reveal: ([x, y]) => {
+          const top = y - window.scrollY, left = x - window.scrollX;
+          if (top < 40 || top > window.innerHeight - 160 || left < 0 || left > window.innerWidth - 40)
+            window.scrollTo({ left: Math.max(0, x - window.innerWidth / 3), top: Math.max(0, y - window.innerHeight / 3) });
+        },
         onMark: (m) => {
           const draft: Draft = { tempId: `t${Date.now().toString(36)}${seq++}`, annotation: m.annotation, signature: signature(), url: location.href };
           const anchor = anchorAt(m.ref);
@@ -195,7 +210,7 @@ ipcRenderer.on("scribui-mark:mode", (_e, m: { tool?: unknown; styles?: unknown }
   surface?.setTool(tool, styles);
 });
 
-ipcRenderer.on("scribui-mark:marks", (_e, m: { url?: unknown; marks?: unknown; confirmed?: unknown } | null) => {
+ipcRenderer.on("scribui-mark:marks", (_e, m: { url?: unknown; marks?: unknown; confirmed?: unknown; selected?: unknown } | null) => {
   // notes for another page (sent just before a navigation) are dropped
   if (typeof m?.url === "string" && m.url !== location.href.split("#")[0]) return;
   marks = Array.isArray(m?.marks) ? (m.marks as LayerMark[]) : [];
@@ -204,6 +219,11 @@ ipcRenderer.on("scribui-mark:marks", (_e, m: { url?: unknown; marks?: unknown; c
   anchors.clear();
   mount();
   show();
+  const sel = typeof m?.selected === "string" ? m.selected : null;
+  if (sel !== canvasSelected) {
+    canvasSelected = sel;
+    surface?.select(sel);
+  }
 });
 
 window.addEventListener(
