@@ -2,7 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useStore } from "../store";
 import { focusTile } from "./Board";
 import { Spinner } from "./Capture";
-import { addDeviceMark, MarkBar, MarkPad, type Mark } from "./Marking";
+import { addDeviceMark, liveTool, MarkPad } from "./Marking";
+import type { SurfaceMark } from "../markSurface";
+import { ToolSettings } from "./ToolSettings";
 
 /**
  * The device tab of a mobile project, in the desktop app: an emulator, phone
@@ -285,10 +287,9 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
 
   /* ───────── marking up the screen: the picture holds still, the first mark captures it ───────── */
 
-  const markTool = useStore((s) => s.markTool);
-  const drawColor = useStore((s) => s.toolStyles.freehand.color);
+  const markTool = useStore((s) => liveTool(s.tool));
   const marking = !!markTool && shown && state.status === "live";
-  const [session, setSession] = useState<{ screenId: string | null; marks: Mark[] } | null>(null);
+  const [session, setSession] = useState<{ screenId: string | null; marks: SurfaceMark[] } | null>(null);
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const markQueue = useRef<Promise<void>>(Promise.resolve());
@@ -305,7 +306,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
       }
     }
   }, [marking, api]);
-  const onMark = (m: Mark) => {
+  const onMark = (m: SurfaceMark, shownSize: { w: number; h: number }) => {
     setSession((s) => (s ? { ...s, marks: [...s.marks, m] } : s));
     markQueue.current = markQueue.current
       .then(async () => {
@@ -331,7 +332,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
             if (!sessionRef.current) frozen.current = false;
           }
         }
-        addDeviceMark(m, screenId);
+        addDeviceMark(m, screenId, shownSize);
       })
       .catch((e: Error) => {
         const msg = e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
@@ -673,7 +674,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
           {busy ? <Spinner /> : "●"} Capture view
         </button>
       </div>
-      <MarkBar disabled={state.status !== "live"} mobile />
+      <ToolSettings inline />
       {!canDecode && (
         <div className="live-note">
           The device view needs WebCodecs, which this page can't use (it isn't a secure context). Open the project from the ScribUI app.
@@ -703,7 +704,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
                   send({ type: "scroll", ...point(e), dx: -e.deltaX * k, dy: -e.deltaY * k });
                 }}
               />
-              {session && markTool && <MarkPad tool={markTool} marks={session.marks} onMark={onMark} drawColor={drawColor} />}
+              {session && markTool && <MarkPad tool={markTool} marks={session.marks} onMark={onMark} />}
               {!painted && <div className="device-wait">waiting for the picture…</div>}
               {state.status === "reconnecting" && (
                 <div className="device-wait">

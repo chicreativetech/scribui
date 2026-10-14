@@ -9,7 +9,7 @@ import { CapturePanel, LanDialog, NextStepBanner } from "./components/Capture";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
 import { Inspector } from "./components/Inspector";
 import { hasLiveTab, LiveView, showLive, toggleView } from "./components/Live";
-import { markKey } from "./components/Marking";
+import { liveKey } from "./components/Marking";
 import { ToolSettings } from "./components/ToolSettings";
 import { ImageImportDialog, VisionBoard, visionKey, zoomVision, fitVisionCamera } from "./components/Vision";
 import { useVision } from "./vision";
@@ -123,7 +123,7 @@ export function App() {
       if (!mod && !e.altKey && e.key.toLowerCase() === "l" && liveTab()) return toggleView();
       // the board's keys don't apply while the live app is shown; the mark tools' do
       if (st.view === "live") {
-        if (markKey(e)) e.preventDefault();
+        if (liveKey(e)) e.preventDefault();
         return;
       }
       if (st.view === "vision") {

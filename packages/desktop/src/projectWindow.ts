@@ -311,13 +311,20 @@ export function registerCanvasApi() {
   });
 
   /* marking up the app tab's page: the canvas sets the tool and the notes to draw, the page's mark layer (markLayer.ts) sends marks */
-  ipcMain.on("scribui:live-mark-mode", (e, m: { tool?: unknown; style?: { color?: unknown; width?: unknown } } | null) => {
+  ipcMain.on("scribui:live-mark-mode", (e, m: { tool?: unknown; styles?: unknown } | null) => {
     try {
-      const c = m?.style?.color, w = m?.style?.width;
-      senderProject(e).live.setMarkMode({
-        tool: str(m?.tool) ?? null,
-        ...(typeof c === "string" && c.length < 40 && typeof w === "number" && w > 0 && w < 100 ? { style: { color: c, width: w } } : {}),
-      });
+      // the sketch tools' looks: colours, widths and sizes only
+      const styles: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries((m?.styles ?? {}) as Record<string, Record<string, unknown>>).slice(0, 10)) {
+        if (!v || typeof v.color !== "string" || v.color.length > 40 || typeof v.width !== "number") continue;
+        styles[k] = {
+          color: v.color,
+          width: v.width,
+          ...(typeof v.fill === "string" && v.fill.length <= 40 ? { fill: v.fill } : {}),
+          ...(typeof v.size === "number" ? { size: v.size } : {}),
+        };
+      }
+      senderProject(e).live.setMarkMode({ tool: str(m?.tool) ?? null, ...(Object.keys(styles).length ? { styles } : {}) });
     } catch {
       /* not the canvas */
     }
