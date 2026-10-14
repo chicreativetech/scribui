@@ -15,7 +15,7 @@ import { captureFromView, nextPaint, type LiveCaptureRequest, type SaveView } fr
 
 /** Mark mode and the notes on the shown page, from the canvas, kept for the next page load. */
 export type MarkMode = { tool: string | null; styles?: Record<string, unknown> };
-export type MarkList = { url: string; marks: unknown[]; confirmed: string[] };
+export type MarkList = { url: string; marks: unknown[]; confirmed: string[]; selected?: string | null };
 
 export type LiveState = {
   url: string;
@@ -92,6 +92,8 @@ export class LiveView {
 
   /** The notes on the page the app shows, for the mark layer to draw. */
   setMarks(list: MarkList) {
+    // a note picked in the canvas opens on the page: the keys go there to type in it
+    if (list.selected && list.selected !== this.marks?.selected) this.view?.webContents.focus();
     this.marks = list;
     this.view?.webContents.send("scribui-mark:marks", list);
   }

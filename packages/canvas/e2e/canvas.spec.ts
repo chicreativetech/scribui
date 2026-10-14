@@ -666,6 +666,25 @@ test("device tab: picking a tool holds the screen, the first mark captures it, l
   await expect.poll(sketched).toBe("stroke,ellipse");
   expect(await page.evaluate(() => (window as unknown as { __captures: number }).__captures)).toBe(1);
 
+  // a note opens when it's clicked (its pin, with a tool on): new words go to the note
+  await page.mouse.click(box.x + box.width * 0.5 + 12, box.y + box.height * 0.25 - 12);
+  const edit = page.locator(".ms-edit");
+  await expect(edit).toBeVisible();
+  await expect(edit.locator("textarea")).toHaveValue("bigger title");
+  await edit.locator("textarea").fill("bigger heading");
+  await page.keyboard.press("Enter");
+  await expect(edit).toBeHidden();
+  await expect.poll(async () => (await anns()).some((a) => a.text === "bigger heading")).toBe(true);
+
+  // picked in the notes list, it opens on the screen too; the bin deletes it
+  await page.locator(".inspector .note").nth(1).click();
+  await expect(edit).toBeVisible();
+  await expect(edit.locator("header")).toContainText("remove");
+  await edit.getByRole("button", { name: "Delete note" }).click();
+  await expect(edit).toBeHidden();
+  await expect.poll(async () => (await anns()).filter((a) => a.screenId === first.screenId).length).toBe(2);
+  expect((await anns()).some((a) => a.kind === "remove")).toBe(false);
+
   // Escape stops marking; the screen is live again
   await page.keyboard.press("Escape");
   await expect(page.locator(".mark-pad")).toHaveCount(0);

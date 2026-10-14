@@ -12,6 +12,9 @@ import { paintBucket } from "./paint";
  * the tool, until Ready (⏎) or a guide tool; then the sketch asks for its note.
  * Finished marks go to the host in surface coordinates (the host's own space:
  * page CSS pixels, or pixels of the shown screen), which turns them into notes.
+ *
+ * Shown notes can be clicked (any part with no tool on, the number badge with
+ * one): it opens the note to change its words, or delete it.
  */
 
 type Pt = [number, number];
@@ -21,7 +24,7 @@ export type Styles = Record<SketchTool, SketchStyle>;
 /** A finished mark: an annotation without its id and screen, and the point it's about. */
 export type SurfaceMark = { annotation: Omit<Annotation, "id" | "screenId">; ref: Pt };
 /** A note to show: in surface coordinates, moved by `offset` (where its element is now). */
-export type ShownMark = { annotation: Annotation; label?: string; offset?: Pt; faint?: boolean };
+export type ShownMark = { annotation: Annotation; label?: string; offset?: Pt; faint?: boolean; editable?: boolean };
 
 export type SurfaceHost = {
   /** Surface coordinates of a point in the viewport (clientX, clientY). */
@@ -35,6 +38,13 @@ export type SurfaceHost = {
   onExit?(): void;
   /** Something to tell the user (fill found no closed area). */
   say?(text: string): void;
+  /** A shown note was opened (clicked), or closed: null. */
+  onSelect?(id: string | null): void;
+  /** A shown note's new words. */
+  onEdit?(id: string, text: string): void;
+  onDelete?(id: string): void;
+  /** Bring a surface point into view (web: scroll the page to it). */
+  reveal?(p: Pt): void;
 };
 
 const SKETCH = new Set<SurfaceTool>(["freehand", "line", "box", "ellipse", "text", "fill"]);
@@ -42,7 +52,7 @@ const isSketch = (t: SurfaceTool | null): t is SketchTool => !!t && SKETCH.has(t
 
 const STYLE = (p: string) => `
 .${p} { position: absolute; inset: 0; pointer-events: none; }
-.${p} svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.${p} > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .${p}-pad { position: absolute; inset: 0; pointer-events: auto; cursor: crosshair; touch-action: none; }
 .${p}-pad[hidden], .${p}-note[hidden], .${p}-ready[hidden] { display: none; }
 .${p}-faint { opacity: 0.6; }
@@ -54,7 +64,26 @@ const STYLE = (p: string) => `
 .${p}-note button, .${p}-ready { font: 600 12px/1 -apple-system, "Helvetica Neue", Arial, sans-serif; cursor: pointer; border: 1px solid #262626;
   background: #ff9f0a; color: #262626; padding: 0 10px; }
 .${p}-ready { position: absolute; padding: 7px 10px; pointer-events: auto; z-index: 2; }
+.${p}-m { pointer-events: none; }
+.${p}.browse .${p}-m.ed, .${p}-m.ed .ic-badge, .${p}-m.ed.pin { pointer-events: visiblePainted; cursor: pointer; }
+.${p}-sel { fill: none; stroke: #262626; stroke-width: 1; stroke-dasharray: 4 3; }
+.${p}-edit { position: absolute; width: 280px; background: #fff; border: 1px solid #262626; box-shadow: 0 6px 20px rgba(0,0,0,.18);
+  pointer-events: auto; z-index: 3; font: 400 12.5px -apple-system, "Helvetica Neue", Arial, sans-serif; color: #262626; }
+.${p}-edit[hidden] { display: none; }
+.${p}-edit header { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 9px; border-bottom: 1px solid #e4e4e4; font-weight: 600; font-size: 12px; }
+.${p}-edit header span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.${p}-edit header button { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid transparent; background: none;
+  color: #262626; cursor: pointer; padding: 0; }
+.${p}-edit header button:hover { border-color: #262626; }
+.${p}-edit header button.del:hover { color: #c62828; border-color: #c62828; }
+.${p}-edit textarea { display: block; box-sizing: border-box; width: 100%; min-height: 64px; resize: none; border: 0; outline: none; padding: 8px 9px;
+  font: inherit; color: inherit; background: #fff; user-select: text; -webkit-user-select: text; }
+.${p}-edit footer { padding: 0 9px 7px; color: #8a8a8a; font-size: 11px; }
 `;
+
+const TRASH = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.8 6.5v4.5M9.2 6.5v4.5"/></svg>`;
+const CLOSE = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7"/></svg>`;
+const KIND: Record<string, string> = { comment: "comment", circle: "circle", arrow: "arrow", rectangle: "rectangle", remove: "remove", sketch: "sketch", freehand: "drawing" };
 
 export class MarkSurface {
   readonly el: HTMLDivElement;
@@ -63,6 +92,13 @@ export class MarkSurface {
   private note: HTMLDivElement;
   private input: HTMLInputElement;
   private ready: HTMLButtonElement;
+  private edit: HTMLDivElement;
+  private editHead: HTMLSpanElement;
+  private editText: HTMLTextAreaElement;
+  /** The open note: its id, and the words it had. */
+  private editing: { id: string; was: string } | null = null;
+  /** Asked to open before it was shown (its page's notes not here yet). */
+  private wanted: string | null = null;
   private tool: SurfaceTool | null = null;
   private styles: Styles;
   private shown: ShownMark[] = [];
@@ -104,7 +140,30 @@ export class MarkSurface {
     this.ready.className = `${cls}-ready`;
     this.ready.hidden = true;
     this.ready.textContent = "Ready ⏎";
-    this.el.append(style, this.svg, this.pad, this.note, this.ready);
+    this.edit = document.createElement("div");
+    this.edit.className = `${cls}-edit`;
+    this.edit.hidden = true;
+    const head = document.createElement("header");
+    this.editHead = document.createElement("span");
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "del";
+    del.title = "Delete this note";
+    del.setAttribute("aria-label", "Delete note");
+    del.innerHTML = TRASH;
+    const close = document.createElement("button");
+    close.type = "button";
+    close.title = "Done (⏎)";
+    close.setAttribute("aria-label", "Done");
+    close.innerHTML = CLOSE;
+    head.append(this.editHead, del, close);
+    this.editText = document.createElement("textarea");
+    this.editText.spellcheck = true;
+    const foot = document.createElement("footer");
+    foot.textContent = "⏎ save · ⇧⏎ new line · it changes in Review too";
+    this.edit.append(head, this.editText, foot);
+    // marks over the pad, so a tool can still open one by its number
+    this.el.append(style, this.pad, this.svg, this.note, this.ready, this.edit);
     root.append(this.el);
 
     this.pad.addEventListener("pointerdown", (e) => this.down(e));
@@ -129,6 +188,41 @@ export class MarkSurface {
       this.submit();
     });
     this.ready.addEventListener("click", () => this.finishSketch());
+
+    this.svg.addEventListener("pointerdown", (e) => {
+      const g = (e.target as Element).closest?.("[data-id]");
+      const id = g?.getAttribute("data-id");
+      if (!id || e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.open(id, true);
+    });
+    this.svg.addEventListener("click", (e) => (e.target as Element).closest?.("[data-id]") && e.stopPropagation());
+    this.editText.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        this.close(true);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        this.close(true);
+      }
+    });
+    // clicked away (the page, the app around it): saved and closed
+    this.editText.addEventListener("blur", () => setTimeout(() => this.closeIfBlurred(), 0));
+    del.addEventListener("mousedown", (e) => e.preventDefault());
+    del.addEventListener("click", () => {
+      const ed = this.editing;
+      if (!ed) return;
+      this.editing = null;
+      this.edit.hidden = true;
+      this.host.onDelete?.(ed.id);
+      this.host.onSelect?.(null);
+      this.render();
+    });
+    close.addEventListener("mousedown", (e) => e.preventDefault());
+    close.addEventListener("click", () => this.close(true));
+    this.edit.addEventListener("pointerdown", (e) => e.stopPropagation());
   }
 
   /** The tool (null: use the app) and the sketch tools' looks. A guide tool finishes an open sketch. */
@@ -140,12 +234,38 @@ export class MarkSurface {
     if (!tool) this.cancel();
     this.tool = tool;
     this.pad.hidden = !tool;
+    this.el.classList.toggle("browse", !tool);
     this.render();
   }
 
   setShown(list: ShownMark[]) {
     this.shown = list;
+    if (this.editing && !this.find(this.editing.id)) {
+      // deleted elsewhere (Review, undo), or no longer on this page
+      this.editing = null;
+      this.edit.hidden = true;
+    }
+    if (this.wanted && this.find(this.wanted)) this.open(this.wanted, false);
     this.schedule();
+  }
+
+  /** The open note's id, or null. */
+  get selected(): string | null {
+    return this.editing?.id ?? this.wanted;
+  }
+
+  /** Open a shown note to change it (null: close the open one, keeping its words). Not told back to the host. */
+  select(id: string | null) {
+    if (!id) {
+      this.wanted = null;
+      return this.close(true, false);
+    }
+    if (this.editing?.id === id) return;
+    if (!this.find(id)) {
+      this.wanted = id;
+      return;
+    }
+    this.open(id, false);
   }
 
   /** Drawing, typing or with an open sketch: the surface should hold still. */
@@ -154,6 +274,7 @@ export class MarkSurface {
   }
 
   cancel() {
+    this.close(true);
     this.cur = null;
     this.parts = [];
     this.held = null;
@@ -165,6 +286,11 @@ export class MarkSurface {
 
   /** Keys the page or pad gets while marking: ⏎ finishes the sketch, Escape drops what's in progress or stops. True when handled. */
   key(e: KeyboardEvent): boolean {
+    if (this.editing) {
+      if (e.key !== "Escape") return false;
+      this.close(true);
+      return true;
+    }
     if (!this.tool) return false;
     if (e.key === "Enter" && this.parts.length && !this.held && !this.typing) {
       this.finishSketch();
@@ -195,6 +321,7 @@ export class MarkSurface {
   /* ───────── pointer ───────── */
 
   private down(e: PointerEvent) {
+    if (this.editing) this.close(true);
     if (e.button !== 0 || !this.tool || this.held || this.typing) return;
     e.preventDefault();
     const p = this.host.toSurface(e.clientX, e.clientY);
@@ -340,6 +467,69 @@ export class MarkSurface {
     this.ready.hidden = false;
   }
 
+  /* ───────── changing a shown note ───────── */
+
+  private find(id: string): ShownMark | undefined {
+    return this.shown.find((s) => s.annotation.id === id && s.editable);
+  }
+
+  private open(id: string, fromClick: boolean) {
+    const s = this.find(id);
+    this.wanted = null;
+    if (!s) return;
+    if (this.editing && this.editing.id !== id) this.close(true, false);
+    if (this.typing) this.submit();
+    const a = s.annotation;
+    const b = markBounds(a);
+    const d = s.offset ?? [0, 0];
+    if (!fromClick) this.host.reveal?.([b.x + d[0], b.y + d[1]]);
+    this.editing = { id, was: a.text ?? "" };
+    this.editHead.textContent = `${s.label ? `${s.label} · ` : ""}${a.kind === "sketch" && a.sketch?.shape !== "drawing" ? `${a.sketch?.shape} sketch` : (KIND[a.kind] ?? a.kind)}`;
+    this.editText.value = a.text ?? "";
+    this.editText.setSelectionRange(this.editText.value.length, this.editText.value.length);
+    this.editText.placeholder = a.kind === "comment" ? "What should change?" : a.kind === "sketch" ? "Note for the agent: what is this sketch?" : "Optional: what should change?";
+    this.edit.hidden = false;
+    this.placeEdit();
+    this.render();
+    if (fromClick) this.host.onSelect?.(id);
+    this.editText.focus();
+    setTimeout(() => this.editing?.id === id && this.editText.focus(), 0);
+  }
+
+  private closeIfBlurred() {
+    const root = this.el.getRootNode() as Document | ShadowRoot;
+    if (this.editing && root.activeElement !== this.editText) this.close(true);
+  }
+
+  /** Close the open note, saving its words when `save`; `tell`: say so to the host. */
+  private close(save: boolean, tell = true) {
+    const ed = this.editing;
+    if (!ed) return;
+    this.editing = null;
+    this.edit.hidden = true;
+    const words = this.editText.value.trim();
+    const s = this.find(ed.id);
+    // a comment is its words: emptied, it keeps the old ones (delete it with the bin)
+    if (save && words !== ed.was && !(s?.annotation.kind === "comment" && !words)) this.host.onEdit?.(ed.id, words);
+    if (tell) this.host.onSelect?.(null);
+    this.render();
+  }
+
+  private placeEdit() {
+    const s = this.editing && this.find(this.editing.id);
+    if (!s) return;
+    const b = markBounds(s.annotation);
+    const d = s.offset ?? [0, 0];
+    const [x, y] = this.client([b.x + b.w + d[0], b.y + d[1]]);
+    const [lx] = this.client([b.x + d[0], 0]);
+    const w = this.el.clientWidth || 800, h = this.el.clientHeight || 600;
+    const bw = 282, bh = this.edit.offsetHeight || 130;
+    let left = x + 16;
+    if (left + bw > w - 8) left = lx - bw - 30;
+    this.edit.style.left = `${Math.max(8, Math.min(w - bw - 8, left))}px`;
+    this.edit.style.top = `${Math.max(8, Math.min(h - bh - 8, y - 26))}px`;
+  }
+
   /* ───────── drawing ───────── */
 
   private client(p: Pt): Pt {
@@ -351,8 +541,17 @@ export class MarkSurface {
     const [ox, oy] = this.host.origin();
     const at = (d: Pt | undefined) => `translate(${(ox + (d?.[0] ?? 0)).toFixed(1)} ${(oy + (d?.[1] ?? 0)).toFixed(1)})`;
     let out = "";
-    for (const s of this.shown)
-      out += `<g transform="${at(s.offset)}"${s.faint ? ` class="${this.cls}-faint"` : ""}>${renderAnnotationSvg(s.annotation, { unit: 1, ...(s.label ? { label: s.label } : {}) })}</g>`;
+    const sel = this.editing?.id;
+    for (const s of this.shown) {
+      const a = s.annotation;
+      const cls = [`${this.cls}-m`, s.faint ? `${this.cls}-faint` : "", s.editable ? "ed" : "", a.kind === "comment" ? "pin" : ""].filter(Boolean).join(" ");
+      let svg = renderAnnotationSvg(a, { unit: 1, ...(s.label ? { label: s.label } : {}) });
+      if (a.id === sel) {
+        const b = markBounds(a), m = 6;
+        svg = `<rect class="${this.cls}-sel" x="${b.x - m}" y="${b.y - m}" width="${b.w + 2 * m}" height="${b.h + 2 * m}"/>` + svg;
+      }
+      out += `<g transform="${at(s.offset)}" class="${cls}"${s.editable ? ` data-id="${esc(a.id)}"` : ""}>${svg}</g>`;
+    }
     const next = String(this.shown.length + 1);
     const g = (svg: string, faint = false) => `<g transform="${at(undefined)}"${faint ? ` class="${this.cls}-faint"` : ""}>${svg}</g>`;
     if (this.parts.length) out += g(renderSketchPartsSvg(this.parts));
@@ -385,6 +584,24 @@ export class MarkSurface {
     }
     this.svg.innerHTML = out;
     if (this.parts.length) this.placeReady();
+    if (this.editing) this.placeEdit();
+  }
+}
+
+const esc = (v: string) => v.replace(/[&"<>]/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** Where a note is drawn, roughly (a comment's pin stands above its point). */
+function markBounds(a: Annotation) {
+  const g = a.geometry;
+  switch (g.type) {
+    case "point":
+      return a.kind === "comment" ? { x: g.x, y: g.y - 24, w: 30, h: 24 } : { x: g.x - 12, y: g.y - 12, w: 24, h: 24 };
+    case "rect":
+      return g;
+    case "arrow":
+      return bounds([g.from, g.to]);
+    case "path":
+      return bounds(g.points as Pt[]);
   }
 }
 

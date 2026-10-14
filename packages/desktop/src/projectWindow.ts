@@ -329,12 +329,13 @@ export function registerCanvasApi() {
       /* not the canvas */
     }
   });
-  ipcMain.on("scribui:live-marks", (e, list: { url?: unknown; marks?: unknown; confirmed?: unknown } | null) => {
+  ipcMain.on("scribui:live-marks", (e, list: { url?: unknown; marks?: unknown; confirmed?: unknown; selected?: unknown } | null) => {
     try {
       const p = senderProject(e);
       if (typeof list?.url !== "string" || !Array.isArray(list.marks)) return;
       const confirmed = Array.isArray(list.confirmed) ? list.confirmed.filter((c): c is string => typeof c === "string") : [];
-      p.live.setMarks({ url: list.url, marks: list.marks.slice(0, 500), confirmed });
+      const selected = typeof list.selected === "string" && list.selected.length <= 200 ? list.selected : null;
+      p.live.setMarks({ url: list.url, marks: list.marks.slice(0, 500), confirmed, selected });
     } catch {
       /* not the canvas */
     }
@@ -368,6 +369,19 @@ export function registerCanvasApi() {
   ipcMain.on("scribui-mark:exit", (e) => {
     const p = fromMarkLayer(e);
     if (p) toCanvas(p, { type: "exit" });
+  });
+  const noteId = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 200;
+  ipcMain.on("scribui-mark:select", (e, id: unknown) => {
+    const p = fromMarkLayer(e);
+    if (p && (id === null || noteId(id))) toCanvas(p, { type: "select", id });
+  });
+  ipcMain.on("scribui-mark:edit", (e, m: { id?: unknown; text?: unknown } | null) => {
+    const p = fromMarkLayer(e);
+    if (p && noteId(m?.id) && typeof m?.text === "string" && m.text.length <= 20_000) toCanvas(p, { type: "edit", id: m.id, text: m.text });
+  });
+  ipcMain.on("scribui-mark:delete", (e, id: unknown) => {
+    const p = fromMarkLayer(e);
+    if (p && noteId(id)) toCanvas(p, { type: "delete", id });
   });
 
   ipcMain.on("scribui:live-place", (e, area: unknown, sz: unknown) => {

@@ -3,7 +3,7 @@ import { useStore } from "../store";
 import { focusTile } from "./Board";
 import { Spinner } from "./Capture";
 import { deviceApi, DeviceTab, ICON, Tip } from "./Device";
-import { addWebMark, layerMarks, liveTool, surfaceStyles } from "./Marking";
+import { addWebMark, deleteNote, editNote, layerMarks, liveTool, notePage, OPEN_NOTE, pagePath, surfaceStyles } from "./Marking";
 import { ToolSettings } from "./ToolSettings";
 
 /**
@@ -17,7 +17,14 @@ import { ToolSettings } from "./ToolSettings";
  */
 
 type CaptureFn = (req: { title?: string; replace?: string; fullPage?: boolean; signature?: string }) => Promise<{ round: number; screenId: string; title: string }>;
-type MarkEvent = { type: "add"; draft: unknown } | { type: "ready"; url: string } | { type: "review" } | { type: "exit" };
+type MarkEvent =
+  | { type: "add"; draft: unknown }
+  | { type: "ready"; url: string }
+  | { type: "review" }
+  | { type: "exit" }
+  | { type: "select"; id: string | null }
+  | { type: "edit"; id: string; text: string }
+  | { type: "delete"; id: string };
 type Box = { x: number; y: number; width: number; height: number };
 type LiveState = {
   url: string;
@@ -39,7 +46,7 @@ type DesktopLive = {
   onState(cb: (s: LiveState) => void): () => void;
   /** Desktop 6+: marking up the page (Marking.tsx). */
   markMode?(tool: string | null, styles?: unknown): void;
-  setMarks?(list: { url: string; marks: unknown[]; confirmed: string[] }): void;
+  setMarks?(list: { url: string; marks: unknown[]; confirmed: string[]; selected?: string | null }): void;
   onMark?(cb: (ev: MarkEvent) => void): () => void;
 };
 declare global {
@@ -164,7 +171,11 @@ function WebLive() {
   const pushMarks = useRef<() => void>(() => {});
   pushMarks.current = () => {
     if (!native?.setMarks || !pageUrl) return;
-    native.setMarks({ url: pageUrl.split("#")[0]!, marks: layerMarks(pageUrl), confirmed: confirmed.current.splice(0) });
+    const marks = layerMarks(pageUrl);
+    // the note picked (here or in the notes list) opens on the page
+    const sel = useStore.getState().selectedId;
+    const selected = sel && marks.some((m) => m.annotation.id === sel) ? sel : null;
+    native.setMarks({ url: pageUrl.split("#")[0]!, marks, confirmed: confirmed.current.splice(0), selected });
   };
 
   // the tool goes to the page while this tab shows; elsewhere the app is just used
@@ -186,6 +197,9 @@ function WebLive() {
           useStore.getState().setTool("select");
           useStore.getState().set({ view: "board" });
         } else if (ev.type === "exit") useStore.getState().setTool("select");
+        else if (ev.type === "select") useStore.getState().select(ev.id);
+        else if (ev.type === "edit") editNote(ev.id, ev.text);
+        else if (ev.type === "delete") deleteNote(ev.id);
       }),
     [],
   );
@@ -193,7 +207,23 @@ function WebLive() {
   // the notes on the shown page, again whenever they or the page change
   const annotations = useStore((s) => s.annotations);
   const shownRound = useStore((s) => s.round);
-  useEffect(() => pushMarks.current(), [pageUrl, annotations, shownRound, project]);
+  const selectedId = useStore((s) => s.selectedId);
+  useEffect(() => pushMarks.current(), [pageUrl, annotations, shownRound, project, selectedId]);
+
+  // a note picked in the notes list: its page opens, then the note on it
+  const goRef = useRef<(url: string) => void>(() => {});
+  useEffect(() => {
+    const open = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (!shown || !native?.setMarks) return;
+      const url = notePage(id);
+      const st = useStore.getState();
+      if (!url) return st.toast({ text: "That note is on a screen captured another way: open Review to change it", tone: "info" });
+      if (pagePath(url, base) !== pagePath(pageUrl, base)) goRef.current(url);
+    };
+    window.addEventListener(OPEN_NOTE, open);
+    return () => window.removeEventListener(OPEN_NOTE, open);
+  }, [shown, pageUrl, base]);
 
   // the project loads after the first render
   useEffect(() => {
@@ -227,6 +257,7 @@ function WebLive() {
     if (url === src) setReloadKey((k) => k + 1);
     else setSrc(url);
   };
+  goRef.current = go;
   const reload = () => (native ? void native.reload() : setReloadKey((k) => k + 1));
 
   const pickSize = (id: string) => {

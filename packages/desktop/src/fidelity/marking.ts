@@ -227,7 +227,8 @@ export async function runMarkingFidelity() {
     await canvas(p, `window.__scribui.getState().setTool("remove")`);
     await sleep(300);
     const t4 = await centerOf(wc, "#target");
-    await click(wc, t4.x, t4.y);
+    // beside the first note's pin: a click on a pin opens that note
+    await click(wc, t4.x - 30, t4.y + 10);
     await key(wc, "Return");
     const third = await waitFor("the mark on the changed page", async () => (await annotations()).find((a) => a.kind === "remove"));
     check("a mark on a changed page gets a new screen", third.screenId !== first.screenId, { third: third.screenId });
@@ -267,6 +268,38 @@ export async function runMarkingFidelity() {
     await key(wc, "Escape");
     await sleep(300);
     check("Escape stops marking", (await canvas<string>(p, "window.__scribui.getState().tool")) === "select");
+
+    // 8. with no tool on, a note on the page opens when clicked: new words go to it
+    const selected = () => canvas<string | null>(p, "window.__scribui.getState().selectedId");
+    await page(wc, "window.scrollTo(0, 0)");
+    await sleep(300);
+    const t5 = await centerOf(wc, "#target");
+    await click(wc, t5.x + 12, t5.y - 12);
+    await sleep(300);
+    check("clicking a note on the page selects it", (await selected()) === first.id, await selected());
+    await type(wc, " please");
+    await key(wc, "Return");
+    const edited = await waitFor("the edited note", async () => (await annotations()).find((a) => a.id === first.id && a.text === "make it bigger please"), 5000).catch(() => null);
+    check("words typed in the opened note change it", !!edited, (await annotations()).find((a) => a.id === first.id)?.text);
+    await sleep(200);
+    check("the note closes after ⏎", (await selected()) === null, await selected());
+
+    // 9. a note picked in the notes list opens on the page (scrolled to it); its bin deletes it
+    await canvas(p, `(() => { const st = window.__scribui.getState(); st.select(${JSON.stringify(second.id)}); window.dispatchEvent(new CustomEvent("scribui:open-note", { detail: ${JSON.stringify(second.id)} })); })()`);
+    await sleep(600);
+    const sy = await page<number>(wc, "window.scrollY");
+    check("a note picked in the list scrolls the page to it", sy > 800, { scrollY: sy });
+    const f2 = await centerOf(wc, "#far");
+    // the bin: the note box sits right of the pin (markSurface placeEdit), the bin left of its close button; in page pixels, then the view's
+    const view = await page<{ w: number; h: number }>(wc, "({ w: innerWidth, h: innerHeight })");
+    const z = wc.getZoomFactor();
+    const left = Math.max(8, Math.min(view.w - 290, f2.x / z + 46));
+    const top = Math.max(8, Math.min(view.h - 138, f2.y / z - 50));
+    await click(wc, Math.round((left + 231) * z), Math.round((top + 20) * z));
+    const gone = await waitFor("the deleted note", async () => !(await annotations()).some((a) => a.id === second.id), 5000).catch(() => false);
+    check("the bin deletes the note", gone);
+    await sleep(400);
+    check("the deleted note is no longer drawn", !(await markNear(wc, f2.x, f2.y)));
   } catch (e) {
     check("the suite ran", false, (e as Error).message);
   }

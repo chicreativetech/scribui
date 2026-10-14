@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { newAnnotationId, numberAnnotations, type Annotation, type Geometry, type SketchPart } from "@scribui/core";
 import { MarkSurface, type ShownMark, type Styles, type SurfaceMark, type SurfaceTool } from "../markSurface";
 import { isReadOnly, TOOLS, useStore, type Tool } from "../store";
@@ -19,6 +19,9 @@ import { isReadOnly, TOOLS, useStore, type Tool } from "../store";
  * Mobile: a tool freezes the picture; the first mark captures the screen, later
  * ones join it until marking stops. The marks show on the frozen picture only;
  * after that they're in Review.
+ *
+ * A shown note opens when it's clicked, or picked in the notes list: its words
+ * change, or the bin deletes it, the same as in Review.
  */
 
 type Pt = [number, number];
@@ -152,6 +155,20 @@ export function layerMarks(url: string) {
     });
 }
 
+/** The page a note was made on in the App tab (its address), or null when it's on another kind of screen. */
+export function notePage(id: string): string | null {
+  const st = useStore.getState();
+  const m = manifestOf();
+  const a = st.annotations.find((x) => x.id === id);
+  const sc = a && m?.screens.find((s) => s.id === a.screenId);
+  if (!sc?.live || !sc.viewport?.fullPage || !sc.url) return null;
+  try {
+    return new URL(sc.url, m!.app.baseUrl).href;
+  } catch {
+    return null;
+  }
+}
+
 /** Marks waiting for their screen (a capture): one at a time, so two marks on a new page make one screen. */
 let queue: Promise<void> = Promise.resolve();
 
@@ -173,6 +190,8 @@ export function addWebMark(d: unknown, done: (tempId: string) => void) {
       st = useStore.getState();
       const scale = st.captures.get(screenId)?.device.scale ?? 1;
       st.add({ ...scaleAnnotation(d.annotation, scale), id: newAnnotationId(), screenId, ...(d.anchor ? { anchor: d.anchor } : {}) } as Annotation);
+      // just written: not opened again
+      st.select(null);
       done(d.tempId);
     })
     .catch((e: Error) => {
@@ -190,17 +209,53 @@ export function addDeviceMark(m: SurfaceMark, screenId: string, shown: { w: numb
   if (!cap) throw new Error("the captured screen didn't load");
   const { w, h } = cap.root.bounds;
   st.add({ ...scaleAnnotation(m.annotation, w / shown.w, h / shown.h), id: newAnnotationId(), screenId } as Annotation);
+  st.select(null);
 }
 
+/* ─────────────────────────── changing a note where it's shown ─────────────────────────── */
+
+/** New words for a note opened on the app (or the device's picture). */
+export function editNote(id: unknown, text: unknown) {
+  const st = useStore.getState();
+  if (isReadOnly() || typeof id !== "string" || typeof text !== "string") return;
+  const a = st.annotations.find((x) => x.id === id);
+  if (!a || (a.text ?? "") === text) return;
+  st.update(id, (x) => {
+    const n = { ...x };
+    if (text) n.text = text;
+    else delete n.text;
+    return n;
+  });
+}
+
+export function deleteNote(id: unknown) {
+  const st = useStore.getState();
+  if (isReadOnly() || typeof id !== "string" || !st.annotations.some((x) => x.id === id)) return;
+  st.remove(id);
+  st.toast({ text: "Note deleted", tone: "info", action: { label: "Undo", run: () => useStore.getState().undo() } });
+  // the toast with its undo stays a while only
+  const t = useStore.getState().toasts.at(-1);
+  if (t) setTimeout(() => useStore.getState().dismissToast(t.id), 6000);
+}
+
+/** A note picked in the notes list, to open where it's shown: the App and Device tabs listen. */
+export const OPEN_NOTE = "scribui:open-note";
+
 /**
- * The rail's tools over the device's frozen picture. `marks` are the ones made in
- * this session (shown until marking stops); `onMark` gets each finished one in
+ * The rail's tools over the device's frozen picture. `screenId` is the screen
+ * captured in this session: its notes show (and open when clicked) until marking
+ * stops, with `pending` marks not on it yet. `onMark` gets each finished one in
  * pixels of the shown screen, with its size.
  */
-export function MarkPad({ tool, marks, onMark }: { tool: SurfaceTool; marks: SurfaceMark[]; onMark: (m: SurfaceMark, shown: { w: number; h: number }) => void }) {
+export function MarkPad({ tool, screenId, pending, onMark }: { tool: SurfaceTool; screenId: string | null; pending: SurfaceMark[]; onMark: (m: SurfaceMark, shown: { w: number; h: number }) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const surface = useRef<MarkSurface | null>(null);
   const styles = useStore((s) => s.toolStyles);
+  const annotations = useStore((s) => s.annotations);
+  const round = useStore((s) => s.round);
+  const cap = useStore((s) => (screenId ? s.captures.get(screenId) : undefined));
+  const selectedId = useStore((s) => s.selectedId);
+  const [size, setSize] = useState({ w: 0, h: 0 });
   const cb = useRef(onMark);
   cb.current = onMark;
 
@@ -217,6 +272,9 @@ export function MarkPad({ tool, marks, onMark }: { tool: SurfaceTool; marks: Sur
         onMark: (m) => cb.current(m, { w: el.clientWidth, h: el.clientHeight }),
         onExit: () => useStore.getState().setTool("select"),
         say: (text) => useStore.getState().toast({ text, tone: "info" }),
+        onSelect: (id) => useStore.getState().select(id),
+        onEdit: editNote,
+        onDelete: deleteNote,
       },
       surfaceStyles(),
     );
@@ -227,18 +285,40 @@ export function MarkPad({ tool, marks, onMark }: { tool: SurfaceTool; marks: Sur
         e.stopPropagation();
       }
     };
+    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
     window.addEventListener("keydown", key, true);
     return () => {
+      ro.disconnect();
       window.removeEventListener("keydown", key, true);
       s.destroy();
       surface.current = null;
     };
   }, []);
   useEffect(() => surface.current?.setTool(tool, surfaceStyles()), [tool, styles]);
+
+  const notes = useMemo(() => {
+    if (!screenId || !cap || !size.w) return [];
+    const { markers } = numberAnnotations(annotations, round?.screens.map((s) => s.id) ?? []);
+    const { w, h } = cap.root.bounds;
+    return annotations
+      .filter((a) => a.screenId === screenId && a.kind !== "rule" && !(a.kind === "comment" && a.attachedTo))
+      .map((a): ShownMark => {
+        const n = markers.get(a.id);
+        return { annotation: scaleAnnotation(a, size.w / w, size.h / h), ...(n ? { label: String(n) } : {}), editable: true };
+      });
+  }, [annotations, round, cap, screenId, size]);
   useEffect(() => {
-    const list: ShownMark[] = marks.map((m, i) => ({ annotation: { id: `m${i}`, screenId: "", ...m.annotation }, label: String(i + 1) }));
-    surface.current?.setShown(list);
-  }, [marks]);
+    const waiting: ShownMark[] = pending.map((m, i) => ({ annotation: { id: `p${i}`, screenId: "", ...m.annotation }, label: String(notes.length + i + 1), faint: true }));
+    surface.current?.setShown([...notes, ...waiting]);
+  }, [notes, pending]);
+  // a note picked in the list (or closed) opens here when it's on this screen
+  useEffect(() => {
+    const s = surface.current;
+    if (!s || s.selected === selectedId) return;
+    if (!selectedId) s.select(null);
+    else if (notes.some((n) => n.annotation.id === selectedId)) s.select(selectedId);
+  }, [selectedId, notes]);
 
   return <div ref={ref} className="mark-pad" />;
 }
