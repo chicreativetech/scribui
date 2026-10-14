@@ -108,12 +108,14 @@ export function Board() {
 
   /* ───────── initial fit ───────── */
 
+  // when the board is first shown: the panels around it differ in the other views (the App tab hides the tools)
+  const boardShown = useStore((s) => s.view === "board");
   useEffect(() => {
-    if (!round || !ref.current || tiles.length === 0) return;
+    if (!round || !ref.current || tiles.length === 0 || !boardShown) return;
     if (didInitialFit.current === round.round) return;
     didInitialFit.current = round.round;
     useStore.getState().setCamera(fitAll(tiles, groups, boardViewport()));
-  }, [round, tiles, groups]);
+  }, [round, tiles, groups, boardShown]);
 
   /* ───────── wheel: pan, ctrl/⌘ + wheel or pinch: zoom ───────── */
 

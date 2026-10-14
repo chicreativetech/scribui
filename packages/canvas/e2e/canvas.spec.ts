@@ -22,7 +22,7 @@ const camera = (page: Page) => page.evaluate(() => (window as unknown as Win).__
 async function reset(page: Page) {
   await page.request.put("/api/rounds/1/annotations", { data: { annotations: [] } });
   await page.goto("/");
-  // a first open of round 1 starts on the vision board; these tests are about the review board
+  // a project opens on the App tab; these tests are about the review board
   await page.getByRole("tab", { name: "Board" }).click();
   await expect(page.locator(".tile img").first()).toBeVisible();
   await page.waitForFunction(() => (window as never as { __scribui?: unknown }).__scribui);
@@ -287,13 +287,12 @@ test("vision: draws on the canvas, starts a new canvas off it, types text, undoe
   await page.request.put("/api/vision", { data: { version: 1, canvases: [], items: [] } });
 });
 
-test("starts on the vision board the first time only, then on the board", async ({ page }) => {
-  // reset() opened the project once already: forget that
+test("opens on the App tab, never on the vision board", async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await expect(page.getByRole("tab", { name: "Vision" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "App" })).toHaveAttribute("aria-selected", "true");
   await page.reload();
-  await expect(page.getByRole("tab", { name: "Board" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "App" })).toHaveAttribute("aria-selected", "true");
 });
 
 test("vision: an edge changes one side of a canvas, a corner scales it", async ({ page }) => {

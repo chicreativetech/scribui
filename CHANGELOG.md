@@ -7,6 +7,7 @@ update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 ## 0.2.1 (unreleased)
 
 - **The AI chat is gone.** ScribUI hands your notes to the coding agent you already use, in your terminal or editor, instead of running it inside the app. **Send** writes the round and shows the prompt to paste into your agent, as before the chat.
+- **A project opens on the App tab** (the Device tab for Android and iOS), where a round starts. The vision board is optional and never opens on its own.
 - The send button says what goes, like **Send 3 notes**, and is greyed out until there's a note to send.
 - The device bar (Device tab) and the browser bar (App tab) have clearer icons, all the same size, with a hint on hover saying what each button does.
 - iOS: the quick start buttons offer iPhones as well as iPads.
