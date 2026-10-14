@@ -183,16 +183,10 @@ let lastCoalesce = { key: "", at: 0 };
 let toastSeq = 0;
 
 let startViewChosen = false;
-/** True the first time this project is opened here (remembered per browser or app). */
-function firstOpen(root: string): boolean {
-  const key = `scribui:opened:${root}`;
-  try {
-    if (localStorage.getItem(key)) return false;
-    localStorage.setItem(key, "1");
-    return true;
-  } catch {
-    return false;
-  }
+/** The App or Device tab exists for this platform (as `hasLiveTab` in Live.tsx, without importing the components here). */
+function liveTabFor(platform: string | undefined): boolean {
+  const device = (window as unknown as { scribuiDesktop?: { device?: { platform: string } } }).scribuiDesktop?.device;
+  return platform === "web" || (!!device && platform === device.platform);
 }
 
 function loadTheme(): "dark" | "light" {
@@ -311,8 +305,9 @@ export const useStore = create<Store>((set, get) => ({
       set({ captureState: project.capture ?? get().captureState, lan: project.lan ?? get().lan });
       if (!startViewChosen) {
         startViewChosen = true;
-        // a new project starts on the vision board, once; after that the board is the place to start
-        if (firstOpen(project.root) && (project.latest ?? 0) <= 1) set({ view: "vision" });
+        // start in the app (App or Device tab), where a round begins; the vision board is optional, never the start
+        const platform = "app" in project.manifest ? project.manifest.app.platform : undefined;
+        if (liveTabFor(platform)) set({ view: "live", liveVisited: true });
       }
       const n = roundNo ?? project.latest;
       if (n === null || n === undefined) {
