@@ -123,6 +123,12 @@ export const ScreenEntry = z.object({
   /** Mobile, captured by hand: which way the device was turned. */
   orientation: z.enum(["portrait", "landscape"]).optional(),
   /**
+   * Web, marked up in the app tab: a fingerprint of the page when it was captured
+   * (its size and content). A mark on the same page with the same fingerprint joins
+   * this screen; a changed page gets a new screen.
+   */
+  pageSignature: z.string().optional(),
+  /**
    * Source globs that render this screen, relative to the project root, such as
    * "app/src/main/java/(double-star)/feature/shop/(double-star)". Used to recapture only screens whose code changed.
    */
@@ -247,6 +253,12 @@ export const Annotation = z.object({
    * a drawing a rect around its parts.
    */
   sketch: z.object({ shape: SketchShape, style: SketchStyle, parts: z.array(SketchPart).optional() }).optional(),
+  /**
+   * Marked in the app tab (web): the page element the mark was made on, so it can be
+   * shown on the live page again, following that element as the page scrolls or shifts.
+   * `selector` finds it; `x`, `y` are its top-left corner then, in CSS pixels of the page.
+   */
+  anchor: z.object({ selector: z.string(), x: z.number(), y: z.number() }).optional(),
 });
 export type Annotation = z.infer<typeof Annotation>;
 

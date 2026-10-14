@@ -112,9 +112,9 @@ export function TopBar() {
           onClick={() => showView("board")}
           role="tab"
           aria-selected={view === "board"}
-          title="review board: mark up the captured screens"
+          title="review: every marked-up screen and its notes, to check and change before you send"
         >
-          Board
+          Review
         </button>
       </div>
     </header>
@@ -181,7 +181,7 @@ export function ActionBar({ onSend }: { onSend: () => void }) {
 
 /* ───────── tool panel ───────── */
 
-const ICONS: Partial<Record<Tool, ReactNode>> = {
+export const ICONS: Partial<Record<Tool, ReactNode>> = {
   select: <img className="icon" src={selectIcon} width={12} height={12} alt="" />,
   comment: <img className="icon" src={commentIcon} width={14} height={14} alt="" />,
   arrow: <img className="icon" src={arrowIcon} width={14.938} height={14.938} alt="" />,

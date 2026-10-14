@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useStore } from "../store";
 import { focusTile } from "./Board";
 import { Spinner } from "./Capture";
+import { addDeviceMark, MarkBar, MarkPad, type Mark } from "./Marking";
 
 /**
  * The device tab of a mobile project, in the desktop app: an emulator, phone
@@ -282,6 +283,62 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
   const turn = useRef<Rotation>(0);
   const { painted, error: decodeError } = useDecoder(api, canvasRef, frozen, turn);
 
+  /* ───────── marking up the screen: the picture holds still, the first mark captures it ───────── */
+
+  const markTool = useStore((s) => s.markTool);
+  const drawColor = useStore((s) => s.toolStyles.freehand.color);
+  const marking = !!markTool && shown && state.status === "live";
+  const [session, setSession] = useState<{ screenId: string | null; marks: Mark[] } | null>(null);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const markQueue = useRef<Promise<void>>(Promise.resolve());
+  useEffect(() => {
+    if (marking && !sessionRef.current) {
+      frozen.current = true;
+      setSession({ screenId: null, marks: [] });
+    } else if (!marking && sessionRef.current) {
+      setSession(null);
+      // the next frame shows the device as it is again
+      if (!busyRef.current) {
+        frozen.current = false;
+        api.resetVideo();
+      }
+    }
+  }, [marking, api]);
+  const onMark = (m: Mark) => {
+    setSession((s) => (s ? { ...s, marks: [...s.marks, m] } : s));
+    markQueue.current = markQueue.current
+      .then(async () => {
+        let screenId = sessionRef.current?.screenId ?? null;
+        if (!screenId) {
+          busyRef.current = true;
+          setBusy(true);
+          try {
+            const out = await api.capture({});
+            const saved = out.kind === "saved" ? out.result : await api.keep();
+            if (out.kind !== "saved") useStore.getState().toast({ text: "the screen was still changing: kept the picture you marked up", tone: "warn" });
+            const st = useStore.getState();
+            await st.refreshRounds();
+            await st.load(saved.round);
+            screenId = saved.screenId;
+            const id = screenId;
+            if (sessionRef.current) sessionRef.current = { ...sessionRef.current, screenId: id };
+            setSession((s) => (s ? { ...s, screenId: id } : s));
+          } finally {
+            busyRef.current = false;
+            setBusy(false);
+            setProgress(null);
+            if (!sessionRef.current) frozen.current = false;
+          }
+        }
+        addDeviceMark(m, screenId);
+      })
+      .catch((e: Error) => {
+        const msg = e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+        if (!/cancelled/.test(msg)) useStore.getState().toast({ text: msg, tone: "err" });
+      });
+  };
+
   useEffect(() => api.onState(setState), [api]);
   useEffect(() => api.onProgress(setProgress), [api]);
   useEffect(() => api.onInstallLog?.((line) => setInstalling(line)), [api]);
@@ -375,7 +432,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
     const r = canvasRef.current!.getBoundingClientRect();
     return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
   };
-  const interactive = live && state.status === "live" && !busy && !unsettled;
+  const interactive = live && state.status === "live" && !busy && !unsettled && !marking;
   const send = (ev: Input) => {
     if (interactive) api.input(ev);
   };
@@ -439,7 +496,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
       text: `captured "${r.title}" into R${pad(r.round)}${warn ? " (the screen was still changing)" : ""}`,
       tone: warn ? "warn" : "ok",
       action: {
-        label: "show on board",
+        label: "show in Review",
         run: () => {
           useStore.getState().set({ view: "board" });
           setTimeout(() => focusTile(r.screenId), 60);
@@ -616,6 +673,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
           {busy ? <Spinner /> : "●"} Capture view
         </button>
       </div>
+      <MarkBar disabled={state.status !== "live"} mobile />
       {!canDecode && (
         <div className="live-note">
           The device view needs WebCodecs, which this page can't use (it isn't a secure context). Open the project from the ScribUI app.
@@ -645,6 +703,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
                   send({ type: "scroll", ...point(e), dx: -e.deltaX * k, dy: -e.deltaY * k });
                 }}
               />
+              {session && markTool && <MarkPad tool={markTool} marks={session.marks} onMark={onMark} drawColor={drawColor} />}
               {!painted && <div className="device-wait">waiting for the picture…</div>}
               {state.status === "reconnecting" && (
                 <div className="device-wait">

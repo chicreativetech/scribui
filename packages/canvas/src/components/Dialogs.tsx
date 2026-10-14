@@ -240,7 +240,7 @@ const KEYS: [string, [string, string][]][] = [
     ],
   ],
   [
-    "Board",
+    "Review",
     [
       ["space + drag", "pan"],
       ["scroll", "pan"],
@@ -248,7 +248,7 @@ const KEYS: [string, [string, string][]][] = [
       ["double-click", "focus a screen"],
       ["esc", "leave focus · close"],
       ["F", "fit all"],
-      ["L", "web: switch between the board and your app"],
+      ["L", "switch between Review and your app"],
       ["delete", "on a focused view: remove it from the round"],
       ["1 / 0", "zoom 100% / fit"],
       ["tab", "toggle panel"],

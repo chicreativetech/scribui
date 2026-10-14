@@ -298,10 +298,69 @@ export function registerCanvasApi() {
     }
   });
 
-  ipcMain.handle("scribui:capture", async (e, req: { title?: unknown; replace?: unknown }) => {
+  ipcMain.handle("scribui:capture", async (e, req: { title?: unknown; replace?: unknown; fullPage?: unknown; signature?: unknown }) => {
     const p = senderProject(e);
-    const r = { ...(str(req?.title) ? { title: str(req?.title) } : {}), ...(str(req?.replace) ? { replace: str(req?.replace) } : {}) };
+    const sig = str(req?.signature);
+    const r = {
+      ...(str(req?.title) ? { title: str(req?.title) } : {}),
+      ...(str(req?.replace) ? { replace: str(req?.replace) } : {}),
+      ...(req?.fullPage === true ? { fullPage: true } : {}),
+      ...(sig && sig.length <= 200 ? { signature: sig } : {}),
+    };
     return p.surface === "view" ? p.live.capture(r, p.save) : captureFromCanvas(e.sender, r, p.save);
+  });
+
+  /* marking up the app tab's page: the canvas sets the tool and the notes to draw, the page's mark layer (markLayer.ts) sends marks */
+  ipcMain.on("scribui:live-mark-mode", (e, m: { tool?: unknown; style?: { color?: unknown; width?: unknown } } | null) => {
+    try {
+      const c = m?.style?.color, w = m?.style?.width;
+      senderProject(e).live.setMarkMode({
+        tool: str(m?.tool) ?? null,
+        ...(typeof c === "string" && c.length < 40 && typeof w === "number" && w > 0 && w < 100 ? { style: { color: c, width: w } } : {}),
+      });
+    } catch {
+      /* not the canvas */
+    }
+  });
+  ipcMain.on("scribui:live-marks", (e, list: { url?: unknown; marks?: unknown; confirmed?: unknown } | null) => {
+    try {
+      const p = senderProject(e);
+      if (typeof list?.url !== "string" || !Array.isArray(list.marks)) return;
+      const confirmed = Array.isArray(list.confirmed) ? list.confirmed.filter((c): c is string => typeof c === "string") : [];
+      p.live.setMarks({ url: list.url, marks: list.marks.slice(0, 500), confirmed });
+    } catch {
+      /* not the canvas */
+    }
+  });
+  /** The mark layer of a project's app view, in its top frame only. */
+  const fromMarkLayer = (e: Sender): Project | null => {
+    for (const p of byWindow.values()) {
+      const wc = p.live.webContents;
+      if (wc && wc.id === e.sender.id && e.senderFrame === wc.mainFrame) return p;
+    }
+    return null;
+  };
+  const toCanvas = (p: Project, ev: object) => {
+    if (!p.win.isDestroyed()) p.win.webContents.send("scribui:live-mark", ev);
+  };
+  ipcMain.on("scribui-mark:ready", (e, url: unknown) => {
+    const p = fromMarkLayer(e);
+    if (!p || typeof url !== "string") return;
+    p.live.markLayerReady(url);
+    toCanvas(p, { type: "ready", url });
+  });
+  ipcMain.on("scribui-mark:add", (e, draft: unknown) => {
+    const p = fromMarkLayer(e);
+    if (!p || !draft || typeof draft !== "object" || JSON.stringify(draft).length > 400_000) return;
+    toCanvas(p, { type: "add", draft });
+  });
+  ipcMain.on("scribui-mark:review", (e) => {
+    const p = fromMarkLayer(e);
+    if (p) toCanvas(p, { type: "review" });
+  });
+  ipcMain.on("scribui-mark:exit", (e) => {
+    const p = fromMarkLayer(e);
+    if (p) toCanvas(p, { type: "exit" });
   });
 
   ipcMain.on("scribui:live-place", (e, area: unknown, sz: unknown) => {

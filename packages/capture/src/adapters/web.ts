@@ -163,9 +163,10 @@ type LiveElement = { screenshot(o?: object): Promise<Uint8Array> };
  * PNG, the element tree in screenshot pixels and the device; saving it is up
  * to the project's owner (it queues it with every other capture).
  */
-export async function readLiveFrame(opts: { frame: LiveFrame; element: LiveElement }): Promise<{ png: Uint8Array; raw: RawElement; device: Device }> {
+export async function readLiveFrame(opts: { frame: LiveFrame; element: LiveElement; fullPage?: boolean }): Promise<{ png: Uint8Array; raw: RawElement; device: Device }> {
   const { frame, element } = opts;
-  await frame.evaluate(`window.__scribuiFullPage = false`);
+  // fullPage: the element's screenshot is of the whole page, so the tree is too
+  await frame.evaluate(`window.__scribuiFullPage = ${opts.fullPage ? "true" : "false"}`);
   const png = await element.screenshot({ type: "png", animations: "disabled", caret: "hide" });
   const px = pngSize(png);
   const css = await frame.evaluate<RawElement>(DOM_WALK);

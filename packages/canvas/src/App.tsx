@@ -9,6 +9,7 @@ import { CapturePanel, LanDialog, NextStepBanner } from "./components/Capture";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
 import { Inspector } from "./components/Inspector";
 import { hasLiveTab, LiveView, showLive, toggleView } from "./components/Live";
+import { markKey } from "./components/Marking";
 import { ToolSettings } from "./components/ToolSettings";
 import { ImageImportDialog, VisionBoard, visionKey, zoomVision, fitVisionCamera } from "./components/Vision";
 import { useVision } from "./vision";
@@ -120,8 +121,11 @@ export function App() {
       if (st.helpOpen || st.sendOpen || st.sentPrompt) return;
       const mod = e.metaKey || e.ctrlKey;
       if (!mod && !e.altKey && e.key.toLowerCase() === "l" && liveTab()) return toggleView();
-      // the board's keys don't apply while the live app is shown
-      if (st.view === "live") return;
+      // the board's keys don't apply while the live app is shown; the mark tools' do
+      if (st.view === "live") {
+        if (markKey(e)) e.preventDefault();
+        return;
+      }
       if (st.view === "vision") {
         if (visionKey(e)) return;
         if (mod && e.key === "Enter") {
@@ -273,12 +277,12 @@ export function App() {
                   {project && "app" in project.manifest && project.manifest.app.platform === "web" ? (
                     <p>
                       Open the <button className="link" onClick={showLive}>app tab</button> (<kbd>L</kbd>), browse to a view in your app and
-                      press <b>Capture view</b>.
+                      mark it up with the tools above it, or press <b>Capture view</b>.
                     </p>
                   ) : project && "app" in project.manifest && hasLiveTab(project.manifest.app.platform) ? (
                     <p>
                       Open the <button className="link" onClick={showLive}>device tab</button> (<kbd>L</kbd>), go to a screen in your app
-                      and press <b>Capture view</b>, or ask your agent to list screens in <code>.scribui/screens.json</code> and run{" "}
+                      and mark it up with the tools above it, or press <b>Capture view</b>, or ask your agent to list screens in <code>.scribui/screens.json</code> and run{" "}
                       <code>npx scribui capture</code>.
                     </p>
                   ) : (

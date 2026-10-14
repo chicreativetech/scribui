@@ -47,19 +47,25 @@ export async function saveCapturedView(store: ReviewStore, req: ViewSaveRequest)
     live: true,
     ...(url ? { url } : {}),
     ...(req.platform !== "web" ? { device: req.device.name, ...(req.orientation ? { orientation: req.orientation } : {}) } : {}),
+    ...(req.signature ? { pageSignature: req.signature } : {}),
   };
 
   const rel = `screens/${id}.png`;
   await writePng(join(store.roundDir(n), rel), req.png);
   const cap = toCapture(screen, req.platform, req.device, rel, req.raw, pngSize(req.png));
-  screen.viewport = { width: cap.device.width, height: cap.device.height, deviceScaleFactor: cap.device.scale };
+  // a whole page: recaptured whole, in a window as tall as the one it was marked in
+  screen.viewport = req.fullPage
+    ? { width: cap.device.width, height: Math.round(req.viewportHeight ?? cap.device.height), deviceScaleFactor: cap.device.scale, fullPage: true }
+    : { width: cap.device.width, height: cap.device.height, deviceScaleFactor: cap.device.scale };
   await store.writeCapture(n, cap);
   await store.upsertScreen({ ...(replacing ?? {}), ...screen });
 
   const cur = await store.readStatus(n);
   const reason =
     req.platform === "web"
-      ? "captured from the app tab"
+      ? req.fullPage
+        ? "marked up in the app tab"
+        : "captured from the app tab"
       : req.noElements
         ? "captured from the device view while the screen never stopped changing; it has no elements, so notes on it are regions"
         : req.unsettled

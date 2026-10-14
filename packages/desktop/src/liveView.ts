@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { shell, WebContentsView, type BrowserWindow, type WebContents } from "electron";
 import type { ViewSaveResult } from "@scribui/server";
 import { layoutLiveView, scaleRect, type LiveLayout, type Rect, type Size } from "./liveLayout.js";
@@ -6,9 +7,15 @@ import { captureFromView, nextPaint, type LiveCaptureRequest, type SaveView } fr
 /**
  * The reviewed web app, in its own view on top of the canvas's app tab. It is
  * a top-level page (pages that refuse embedding work, cookies behave as in a
- * tab) with no preload and no Node, in the project's own session. The canvas
- * tells it where to sit; ScribUI's UI never overlaps it.
+ * tab) with no Node, in the project's own session. The canvas tells it where
+ * to sit; ScribUI's UI never overlaps it. Its one preload, markLayer.ts, draws
+ * the marks over the page in an isolated world the app can't reach; this class
+ * relays between it and the canvas.
  */
+
+/** Mark mode and the notes on the shown page, from the canvas, kept for the next page load. */
+export type MarkMode = { tool: string | null; style?: { color: string; width: number } };
+export type MarkList = { url: string; marks: unknown[]; confirmed: string[] };
 
 export type LiveState = {
   url: string;
@@ -33,6 +40,8 @@ export class LiveView {
   private layout: LiveLayout | null = null;
   private error: string | null = null;
   private capturing = false;
+  private mode: MarkMode = { tool: null };
+  private marks: MarkList | null = null;
 
   constructor(
     private win: BrowserWindow,
@@ -73,6 +82,26 @@ export class LiveView {
 
   openDevTools() {
     this.view?.webContents.openDevTools({ mode: "detach" });
+  }
+
+  /** The canvas's mark tool (null: browse the app). */
+  setMarkMode(m: MarkMode) {
+    this.mode = m;
+    this.view?.webContents.send("scribui-mark:mode", m);
+  }
+
+  /** The notes on the page the app shows, for the mark layer to draw. */
+  setMarks(list: MarkList) {
+    this.marks = list;
+    this.view?.webContents.send("scribui-mark:marks", list);
+  }
+
+  /** A page (re)started its mark layer: give it the mode, and the notes when they're for that page. */
+  markLayerReady(url: string) {
+    const wc = this.view?.webContents;
+    if (!wc) return;
+    wc.send("scribui-mark:mode", this.mode);
+    if (this.marks && this.marks.url === url.split("#")[0]) wc.send("scribui-mark:marks", this.marks);
   }
 
   get webContents(): WebContents | null {
@@ -156,6 +185,7 @@ export class LiveView {
     const view = new WebContentsView({
       webPreferences: {
         partition: this.partition,
+        preload: join(__dirname, "markLayer.cjs"),
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,

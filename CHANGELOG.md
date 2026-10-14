@@ -6,6 +6,10 @@ update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
 ## 0.2.1 (unreleased)
 
+- **Mark up the app directly** in the desktop app: pick a tool in the bar above the App or Device tab (comment, circle, arrow, box, remove, draw) and mark what you see, without capturing first. Each mark becomes a note in Review, where you can change it.
+  - **Web:** the page keeps scrolling while you mark it and holds still only while you draw or type a note. The first mark captures the whole page; more marks on the unchanged page join that screen, and a changed page gets a new one. Marks stay on their elements as you scroll and come back when you return to the page.
+  - **Android and iOS:** picking a tool holds the picture still; the first mark captures the screen and later marks join it.
+- **The board is now called Review.**
 - **The AI chat is gone.** ScribUI hands your notes to the coding agent you already use, in your terminal or editor, instead of running it inside the app. **Send** writes the round and shows the prompt to paste into your agent, as before the chat.
 - **A project opens on the App tab** (the Device tab for Android and iOS), where a round starts. The vision board is optional and never opens on its own.
 - The send button says what goes, like **Send 3 notes**, and is greyed out until there's a note to send.
