@@ -251,6 +251,7 @@ export function MarkPad({ tool, screenId, pending, onMark }: { tool: SurfaceTool
   const ref = useRef<HTMLDivElement>(null);
   const surface = useRef<MarkSurface | null>(null);
   const styles = useStore((s) => s.toolStyles);
+  const theme = useStore((s) => s.theme);
   const annotations = useStore((s) => s.annotations);
   const round = useStore((s) => s.round);
   const cap = useStore((s) => (screenId ? s.captures.get(screenId) : undefined));
@@ -296,6 +297,7 @@ export function MarkPad({ tool, screenId, pending, onMark }: { tool: SurfaceTool
     };
   }, []);
   useEffect(() => surface.current?.setTool(tool, surfaceStyles()), [tool, styles]);
+  useEffect(() => surface.current?.setTheme(theme), [theme]);
 
   const notes = useMemo(() => {
     if (!screenId || !cap || !size.w) return [];

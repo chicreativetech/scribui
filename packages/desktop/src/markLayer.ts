@@ -161,6 +161,7 @@ function mount() {
     style.textContent = `:host { all: initial; }
 .chip { position: fixed; left: 12px; bottom: 12px; border: 1px solid #262626; background: #fff; color: #262626; padding: 7px 10px;
   pointer-events: auto; font: 600 12px/1 -apple-system, "Helvetica Neue", Arial, sans-serif; cursor: pointer; }
+.chip.dark { border-color: #47474f; background: #232327; color: #f3f3f3; }
 .chip[hidden] { display: none; }`;
     root.append(style);
     surface = new MarkSurface(
@@ -203,10 +204,14 @@ function mount() {
   show();
 }
 
-ipcRenderer.on("scribui-mark:mode", (_e, m: { tool?: unknown; styles?: unknown } | null) => {
+ipcRenderer.on("scribui-mark:mode", (_e, m: { tool?: unknown; styles?: unknown; theme?: unknown } | null) => {
   if (m?.styles && typeof m.styles === "object") styles = m.styles as Styles;
   tool = typeof m?.tool === "string" && TOOLS.has(m.tool as SurfaceTool) ? (m.tool as SurfaceTool) : null;
   mount();
+  if (m?.theme === "dark" || m?.theme === "light") {
+    surface?.setTheme(m.theme);
+    chip?.classList.toggle("dark", m.theme === "dark");
+  }
   surface?.setTool(tool, styles);
 });
 

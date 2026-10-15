@@ -47,8 +47,8 @@ contextBridge.exposeInMainWorld("scribuiDesktop", {
           devtools: () => ipcRenderer.invoke("scribui:live-go", "devtools"),
           onState: (cb: (s: unknown) => void) => listen("scribui:live-state", cb),
           /** Marking up the page: the tool (null: browse), the notes to draw on it, and what its mark layer sends (finished marks). */
-          markMode: (tool: string | null, styles?: unknown) =>
-            ipcRenderer.send("scribui:live-mark-mode", JSON.parse(JSON.stringify({ tool: tool ?? null, ...(styles ? { styles } : {}) }))),
+          markMode: (tool: string | null, styles?: unknown, theme?: string) =>
+            ipcRenderer.send("scribui:live-mark-mode", JSON.parse(JSON.stringify({ tool: tool ?? null, ...(styles ? { styles } : {}), ...(theme ? { theme } : {}) }))),
           setMarks: (list: unknown) => ipcRenderer.send("scribui:live-marks", JSON.parse(JSON.stringify(list ?? null))),
           onMark: (cb: (ev: unknown) => void) => listen("scribui:live-mark", cb),
         },

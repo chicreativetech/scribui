@@ -45,7 +45,7 @@ type DesktopLive = {
   devtools(): Promise<void>;
   onState(cb: (s: LiveState) => void): () => void;
   /** Desktop 6+: marking up the page (Marking.tsx). */
-  markMode?(tool: string | null, styles?: unknown): void;
+  markMode?(tool: string | null, styles?: unknown, theme?: string): void;
   setMarks?(list: { url: string; marks: unknown[]; confirmed: string[]; selected?: string | null }): void;
   onMark?(cb: (ev: MarkEvent) => void): () => void;
 };
@@ -165,6 +165,7 @@ function WebLive() {
 
   const markTool = useStore((s) => liveTool(s.tool));
   const toolStyles = useStore((s) => s.toolStyles);
+  const theme = useStore((s) => s.theme);
   const canMark = !!native?.markMode && !!state?.url && !state.error;
   const pageUrl = state?.url ?? "";
   const confirmed = useRef<string[]>([]);
@@ -180,8 +181,8 @@ function WebLive() {
 
   // the tool goes to the page while this tab shows; elsewhere the app is just used
   useEffect(() => {
-    native?.markMode?.(shown && canMark ? markTool : null, surfaceStyles());
-  }, [shown, canMark, markTool, toolStyles]);
+    native?.markMode?.(shown && canMark ? markTool : null, surfaceStyles(), theme);
+  }, [shown, canMark, markTool, toolStyles, theme]);
 
   // what the page's mark layer sends
   useEffect(
