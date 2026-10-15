@@ -465,7 +465,11 @@ kbd {
 @media (max-width: 820px) {
   .app.with-panel { --panel-space: 0px; }
   .hide-sm { display: none !important; }
-  .bar { right: var(--gap); top: calc(var(--gap) + 52px); }
+  /* below the send box (its height: --top-h + 8px padding each side + borders), with room to breathe */
+  .app { --bar-y: calc(var(--gap) + var(--top-h) + 18px + 16px); }
+  .bar { right: var(--gap); top: var(--bar-y); }
+  /* what sits under the bar moves down with it */
+  .app .live-pane, .app .tool-settings { top: calc(var(--bar-y) + var(--top-h) + 8px); }
 }
 @media (pointer: coarse) {
   .chip { padding: 7px 9px; font-size: 12px; }
