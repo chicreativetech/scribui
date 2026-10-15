@@ -1,4 +1,8 @@
-import { createRequire } from "node:module";
+/// <reference path="./shims.d.ts" />
+// Static imports (not createRequire) so bundlers inline them: the desktop app
+// bundles to CommonJS, where import.meta.url is undefined.
+import QRCodeImpl from "qrcode-terminal/vendor/QRCode/index.js";
+import QRErrorCorrectLevel from "qrcode-terminal/vendor/QRCode/QRErrorCorrectLevel.js";
 
 type QRCodeCtor = new (type: number, level: number) => {
   addData(s: string): void;
@@ -9,9 +13,8 @@ type QRCodeCtor = new (type: number, level: number) => {
 
 /** A QR code as a crisp SVG (dark modules on white, 4-module quiet zone). */
 export function qrSvg(text: string): string {
-  const req = createRequire(import.meta.url);
-  const QRCode = req("qrcode-terminal/vendor/QRCode") as QRCodeCtor;
-  const Level = req("qrcode-terminal/vendor/QRCode/QRErrorCorrectLevel") as { M: number };
+  const QRCode = QRCodeImpl as QRCodeCtor;
+  const Level = QRErrorCorrectLevel as { M: number };
   const qr = new QRCode(-1, Level.M);
   qr.addData(text);
   qr.make();
