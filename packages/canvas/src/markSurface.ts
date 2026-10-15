@@ -51,34 +51,40 @@ const SKETCH = new Set<SurfaceTool>(["freehand", "line", "box", "ellipse", "text
 const isSketch = (t: SurfaceTool | null): t is SketchTool => !!t && SKETCH.has(t);
 
 const STYLE = (p: string) => `
-.${p} { position: absolute; inset: 0; pointer-events: none; }
+.${p} { position: absolute; inset: 0; pointer-events: none;
+  --ms-bg: #fff; --ms-fg: #262626; --ms-line: #262626; --ms-field: #d0d0d0; --ms-rule: #e4e4e4; --ms-dim: #8a8a8a; --ms-del: #c62828;
+  --ms-shadow: 0 6px 20px rgba(0,0,0,.18); color-scheme: light; }
+/* ScribUI's dark theme (the same colours as the canvas's panels) */
+.${p}.dark { --ms-bg: #232327; --ms-fg: #f3f3f3; --ms-line: #47474f; --ms-field: #47474f; --ms-rule: #34343a; --ms-dim: #a6a6ae; --ms-del: #f7768e;
+  --ms-shadow: 3px 4px 19px 5px rgba(0,0,0,.45); color-scheme: dark; }
 .${p} > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .${p}-pad { position: absolute; inset: 0; pointer-events: auto; cursor: crosshair; touch-action: none; }
 .${p}-pad[hidden], .${p}-note[hidden], .${p}-ready[hidden] { display: none; }
 .${p}-faint { opacity: 0.6; }
-.${p}-note { position: absolute; display: flex; gap: 6px; padding: 6px; background: #fff; border: 1px solid #262626;
-  box-shadow: 0 6px 20px rgba(0,0,0,.18); pointer-events: auto; z-index: 2; }
-.${p}-note input { width: 240px; border: 1px solid #d0d0d0; padding: 5px 7px; font: 400 12.5px -apple-system, "Helvetica Neue", Arial, sans-serif;
-  color: #262626; outline: none; background: #fff; user-select: text; -webkit-user-select: text; }
-.${p}-note input:focus { border-color: #262626; }
+.${p}-note { position: absolute; display: flex; gap: 6px; padding: 6px; background: var(--ms-bg); border: 1px solid var(--ms-line);
+  box-shadow: var(--ms-shadow); pointer-events: auto; z-index: 2; }
+.${p}-note input { width: 240px; border: 1px solid var(--ms-field); padding: 5px 7px; font: 400 12.5px -apple-system, "Helvetica Neue", Arial, sans-serif;
+  color: var(--ms-fg); outline: none; background: var(--ms-bg); user-select: text; -webkit-user-select: text; }
+.${p}-note input::placeholder { color: var(--ms-dim); }
+.${p}-note input:focus { border-color: var(--ms-fg); }
 .${p}-note button, .${p}-ready { font: 600 12px/1 -apple-system, "Helvetica Neue", Arial, sans-serif; cursor: pointer; border: 1px solid #262626;
   background: #ff9f0a; color: #262626; padding: 0 10px; }
 .${p}-ready { position: absolute; padding: 7px 10px; pointer-events: auto; z-index: 2; }
 .${p}-m { pointer-events: none; }
 .${p}.browse .${p}-m.ed, .${p}-m.ed .ic-badge, .${p}-m.ed.pin { pointer-events: visiblePainted; cursor: pointer; }
 .${p}-sel { fill: none; stroke: #262626; stroke-width: 1; stroke-dasharray: 4 3; }
-.${p}-edit { position: absolute; width: 280px; background: #fff; border: 1px solid #262626; box-shadow: 0 6px 20px rgba(0,0,0,.18);
-  pointer-events: auto; z-index: 3; font: 400 12.5px -apple-system, "Helvetica Neue", Arial, sans-serif; color: #262626; }
+.${p}-edit { position: absolute; width: 280px; background: var(--ms-bg); border: 1px solid var(--ms-line); box-shadow: var(--ms-shadow);
+  pointer-events: auto; z-index: 3; font: 400 12.5px -apple-system, "Helvetica Neue", Arial, sans-serif; color: var(--ms-fg); }
 .${p}-edit[hidden] { display: none; }
-.${p}-edit header { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 9px; border-bottom: 1px solid #e4e4e4; font-weight: 600; font-size: 12px; }
+.${p}-edit header { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 9px; border-bottom: 1px solid var(--ms-rule); font-weight: 600; font-size: 12px; }
 .${p}-edit header span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .${p}-edit header button { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid transparent; background: none;
-  color: #262626; cursor: pointer; padding: 0; }
-.${p}-edit header button:hover { border-color: #262626; }
-.${p}-edit header button.del:hover { color: #c62828; border-color: #c62828; }
+  color: var(--ms-fg); cursor: pointer; padding: 0; }
+.${p}-edit header button:hover { border-color: var(--ms-fg); }
+.${p}-edit header button.del:hover { color: var(--ms-del); border-color: var(--ms-del); }
 .${p}-edit textarea { display: block; box-sizing: border-box; width: 100%; min-height: 64px; resize: none; border: 0; outline: none; padding: 8px 9px;
-  font: inherit; color: inherit; background: #fff; user-select: text; -webkit-user-select: text; }
-.${p}-edit footer { padding: 0 9px 7px; color: #8a8a8a; font-size: 11px; }
+  font: inherit; color: inherit; background: var(--ms-bg); user-select: text; -webkit-user-select: text; }
+.${p}-edit footer { padding: 0 9px 7px; color: var(--ms-dim); font-size: 11px; }
 `;
 
 const TRASH = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.8 6.5v4.5M9.2 6.5v4.5"/></svg>`;
@@ -226,6 +232,11 @@ export class MarkSurface {
   }
 
   /** The tool (null: use the app) and the sketch tools' looks. A guide tool finishes an open sketch. */
+  /** Note boxes in ScribUI's light or dark theme. */
+  setTheme(theme: "light" | "dark") {
+    this.el.classList.toggle("dark", theme === "dark");
+  }
+
   setTool(tool: SurfaceTool | null, styles?: Styles) {
     if (styles) this.styles = styles;
     if (tool === this.tool) return;

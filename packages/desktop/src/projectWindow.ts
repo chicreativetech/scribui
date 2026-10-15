@@ -311,7 +311,7 @@ export function registerCanvasApi() {
   });
 
   /* marking up the app tab's page: the canvas sets the tool and the notes to draw, the page's mark layer (markLayer.ts) sends marks */
-  ipcMain.on("scribui:live-mark-mode", (e, m: { tool?: unknown; styles?: unknown } | null) => {
+  ipcMain.on("scribui:live-mark-mode", (e, m: { tool?: unknown; styles?: unknown; theme?: unknown } | null) => {
     try {
       // the sketch tools' looks: colours, widths and sizes only
       const styles: Record<string, unknown> = {};
@@ -324,7 +324,8 @@ export function registerCanvasApi() {
           ...(typeof v.size === "number" ? { size: v.size } : {}),
         };
       }
-      senderProject(e).live.setMarkMode({ tool: str(m?.tool) ?? null, ...(Object.keys(styles).length ? { styles } : {}) });
+      const theme = m?.theme === "dark" || m?.theme === "light" ? m.theme : undefined;
+      senderProject(e).live.setMarkMode({ tool: str(m?.tool) ?? null, ...(Object.keys(styles).length ? { styles } : {}), ...(theme ? { theme } : {}) });
     } catch {
       /* not the canvas */
     }

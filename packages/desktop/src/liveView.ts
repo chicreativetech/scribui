@@ -14,7 +14,7 @@ import { captureFromView, nextPaint, type LiveCaptureRequest, type SaveView } fr
  */
 
 /** Mark mode and the notes on the shown page, from the canvas, kept for the next page load. */
-export type MarkMode = { tool: string | null; styles?: Record<string, unknown> };
+export type MarkMode = { tool: string | null; styles?: Record<string, unknown>; theme?: "light" | "dark" };
 export type MarkList = { url: string; marks: unknown[]; confirmed: string[]; selected?: string | null };
 
 export type LiveState = {
