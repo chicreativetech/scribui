@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { servePage } from "./pages";
 
 /*
  * Canvas tests against a fixture round (cart + checkout-default, web, @2x).
@@ -620,11 +621,12 @@ test("pasted HTML is rendered with its elements; a link opens a page from anywhe
     source: "imports/acme-pricing.html",
   });
 
-  // the saved HTML, opened as a page from a link
+  // the same page, opened from a link
+  const site = await servePage(html);
   await page.keyboard.press("m");
-  await dialog.getByPlaceholder("https://…").fill("http://127.0.0.1:4399/files/imports/acme-pricing.html");
+  await dialog.getByPlaceholder("https://…").fill(site.url);
   await dialog.getByRole("button", { name: "Open" }).click();
-  await expect(dialog.locator(".import-url")).toHaveText(/acme-pricing\.html/);
+  await expect(dialog.locator(".import-url")).toHaveText(site.url);
   await dialog.getByRole("radio", { name: /Our app/ }).click();
   await dialog.getByLabel("Name").fill("Acme live");
   await page.keyboard.press("Enter");
@@ -632,7 +634,9 @@ test("pasted HTML is rendered with its elements; a link opens a page from anywhe
   await expect(page.locator(".tile-label", { hasText: "Acme live" })).toBeVisible();
   const live = await page.request.get("/api/rounds/1/screens/acme-live").then((r) => r.json());
   // a page opened from a link runs its scripts
+  expect(JSON.stringify(live.root)).toContain("scripts ran");
   expect(JSON.stringify(live.root)).not.toContain('"buy"');
+  await site.close();
 
   await page.request.delete("/api/rounds/1/screens/acme-pricing");
   await page.request.delete("/api/rounds/1/screens/acme-live");

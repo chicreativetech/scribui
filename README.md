@@ -155,6 +155,19 @@ After each mark, the element it attached to flashes, and a chip under the mark n
 
 The **notes** tab lists every mark, and **review.md** shows exactly what the agent will receive, live as you draw. Everything autosaves; `⌘Z` undoes.
 
+### Add screens from anywhere
+
+Paste (`⌘V`) or drop onto Review, or press `M`, to add a screen that ScribUI didn't capture, and say whether it's **Our app** (the agent changes it) or a **Reference** (the agent takes the look from it and applies it to your screens):
+
+- **A screenshot**: a still image; notes on it are areas of the picture.
+- **HTML**: pasted source, part of a page copied in the browser, or an `.html` file. ScribUI renders it (scripts off), so notes snap to its elements.
+- **A link** to any page: opened and taken whole.
+- **A page snapshot**: what Figma's Chrome extension copies (Capture code), or a page saved as **Webpage, Single File** (`.mhtml`). Rendered offline, as it was in the browser.
+
+**The ScribUI browser extension** sends the page you're on straight to Review, logged-in pages included: click it, pick Our app or Reference, press **Send to Review**. It finds ScribUI on this computer by itself. Install it from [`packages/extension`](packages/extension/README.md) (`chrome://extensions` → Developer mode → Load unpacked).
+
+Added screens are kept as they are from round to round. The agent gets the HTML or snapshot too, in `.scribui/imports/`, to read exact styles from. HTML, links and snapshots need Playwright, like web capture.
+
 ### What the agent receives
 
 Sending writes `.scribui/rounds/<n>/review.md`, a structured `review.json` and annotated screenshots, then locks the round. The dialog first warns about marks without text or a clear target. A review reads like this:

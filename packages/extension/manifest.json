@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "ScribUI",
+  "short_name": "ScribUI",
+  "version": "0.2.1",
+  "description": "Send the page you're on to ScribUI's Review, styles, images and elements included: a screen of your app, or a reference.",
+  "action": {
+    "default_title": "Send this page to ScribUI",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" }
+  },
+  "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["activeTab", "pageCapture", "scripting", "storage"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
+  "minimum_chrome_version": "116"
+}

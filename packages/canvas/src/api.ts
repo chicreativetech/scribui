@@ -54,6 +54,8 @@ export type ProjectPayload = {
   latest: number | null;
   lan: LanState;
   canCapture: boolean;
+  /** HTML, links and page snapshots can be added (the server has Playwright to render them). */
+  canRenderPages?: boolean;
   autoRecapture: boolean;
   capture: CaptureState;
 };
@@ -125,7 +127,7 @@ export const api = {
       body: JSON.stringify(v),
     }).then((r) => json<{ ok: true }>(r)),
   importScreen: (body: ImportRequest) =>
-    fetch("/api/imports", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then((r) =>
+    fetch("/api/imports", { method: "POST", headers: { "content-type": "application/json", "x-client-id": CLIENT_ID }, body: JSON.stringify(body) }).then((r) =>
       json<{ round: number; screenId: string; title: string }>(r),
     ),
   uploadVisionImage: (blob: Blob) =>
@@ -149,7 +151,8 @@ export type ServerEvent =
   | { type: "lan-changed"; enabled: boolean; paired: number }
   | { type: "status-changed"; round: number; status: string }
   | { type: "annotations-changed"; round: number; by: string }
-  | { type: "vision-changed"; by: string };
+  | { type: "vision-changed"; by: string }
+  | { type: "screen-added"; round: number; screenId: string; title: string; by: string };
 
 /** WebSocket with automatic reconnect. */
 export function connectEvents(onEvent: (e: ServerEvent) => void, onState: (connected: boolean) => void) {

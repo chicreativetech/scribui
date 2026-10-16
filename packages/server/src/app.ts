@@ -110,7 +110,9 @@ export type ServerEvent =
   | { type: "status-changed"; round: number; status: string }
   | { type: "lan-changed"; enabled: boolean; paired: number }
   | { type: "annotations-changed"; round: number; by: string }
-  | { type: "vision-changed"; by: string };
+  | { type: "vision-changed"; by: string }
+  /** A screen was added by hand: in the review view (`by` is its client), or from the browser extension. */
+  | { type: "screen-added"; round: number; screenId: string; title: string; by: string };
 
 export type ServerOptions = {
   projectDir: string;
@@ -278,6 +280,8 @@ export function createApp(opts: ServerOptions) {
       // on the web, only when some screen can be captured without a hand
       canCapture: "app" in manifest && canAutoCapture(manifest),
       autoRecapture: opts.autoRecapture !== false,
+      // HTML, pages from a URL and page snapshots can be added (Playwright renders them)
+      canRenderPages: !!opts.renderPage,
       capture,
     });
   });
@@ -330,6 +334,11 @@ export function createApp(opts: ServerOptions) {
 
   /* ─────────── screens added by hand in the review view ─────────── */
   app.post("/api/imports", async (c) => {
+    const by = c.req.header("x-client-id") ?? "";
+    const added = (r: ViewSaveResult) => {
+      broadcast({ type: "screen-added", round: r.round, screenId: r.screenId, title: r.title, by });
+      return c.json(r);
+    };
     const role = z.enum(["app", "reference"]);
     const body = z
       .discriminatedUnion("kind", [
@@ -401,7 +410,7 @@ export function createApp(opts: ServerOptions) {
               : { kind: "html", role: body.role },
         ...(body.kind === "html" ? { file: body.html } : body.kind === "snapshot" ? { file: body.mhtml } : {}),
       });
-      return c.json(r);
+      return added(r);
     }
     const png = Buffer.from(body.png, "base64");
     const px = pngSize(png);
@@ -417,7 +426,7 @@ export function createApp(opts: ServerOptions) {
       noElements: true,
       imported: { kind: "image", role: body.role },
     });
-    return c.json(r);
+    return added(r);
   });
 
   /* ─────────── tablet pairing ─────────── */
