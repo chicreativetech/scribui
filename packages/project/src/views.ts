@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { pngSize, toCapture, writePng } from "@scribui/capture";
+import { pngSize, renderPage, toCapture, writePng } from "@scribui/capture";
 import type { Imported, ScreenEntry } from "@scribui/core";
-import type { ReviewStore, ViewSaveRequest, ViewSaveResult } from "@scribui/server";
+import type { PageRenderer, ReviewStore, ViewSaveRequest, ViewSaveResult } from "@scribui/server";
 import { carryForward } from "./capture.js";
 
 /**
@@ -90,6 +90,12 @@ export async function saveCapturedView(store: ReviewStore, req: ViewSaveRequest)
   await store.writeStatus(n, { ...cur, status: "open", updatedAt: new Date().toISOString(), screens: [...screens, entry] });
   return { round: n, screenId: id, title: screen.title };
 }
+
+/** Renders HTML and pages from any URL for imports, with the project's Playwright (or ScribUI's shared one). */
+export const pageRenderer =
+  (store: ReviewStore): PageRenderer =>
+  (src, width) =>
+    renderPage(store.root, src, width);
 
 const IMPORT_TITLES = { app: "Screenshot", reference: "Reference" } as const;
 const IMPORT_GROUPS = { app: "Added by hand", reference: "References" } as const;

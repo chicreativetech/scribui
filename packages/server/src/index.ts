@@ -12,6 +12,7 @@ export {
   type ViewSaveRequest,
   type ViewSaveResult,
   type ViewSaver,
+  type PageRenderer,
   type ServerEvent,
   type ServerOptions,
 } from "./app.js";

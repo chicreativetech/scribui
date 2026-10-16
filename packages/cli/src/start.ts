@@ -14,6 +14,7 @@ import {
   portRange,
   reachable,
   saveCapturedView,
+  pageRenderer,
   type CaptureEvent,
   type ProjectInfo,
 } from "@scribui/project";
@@ -243,7 +244,7 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform) 
   const hosted = await hostProject(store, {
     app: "cli",
     port,
-    server: { canvasDir: flags.canvasDir, lan: flags.lan, runner, saveView: (req) => saveCapturedView(store, req) },
+    server: { canvasDir: flags.canvasDir, lan: flags.lan, runner, saveView: (req) => saveCapturedView(store, req), renderPage: pageRenderer(store) },
     onWait: (o) => warnLine(`Another capture is running (${o.app}, pid ${o.pid}); waiting for it to finish…`),
   });
   if (hosted.kind === "running") {

@@ -5,7 +5,7 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, screen, session, shell,
 import { detectTools } from "@scribui/capture";
 import { PRODUCT, type Platform } from "@scribui/core";
 import { ReviewStore } from "@scribui/server";
-import { hostProject, makeRunner, renameGenericProject, saveCapturedView } from "@scribui/project";
+import { hostProject, makeRunner, renameGenericProject, saveCapturedView, pageRenderer } from "@scribui/project";
 import { liveInput } from "./deviceInput.js";
 import { installTool } from "./installs.js";
 import { DeviceView } from "./deviceView.js";
@@ -93,6 +93,7 @@ async function createProject(root: string, opts: OpenOptions): Promise<OpenResul
       canvasDir: CANVAS_DIR,
       runner: makeRunner(store, { platform: manifest.app.platform }),
       saveView: (req) => saveCapturedView(store, req),
+      renderPage: pageRenderer(store),
     },
   });
   if (hosted.kind === "no-port") return { ok: false, error: "Every port ScribUI tries is in use." };

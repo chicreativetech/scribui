@@ -357,12 +357,12 @@ export function ToolRail() {
       {!vision && (
         <section className="tool-group">
           <h4>Add</h4>
-          <p>Screenshots from anywhere</p>
+          <p>Screenshots, HTML or any page</p>
           <div className="toolbox">
             <button className="item tool" onClick={openImport} aria-label="add a screen (M)">
               <ImageGlyph />
               <span className="tip">
-                <b>add a screen</b> <kbd>M</kbd> <span className="dim">— paste, drop or pick a screenshot: of this app, or a reference</span>
+                <b>add a screen</b> <kbd>M</kbd> <span className="dim">— paste, drop or pick a screenshot, HTML or a link: of this app, or a reference</span>
               </span>
             </button>
           </div>

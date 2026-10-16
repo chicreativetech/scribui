@@ -14,7 +14,7 @@ export { parseUiautomator } from "./parsers/uiautomator.js";
 export { iosType, androidType } from "./parsers/typeMaps.js";
 export { toCapture, writePng } from "./adapters/shared.js";
 export { IosAdapter, AndroidAdapter, WebAdapter };
-export { readLiveFrame, loadChromium, LIVE_ISOLATE, LIVE_RESTORE } from "./adapters/web.js";
+export { readLiveFrame, loadChromium, renderPage, MAX_PAGE_HEIGHT, LIVE_ISOLATE, LIVE_RESTORE, type PageSource, type RenderedPage } from "./adapters/web.js";
 
 export function createAdapter(platform: Platform, ctx: CaptureContext): CaptureAdapter {
   switch (platform) {

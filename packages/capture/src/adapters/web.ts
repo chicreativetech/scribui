@@ -11,6 +11,9 @@ import { resolveFlowPath, screenshotPath, toCapture, writePng } from "./shared.j
 // Minimal structural types so playwright stays an optional peer dependency.
 type Page = {
   goto(url: string, o?: object): Promise<unknown>;
+  setContent(html: string, o?: object): Promise<void>;
+  setViewportSize(s: { width: number; height: number }): Promise<void>;
+  title(): Promise<string>;
   waitForLoadState(s: string, o?: object): Promise<void>;
   screenshot(o?: object): Promise<Uint8Array>;
   evaluate<T>(fn: string): Promise<T>;
@@ -194,6 +197,81 @@ export const LIVE_ISOLATE = String.raw`(() => {
   document.head.appendChild(st);
 })()`;
 export const LIVE_RESTORE = `document.getElementById("scribui-capturing")?.remove()`;
+
+/** What to render for an import: a page from any URL, or HTML (relative links resolved against `baseUrl`). */
+export type PageSource = { url: string } | { html: string; baseUrl?: string };
+export type RenderedPage = { png: Uint8Array; raw: RawElement; device: Device; title?: string };
+
+/** Tallest page an import renders, in CSS pixels: longer pages are cut off there. */
+export const MAX_PAGE_HEIGHT = 8000;
+
+/**
+ * Render a page for an import (a screen added by hand in the review view): open
+ * the URL, or put the HTML in a blank page with scripts off, wait for it to
+ * settle, then take the whole page (up to MAX_PAGE_HEIGHT) and its elements.
+ * Phones at 2×, wider windows at 1×, like the screens in screens.json.
+ */
+export async function renderPage(projectDir: string, src: PageSource, width: number): Promise<RenderedPage> {
+  const chromium = (await loadChromium(projectDir)) as Chromium;
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const phone = width < 600;
+    const scale = phone ? 2 : 1;
+    const context = await browser.newContext({
+      // HTML is measured from a short window, so a snippet isn't padded out to a screen's height
+      viewport: { width, height: "url" in src ? 900 : 100 },
+      deviceScaleFactor: scale,
+      isMobile: phone,
+      hasTouch: phone,
+      // pasted HTML is a picture of a page: its scripts don't run
+      javaScriptEnabled: "url" in src,
+    });
+    const page = await context.newPage();
+    if ("url" in src) {
+      try {
+        await page.goto(src.url, { waitUntil: "load", timeout: 30_000 });
+      } catch (e) {
+        throw new CaptureError(`could not open ${src.url}`, String((e as Error).message ?? e));
+      }
+      await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
+      await page.evaluate(SETTLE).catch(() => {});
+    } else {
+      await page.setContent(withViewport(withBase(src.html, src.baseUrl)), { waitUntil: "load", timeout: 30_000 });
+      await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
+    }
+    await page.evaluate(`document.fonts ? document.fonts.ready.then(() => true) : true`).catch(() => {});
+    // the whole page in one window, so the tree and the picture match without scrolling
+    const height = Math.min(MAX_PAGE_HEIGHT, Math.max(1, await page.evaluate<number>(`Math.ceil(document.documentElement.scrollHeight)`)));
+    await page.setViewportSize({ width, height });
+    await new Promise((r) => setTimeout(r, 150));
+    await page.evaluate(`window.__scribuiFullPage = false`);
+    const png = await page.screenshot({ type: "png", animations: "disabled", caret: "hide" });
+    const css = await page.evaluate<RawElement>(DOM_WALK);
+    const title = (await page.title().catch(() => "")).trim() || undefined;
+    const px = pngSize(png);
+    const device = { name: `Chromium ${width}×${height}`, width: Math.round(px.width / scale), height: Math.round(px.height / scale), scale };
+    await context.close();
+    return { png, raw: scaleTree(css, scale), device, ...(title ? { title } : {}) };
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+/** Pasted HTML without a viewport meta would be laid out 980 px wide on a phone, then shrunk. */
+function withViewport(html: string): string {
+  if (/<meta[^>]+name=["']?viewport/i.test(html)) return html;
+  const tag = `<meta name="viewport" content="width=device-width, initial-scale=1">`;
+  if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + tag);
+  return tag + html;
+}
+
+/** A `<base>` for pasted HTML whose stylesheets and images use relative links. */
+function withBase(html: string, base: string | undefined): string {
+  if (!base || /<base\s/i.test(html)) return html;
+  const tag = `<base href="${base.replace(/"/g, "&quot;")}">`;
+  if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + tag);
+  return tag + html;
+}
 
 export class WebAdapter implements CaptureAdapter {
   readonly platform = "web" as const;
