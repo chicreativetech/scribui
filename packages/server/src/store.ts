@@ -299,13 +299,14 @@ export class ReviewStore {
       .map((a) => (a.kind === "rule" && a.targets ? { ...a, targets: a.targets.filter((t) => !t.startsWith(`${id}#`)) } : a));
     await this.writeAnnotations(n, after);
 
-    const raw = JSON.parse(await readFile(this.path("screens.json"), "utf8")) as { screens?: { id: string; imported?: { kind: string } }[] };
+    const raw = JSON.parse(await readFile(this.path("screens.json"), "utf8")) as { screens?: { id: string; imported?: { kind: string; source?: string } }[] };
     const entry = raw.screens?.find((s) => s.id === id);
     if (entry) {
       raw.screens = raw.screens!.filter((s) => s.id !== id);
       await writeJson(this.path("screens.json"), raw);
-      // pasted HTML lives with the screen
-      if (entry.imported?.kind === "html") await rm(this.path("imports", `${sid}.html`), { force: true });
+      // pasted HTML and page snapshots live with the screen
+      const file = entry.imported?.kind === "html" || entry.imported?.kind === "snapshot" ? entry.imported.source : undefined;
+      if (file?.startsWith("imports/")) await rm(this.path("imports", basename(file)), { force: true });
     }
     return { notes: before.length - after.length };
   }

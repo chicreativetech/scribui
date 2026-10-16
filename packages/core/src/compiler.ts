@@ -458,13 +458,15 @@ function renderMarkdown(ctx: Ctx, review: ReviewJson): string {
 
 /** What a screen added by hand is, and how to read its notes. */
 function importNote(imp: Imported): string {
-  const file = imp.kind === "html" && imp.source ? `.scribui/${imp.source}` : undefined;
+  const file = (imp.kind === "html" || imp.kind === "snapshot") && imp.source ? `.scribui/${imp.source}` : undefined;
   const what =
     imp.kind === "image"
       ? "a still image the user added"
       : imp.kind === "html"
         ? `HTML the user added${file ? ` (${file})` : ""}, rendered by ScribUI`
-        : `the page at ${imp.source ?? "a URL"}, rendered by ScribUI`;
+        : imp.kind === "snapshot"
+          ? `a snapshot of ${imp.url ?? "a web page"} saved in the user's browser${file ? ` (${file}, MHTML: the page's HTML, CSS and images)` : ""}, rendered by ScribUI`
+          : `the page at ${imp.source ?? "a URL"}, rendered by ScribUI`;
   const ids =
     imp.kind === "image"
       ? "It has no elements: find what each note points at in the picture; bounds are its pixels."

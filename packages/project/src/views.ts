@@ -44,11 +44,11 @@ export async function saveCapturedView(store: ReviewStore, req: ViewSaveRequest)
   const id = replacing?.id ?? uniqueId(slug(title), new Set(existing.map((s) => s.id)));
 
   let imported = imp;
-  if (imp?.kind === "html") {
-    if (!req.html) throw new Error("an HTML import needs its markup");
-    const source = `imports/${id}.html`;
+  if (imp?.kind === "html" || imp?.kind === "snapshot") {
+    if (!req.file) throw new Error(`an ${imp.kind === "html" ? "HTML" : "page snapshot"} import needs its file`);
+    const source = `imports/${id}.${imp.kind === "html" ? "html" : "mhtml"}`;
     await mkdir(store.path("imports"), { recursive: true });
-    await writeFile(store.path(source), req.html);
+    await writeFile(store.path(source), req.file);
     imported = { ...imp, source };
   }
 
@@ -101,7 +101,14 @@ const IMPORT_TITLES = { app: "Screenshot", reference: "Reference" } as const;
 const IMPORT_GROUPS = { app: "Added by hand", reference: "References" } as const;
 
 function importReason(imp: Imported): string {
-  const what = imp.kind === "image" ? "a still image" : imp.kind === "html" ? "HTML" : `a page from ${imp.source ?? "a URL"}`;
+  const what =
+    imp.kind === "image"
+      ? "a still image"
+      : imp.kind === "html"
+        ? "HTML"
+        : imp.kind === "snapshot"
+          ? `a snapshot of ${imp.url ?? "a page"}`
+          : `a page from ${imp.source ?? "a URL"}`;
   const role = imp.role === "reference" ? "as a reference" : "as a screen of this app";
   return `added by hand in the review view: ${what}, ${role}${imp.kind === "image" ? "; it has no elements, so notes on it are regions" : ""}`;
 }

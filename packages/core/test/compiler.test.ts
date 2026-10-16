@@ -176,6 +176,12 @@ describe("screens added by hand", () => {
     expect(md).toContain("Ids are that HTML's, not this codebase's. Read .scribui/imports/stripe.html for exact styles");
   });
 
+  it("a page snapshot (Figma's Capture code) says where it was taken and points at the saved MHTML", () => {
+    const md = compileWith({ kind: "snapshot", role: "reference", source: "imports/stripe.mhtml", url: "https://stripe.com/" });
+    expect(md).toContain("Reference: a snapshot of https://stripe.com/ saved in the user's browser (.scribui/imports/stripe.mhtml, MHTML");
+    expect(md).toContain("Read .scribui/imports/stripe.mhtml for exact styles");
+  });
+
   it("a page from a URL says where it came from", () => {
     const md = compileWith({ kind: "page", role: "app", source: "https://staging.example.com/pricing" });
     expect(md).toContain("This screen is the page at https://staging.example.com/pricing, rendered by ScribUI: a screen of this app");

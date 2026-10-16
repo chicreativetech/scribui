@@ -638,6 +638,87 @@ test("pasted HTML is rendered with its elements; a link opens a page from anywhe
   await page.request.delete("/api/rounds/1/screens/acme-live");
 });
 
+test("a page copied with Figma's Chrome extension (Capture code) is rendered from its snapshot, offline", async ({ page }) => {
+  await reset(page);
+  const B = "----MultipartBoundary--test----";
+  // an MHTML snapshot as Chrome saves it: the page, and its stylesheet in its own part
+  const mhtml = [
+    "From: <Saved by Blink>",
+    "Snapshot-Content-Location: https://shop.example/",
+    "Subject: Example shop",
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/related; type="text/html"; boundary="${B}"`,
+    "",
+    `--${B}`,
+    "Content-Type: text/html",
+    "Content-Location: https://shop.example/",
+    "",
+    '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="https://shop.example/site.css"></head>' +
+      '<body><nav id="topnav">Shop</nav><section id="hero" style="min-height: 80vh">Hero</section>' +
+      // parked by a scroll-reveal script that never ran: shown anyway
+      '<article id="later" style="opacity: 0; transform: translateY(40px); transition: opacity 0.6s, transform 0.6s;">Later</article>' +
+      '<button id="checkout">Checkout</button></body></html>',
+    `--${B}`,
+    "Content-Type: text/css",
+    "Content-Location: https://shop.example/site.css",
+    "",
+    "body{margin:0;font:16px sans-serif} #topnav{background:rgb(0, 128, 0);color:#fff;padding:20px} #checkout{margin:20px;padding:14px 24px}",
+    `--${B}--`,
+    "",
+  ].join("\r\n");
+  await page.evaluate((mhtml) => {
+    const b64 = (s: string) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+    const meta = b64(JSON.stringify({ dataType: "h2d", source: "chrome-extension" }));
+    const h2d = b64(JSON.stringify([{ type: "mhtml", sourceUrl: "https://shop.example/", title: "Example shop", content: mhtml }]));
+    const dt = new DataTransfer();
+    dt.setData(
+      "text/html",
+      `<meta charset='utf-8'><html><head></head><body><span data-metadata="&lt;!--(figmeta)${meta}(/figmeta)--&gt;"></span><span data-h2d="&lt;!--(figh2d)${h2d}(/figh2d)--&gt;"></span></body></html>`,
+    );
+    window.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt }));
+  }, mhtml);
+  const dialog = page.getByRole("dialog", { name: "Add a screen" });
+  await expect(dialog.locator(".import-url")).toHaveText("https://shop.example/");
+  await expect(dialog.getByLabel("Name")).toHaveValue("Example shop");
+  await expect(dialog.getByRole("radio", { name: /Reference/ })).toHaveAttribute("aria-checked", "true");
+  await expect(dialog.getByRole("radio", { name: /Desktop/ })).toHaveAttribute("aria-checked", "true");
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden({ timeout: 20_000 });
+  const cap = await page.request.get("/api/rounds/1/screens/example-shop").then((r) => r.json());
+  expect(cap.device).toMatchObject({ width: 1440, scale: 1 });
+  // 80vh of a 900 px window, not of the whole page
+  expect(cap.device.height).toBeLessThan(1100);
+  expect(JSON.stringify(cap.root)).toContain('"checkout"');
+  expect(JSON.stringify(cap.root)).toContain('"later"');
+  // the stylesheet came from the snapshot (shop.example isn't reachable): the nav is green
+  const shot = await page.request.get(`/files/rounds/001/${cap.screenshot}`);
+  const color = await page.evaluate(async (b64) => {
+    const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+    const c = new OffscreenCanvas(img.width, img.height);
+    const g = c.getContext("2d")!;
+    g.drawImage(img, 0, 0);
+    return [...g.getImageData(700, 10, 1, 1).data.slice(0, 3)];
+  }, (await shot.body()).toString("base64"));
+  expect(color).toEqual([0, 128, 0]);
+  const project = await page.request.get("/api/project").then((r) => r.json());
+  expect(project.manifest.screens.find((s: { id: string }) => s.id === "example-shop").imported).toEqual({
+    kind: "snapshot",
+    role: "reference",
+    source: "imports/example-shop.mhtml",
+    url: "https://shop.example/",
+  });
+  await page.request.delete("/api/rounds/1/screens/example-shop");
+
+  // Figma's own layers can't be read: say what works instead
+  await page.evaluate(() => {
+    const dt = new DataTransfer();
+    dt.setData("text/html", `<span data-metadata="&lt;!--(figmeta)e30=(/figmeta)--&gt;"></span><span data-buffer="&lt;!--(figma)ZmlnLWtpd2k=(/figma)--&gt;"></span>`);
+    window.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt }));
+  });
+  await expect(page.locator(".toast", { hasText: "Figma layers" })).toBeVisible();
+  await expect(dialog).toBeHidden();
+});
+
 test("send writes the review and locks the round", async ({ page }) => {
   await focus(page, "checkout-default");
   await page.keyboard.press("x");
