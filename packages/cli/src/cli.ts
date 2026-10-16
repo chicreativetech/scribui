@@ -6,7 +6,7 @@ import { cac } from "cac";
 import { createAdapter } from "@scribui/capture";
 import { BY_HAND, capturedByHand, Platform, PRODUCT, ReviewJson } from "@scribui/core";
 import { lanAddress, ReviewStore, type CaptureState } from "@scribui/server";
-import { captureProject, describePlan, detectProject, hostProject, makeRunner, portRange, saveCapturedView, type CaptureEvent, type Owner } from "@scribui/project";
+import { captureProject, describePlan, detectProject, hostProject, makeRunner, portRange, saveCapturedView, pageRenderer, type CaptureEvent, type Owner } from "@scribui/project";
 import { runMcp } from "./mcp.js";
 import { migrateHome, migrateProject } from "./migrate.js";
 import { handToDesktop, openBrowser, start } from "./start.js";
@@ -240,6 +240,7 @@ async function cmdOpen(f: Flags) {
       lan: f.lan,
       runner: makeRunner(store, { platform: platformFlag(f), device: f.device }, printEvent),
       saveView: (req) => saveCapturedView(store, req),
+      renderPage: pageRenderer(store),
     },
     onWait: waitingFor,
   });

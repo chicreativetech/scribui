@@ -587,6 +587,57 @@ test("a screenshot pasted on the board becomes a screen: an app screen or a refe
   await page.request.delete("/api/rounds/1/screens/competitor-cart");
 });
 
+test("pasted HTML is rendered with its elements; a link opens a page from anywhere", async ({ page }) => {
+  await reset(page);
+  const html = `<!doctype html><html><head><title>Acme pricing</title><style>body{margin:0;font:16px sans-serif}
+    header{background:#123;color:#fff;padding:24px}button{margin:24px;padding:12px 20px;background:#e50;color:#fff;border:0}</style></head>
+    <body><header id="hero"><h1>Pricing</h1></header><button id="buy">Start free trial</button><script>document.body.innerHTML = "scripts ran"</script></body></html>`;
+  await page.evaluate((text) => {
+    const dt = new DataTransfer();
+    dt.setData("text/plain", text);
+    window.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt }));
+  }, html);
+  const dialog = page.getByRole("dialog", { name: "Add a screen" });
+  await expect(dialog.locator("iframe.html-preview")).toBeVisible();
+  await expect(dialog.getByLabel("Name")).toHaveValue("Acme pricing");
+  // HTML is usually from somewhere else
+  await expect(dialog.getByRole("radio", { name: /Reference/ })).toHaveAttribute("aria-checked", "true");
+  await dialog.getByRole("radio", { name: /Phone/ }).click();
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden({ timeout: 20_000 });
+  await expect(page.locator(".tile-label", { hasText: "Acme pricing" })).toBeVisible();
+  const cap = await page.request.get("/api/rounds/1/screens/acme-pricing").then((r) => r.json());
+  expect(cap.device).toMatchObject({ width: 390, scale: 2 });
+  const ids: string[] = [];
+  const walk = (e: { id: string; children: unknown[] }) => (ids.push(e.id), e.children.forEach((c) => walk(c as never)));
+  walk(cap.root);
+  // its elements, and its scripts never ran
+  expect(ids).toEqual(expect.arrayContaining(["hero", "buy"]));
+  const project = await page.request.get("/api/project").then((r) => r.json());
+  expect(project.manifest.screens.find((s: { id: string }) => s.id === "acme-pricing").imported).toEqual({
+    kind: "html",
+    role: "reference",
+    source: "imports/acme-pricing.html",
+  });
+
+  // the saved HTML, opened as a page from a link
+  await page.keyboard.press("m");
+  await dialog.getByPlaceholder("https://…").fill("http://127.0.0.1:4399/files/imports/acme-pricing.html");
+  await dialog.getByRole("button", { name: "Open" }).click();
+  await expect(dialog.locator(".import-url")).toHaveText(/acme-pricing\.html/);
+  await dialog.getByRole("radio", { name: /Our app/ }).click();
+  await dialog.getByLabel("Name").fill("Acme live");
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden({ timeout: 20_000 });
+  await expect(page.locator(".tile-label", { hasText: "Acme live" })).toBeVisible();
+  const live = await page.request.get("/api/rounds/1/screens/acme-live").then((r) => r.json());
+  // a page opened from a link runs its scripts
+  expect(JSON.stringify(live.root)).not.toContain('"buy"');
+
+  await page.request.delete("/api/rounds/1/screens/acme-pricing");
+  await page.request.delete("/api/rounds/1/screens/acme-live");
+});
+
 test("send writes the review and locks the round", async ({ page }) => {
   await focus(page, "checkout-default");
   await page.keyboard.press("x");

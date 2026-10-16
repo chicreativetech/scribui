@@ -59,7 +59,11 @@ export type ProjectPayload = {
 };
 
 /** A screen added by hand in the review view. */
-export type ImportRequest = { kind: "image"; role: Imported["role"]; title?: string; png: string; scale?: number };
+export type ImportRequest = { role: Imported["role"]; title?: string } & (
+  | { kind: "image"; png: string; scale?: number }
+  | { kind: "html"; html: string; baseUrl?: string; width: number }
+  | { kind: "page"; url: string; width: number }
+);
 
 export type RoundListItem = { round: number; status: string; createdAt?: string; annotations: number };
 

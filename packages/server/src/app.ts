@@ -91,6 +91,12 @@ export type ViewSaveRequest = {
 export type ViewSaveResult = { round: number; screenId: string; title: string };
 export type ViewSaver = (req: ViewSaveRequest) => Promise<ViewSaveResult>;
 
+/** Renders a page for an import: a URL, or pasted HTML. Width in CSS pixels. */
+export type PageRenderer = (
+  src: { url: string } | { html: string; baseUrl?: string },
+  width: number,
+) => Promise<{ png: Uint8Array; raw: RawElement; device: Device; title?: string }>;
+
 export type ServerEvent =
   | { type: "round-created"; round: number }
   | {
@@ -119,6 +125,8 @@ export type ServerOptions = {
   runner?: CaptureRunner;
   /** Saves views captured by hand (provided with the runner). Enables `POST /api/views`. */
   saveView?: ViewSaver;
+  /** Renders HTML and pages from a URL for imports (provided with the runner). */
+  renderPage?: PageRenderer;
   /** Web: recapture automatically when the agent marks a round applied (default true). */
   autoRecapture?: boolean;
 };
@@ -334,9 +342,46 @@ export function createApp(opts: ServerOptions) {
           /** Screenshot pixels per CSS pixel (2 for a Retina screenshot). */
           scale: z.number().min(1).max(4).optional(),
         }),
+        z.object({
+          kind: z.literal("html"),
+          role,
+          title: z.string().max(120).optional(),
+          html: z.string().min(1).max(10 * 1024 * 1024),
+          /** Where relative links in the HTML point. */
+          baseUrl: z.url({ protocol: /^https?$/ }).optional(),
+          width: z.number().int().min(320).max(2560),
+        }),
+        z.object({
+          kind: z.literal("page"),
+          role,
+          title: z.string().max(120).optional(),
+          url: z.url({ protocol: /^https?$/ }),
+          width: z.number().int().min(320).max(2560),
+        }),
       ])
       .parse(await c.req.json());
     const manifest = await store.readManifest();
+    if (body.kind !== "image") {
+      const render = opts.renderPage;
+      if (!render) throw new HttpError(501, "rendering pages needs `scribui` or the desktop app");
+      let page: Awaited<ReturnType<PageRenderer>>;
+      try {
+        page = await render(body.kind === "page" ? { url: body.url } : { html: body.html, ...(body.baseUrl ? { baseUrl: body.baseUrl } : {}) }, body.width);
+      } catch (e) {
+        const err = e as Error & { detail?: string };
+        throw new HttpError(422, [err.message, err.detail].filter(Boolean).join(": "));
+      }
+      const r = await saveView({
+        platform: manifest.app.platform,
+        title: body.title || page.title,
+        device: page.device,
+        png: page.png,
+        raw: page.raw,
+        imported: body.kind === "page" ? { kind: "page", role: body.role, source: body.url } : { kind: "html", role: body.role },
+        ...(body.kind === "html" ? { html: body.html } : {}),
+      });
+      return c.json(r);
+    }
     const png = Buffer.from(body.png, "base64");
     const px = pngSize(png);
     if (!px) throw new HttpError(400, "that isn't a PNG image");

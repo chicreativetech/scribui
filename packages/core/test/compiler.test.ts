@@ -170,6 +170,18 @@ describe("screens added by hand", () => {
     expect(md).toContain("Leave reference screens out");
   });
 
+  it("reference HTML points the agent at the saved file for exact styles", () => {
+    const md = compileWith({ kind: "html", role: "reference", source: "imports/stripe.html" });
+    expect(md).toContain("Reference: HTML the user added (.scribui/imports/stripe.html), rendered by ScribUI.");
+    expect(md).toContain("Ids are that HTML's, not this codebase's. Read .scribui/imports/stripe.html for exact styles");
+  });
+
+  it("a page from a URL says where it came from", () => {
+    const md = compileWith({ kind: "page", role: "app", source: "https://staging.example.com/pricing" });
+    expect(md).toContain("This screen is the page at https://staging.example.com/pricing, rendered by ScribUI: a screen of this app");
+    expect(md).toContain("find the matching code in the app");
+  });
+
   it("a screenshot of the app: changed like any screen", () => {
     const md = compileWith({ kind: "image", role: "app" });
     expect(md).toContain("This screen is a still image the user added: a screen of this app, not captured by ScribUI.");

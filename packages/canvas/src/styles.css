@@ -760,6 +760,15 @@ kbd {
 .role-switch button:hover { border-color: var(--fg-dim); }
 .role-switch button.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
 .import-note { margin: 12px 0 0; font-size: 11.5px; line-height: 1.5; }
+.import-row { display: flex; gap: 8px; }
+.import-row input { flex: 1; min-width: 0; }
+.import-preview .html-preview { width: 100%; height: 240px; border: 0; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2); }
+.import-url { font: 500 13px/1.4 var(--mono, monospace); color: var(--fg); word-break: break-all; padding: 18px 6px; text-align: center; }
+.width-switch { display: flex; gap: 6px; flex-wrap: wrap; }
+.width-switch button { padding: 6px 10px; background: var(--surface); border: 1px solid var(--line-2); color: var(--fg); cursor: pointer; font: 500 12px/1 var(--sans); }
+.width-switch button:hover { border-color: var(--fg-dim); }
+.width-switch button.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.import-err { margin-top: 10px; white-space: pre-wrap; max-height: 120px; overflow: auto; }
 @media (max-width: 480px) { .role-switch { grid-template-columns: 1fr; } }
 
 /* ───────── marking up the App and Device tabs ───────── */
