@@ -6,7 +6,7 @@ import { createAdaptorServer } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { Hono, type Context } from "hono";
 import { WebSocketServer, type WebSocket } from "ws";
-import { Annotation, AnnotationsFile, PRODUCT, recapturable, VisionFile, type Device, type Platform, type RawElement, type ScreenManifest } from "@scribui/core";
+import { Annotation, AnnotationsFile, PRODUCT, recapturable, VisionFile, type Device, type Imported, type Platform, type RawElement, type ScreenManifest } from "@scribui/core";
 import { z } from "zod";
 import { isLoopback, lanAddress, LanAuth, parseCookies } from "./lan.js";
 import { qrSvg } from "./qr.js";
@@ -83,6 +83,10 @@ export type ViewSaveRequest = {
   viewportHeight?: number;
   /** Web, marked up in the app tab: the page's fingerprint (see ScreenEntry.pageSignature). */
   signature?: string;
+  /** Added by hand in the review view (a screenshot, HTML, a page from a URL); any project can take it. */
+  imported?: Imported;
+  /** HTML imports: the markup, saved as the screen's source file. */
+  html?: string;
 };
 export type ViewSaveResult = { round: number; screenId: string; title: string };
 export type ViewSaver = (req: ViewSaveRequest) => Promise<ViewSaveResult>;
@@ -316,6 +320,40 @@ export function createApp(opts: ServerOptions) {
     return c.json(r);
   });
 
+  /* ─────────── screens added by hand in the review view ─────────── */
+  app.post("/api/imports", async (c) => {
+    const role = z.enum(["app", "reference"]);
+    const body = z
+      .discriminatedUnion("kind", [
+        z.object({
+          kind: z.literal("image"),
+          role,
+          title: z.string().max(120).optional(),
+          /** base64 PNG (the canvas converts other formats) */
+          png: z.string().min(1),
+          /** Screenshot pixels per CSS pixel (2 for a Retina screenshot). */
+          scale: z.number().min(1).max(4).optional(),
+        }),
+      ])
+      .parse(await c.req.json());
+    const manifest = await store.readManifest();
+    const png = Buffer.from(body.png, "base64");
+    const px = pngSize(png);
+    if (!px) throw new HttpError(400, "that isn't a PNG image");
+    const scale = body.scale ?? 1;
+    const r = await saveView({
+      platform: manifest.app.platform,
+      title: body.title,
+      device: { name: "Image", width: Math.round(px.width / scale), height: Math.round(px.height / scale), scale },
+      png,
+      // a picture: the screen and nothing in it
+      raw: { type: "screen", bounds: { x: 0, y: 0, w: px.width, h: px.height }, children: [] },
+      noElements: true,
+      imported: { kind: "image", role: body.role },
+    });
+    return c.json(r);
+  });
+
   /* ─────────── tablet pairing ─────────── */
   app.get("/api/lan", (c) => c.json({ enabled: lanState.enabled, paired: lan.paired, url: lanState.url, expiresAt: lan.tokenExpiresAt }));
   app.post("/api/lan", async (c) => {
@@ -375,6 +413,7 @@ export function createApp(opts: ServerOptions) {
           reason: capInfo.get(s.id)?.reason,
           // a capture whose screen is no longer in screens.json can't be taken again
           recapturable: canRecapture && entries.some((e) => e.id === s.id && recapturable(e)),
+          imported: entries.find((e) => e.id === s.id)?.imported,
           platform: cap?.platform,
           device: cap?.device,
           size: cap ? { width: cap.root.bounds.w, height: cap.root.bounds.h } : undefined,
@@ -492,6 +531,14 @@ async function sendFile(c: Context, p: string, immutable = false) {
   c.header("Content-Type", MIME[extname(p).toLowerCase()] ?? "application/octet-stream");
   c.header("Cache-Control", immutable ? "public, max-age=31536000, immutable" : "no-cache");
   return c.body(body);
+}
+
+/** Width and height from a PNG's IHDR chunk; null when it isn't a PNG. */
+function pngSize(buf: Uint8Array): { width: number; height: number } | null {
+  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (buf.length < 24 || !sig.every((b, i) => buf[i] === b)) return null;
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  return { width: dv.getUint32(16), height: dv.getUint32(20) };
 }
 
 class HttpError extends Error {

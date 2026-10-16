@@ -74,7 +74,7 @@ export function compileRound(
   const { manifest, captures } = inputs;
   const known = new Set(manifest.screens.map((s) => s.id));
   const screens = [
-    ...manifest.screens.map((s) => ({ id: s.id, title: s.title })),
+    ...manifest.screens.map((s) => ({ id: s.id, title: s.title, ...(s.imported ? { imported: s.imported } : {}) })),
     ...[...captures.keys()].filter((id) => !known.has(id)).map((id) => ({ id, title: id })),
   ];
   return compile({ round: n, appName: manifest.app.name, date, screens, captures, annotations, visionCanvases });

@@ -100,6 +100,19 @@ export const Viewport = z.object({
   fullPage: z.boolean().optional(),
 });
 
+/**
+ * A screen added by hand. `kind`: a still image (no elements), HTML rendered by
+ * ScribUI, or a page opened from a URL. `role`: a screen of this app the agent
+ * should change, or a reference from elsewhere it should take the look from.
+ */
+export const Imported = z.object({
+  kind: z.enum(["image", "html", "page"]),
+  role: z.enum(["app", "reference"]),
+  /** html: the saved file, relative to the review folder (`imports/<id>.html`); page: the URL it was opened from. */
+  source: z.string().optional(),
+});
+export type Imported = z.infer<typeof Imported>;
+
 export const ScreenEntry = z.object({
   id: z.string().regex(/^[a-zA-Z0-9._-]+$/, "screen ids may only use letters, digits, . _ -"),
   title: z.string(),
@@ -128,6 +141,12 @@ export const ScreenEntry = z.object({
    * this screen; a changed page gets a new screen.
    */
   pageSignature: z.string().optional(),
+  /**
+   * Added by hand in the review view rather than captured from the app: a pasted or
+   * dropped screenshot, pasted or uploaded HTML, or a page opened from any URL. Kept
+   * as it is from round to round, never recaptured.
+   */
+  imported: Imported.optional(),
   /**
    * Source globs that render this screen, relative to the project root, such as
    * "app/src/main/java/(double-star)/feature/shop/(double-star)". Used to recapture only screens whose code changed.

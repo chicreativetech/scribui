@@ -24,9 +24,10 @@ export type PreviousRound = {
 /**
  * Web: whether an automatic capture can take this screen. Screens listed for capture can;
  * views captured by hand in the app tab can when they have a url, and are then reloaded
- * from it (anything clicked or typed before the hand capture is not repeated).
+ * from it (anything clicked or typed before the hand capture is not repeated). Imported
+ * screens (pasted images, HTML, pages from other sites) never are: they are kept as they are.
  */
-export const recapturable = (s: Pick<ScreenEntry, "live" | "url">): boolean => !s.live || !!s.url;
+export const recapturable = (s: Pick<ScreenEntry, "live" | "url" | "imported">): boolean => !s.imported && (!s.live || !!s.url);
 
 export type PlanInput = {
   screens: ScreenEntry[];

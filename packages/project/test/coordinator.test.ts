@@ -202,6 +202,53 @@ describe("views captured by hand", () => {
   });
 });
 
+describe("screens added by hand in the review view", () => {
+  const png = readFileSync(join(F, "web/checkout/screens/cart.png"));
+
+  it("a pasted screenshot joins any project as a still image, and is kept rather than recaptured", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "scribui-import-"));
+    const store = new ReviewStore(dir);
+    await store.init({ platform: "android", appId: "com.example.shop" });
+    const hosted = await hostProject(store, { app: "cli", port: 4512, server: { saveView: (req) => saveCapturedView(store, req) } });
+    if (hosted.kind !== "owner") throw new Error("expected to own the project");
+    cleanups.push(() => hosted.server.close());
+    const post = (body: object) =>
+      fetch(`http://127.0.0.1:${hosted.server.port}/api/imports`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+    const r = await post({ kind: "image", role: "reference", title: "Stripe checkout", png: png.toString("base64"), scale: 2 });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ round: 1, screenId: "stripe-checkout", title: "Stripe checkout" });
+    const s = (await store.readManifest()).screens[0]!;
+    expect(s).toMatchObject({ id: "stripe-checkout", group: "References", live: true, imported: { kind: "image", role: "reference" } });
+    expect(s.url).toBeUndefined();
+    expect(s.device).toBeUndefined();
+    const cap = (await store.readCapture(1, "stripe-checkout"))!;
+    expect(cap.device).toEqual({ name: "Image", width: 390, height: 844, scale: 2 });
+    expect(cap.root.children).toEqual([]);
+    expect((await store.readStatus(1)).screens?.[0]?.reason).toMatch(/still image, as a reference; it has no elements/);
+
+    // untitled screenshots of the app go with the other screens added by hand
+    const b = await (await post({ kind: "image", role: "app", png: png.toString("base64") })).json();
+    expect(b).toMatchObject({ screenId: "screenshot", title: "Screenshot" });
+    expect((await store.readManifest()).screens[1]).toMatchObject({ group: "Added by hand", imported: { kind: "image", role: "app" } });
+
+    expect((await post({ kind: "image", role: "app", png: Buffer.from("GIF89a").toString("base64") })).status).toBe(400);
+  });
+
+  it("an imported screen is never recaptured", async () => {
+    const { store, n } = await project();
+    await saveCapturedView(store, {
+      platform: "web",
+      device: { name: "Image", width: 390, height: 844, scale: 2 },
+      png,
+      raw: { type: "screen", bounds: { x: 0, y: 0, w: 780, h: 1688 }, children: [] },
+      noElements: true,
+      imported: { kind: "image", role: "reference" },
+    });
+    await expect(captureRound(store, { screens: ["reference"], intoRound: n })).rejects.toThrow(/added by hand in the review view/);
+  });
+});
+
 describe("Android and iOS", () => {
   it("never capture on their own: rounds are refused with where to capture instead", async () => {
     const dir = mkdtempSync(join(tmpdir(), "scribui-byhand-"));

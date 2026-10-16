@@ -226,7 +226,7 @@ const KEYS: [string, [string, string][]][] = [
     [
       ["I / B / Q", "line / box / ellipse (shift: straight, square)"],
       ["T", "text"],
-      ["M", "vision: import an image (or paste, or drop)"],
+      ["M", "add a screenshot as a screen (or paste, or drop it on the board); vision: import an image"],
       ["drag corners", "vision: resize; top handle rotates"],
       ["arrows", "vision: nudge the selection (shift: 10)"],
     ],

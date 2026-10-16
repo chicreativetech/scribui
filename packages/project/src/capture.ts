@@ -59,6 +59,8 @@ export async function captureRound(store: ReviewStore, opts: CaptureOptions = {}
   if (opts.screens?.length) {
     const unknown = opts.screens.filter((id) => !manifest.screens.some((s) => s.id === id));
     if (unknown.length) throw new Error(`unknown screen ids: ${unknown.join(", ")}`);
+    const imported = opts.screens.filter((id) => live.some((s) => s.id === id && s.imported));
+    if (imported.length) throw new Error(`${imported.join(", ")} ${imported.length === 1 ? "was" : "were"} added by hand in the review view and ${imported.length === 1 ? "is" : "are"} kept as ${imported.length === 1 ? "it is" : "they are"}: nothing to recapture`);
     const handmade = opts.screens.filter((id) => live.some((s) => s.id === id));
     if (handmade.length) throw new Error(`${handmade.join(", ")} came from the app tab without a url: capture ${handmade.length === 1 ? "it" : "them"} again there`);
   }
@@ -98,7 +100,9 @@ export async function captureRound(store: ReviewStore, opts: CaptureOptions = {}
   const toCapture = plan.items.filter((i) => i.action === "capture");
 
   if (screens.length === 0) {
-    const why = "every screen came from the app tab without a url: capture them again there";
+    const why = live.every((s) => s.imported)
+      ? "every screen was added by hand in the review view: nothing to recapture"
+      : "every screen came from the app tab without a url: capture them again there";
     return { round: previousNo ?? 0, ok: [], failed: [], reused: live.map((s) => s.id), plan: { ...plan, why }, skipped: true };
   }
   if (opts.dryRun || (toCapture.length === 0 && opts.intoRound === undefined)) {

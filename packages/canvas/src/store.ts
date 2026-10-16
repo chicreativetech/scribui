@@ -581,7 +581,7 @@ export function compileCurrent(): CompileOutput | null {
     round: s.round.round,
     appName: s.round.app?.name ?? "app",
     date: new Date().toISOString().slice(0, 10),
-    screens: s.round.screens.map((x) => ({ id: x.id, title: titles.get(x.id) ?? x.id })),
+    screens: s.round.screens.map((x) => ({ id: x.id, title: titles.get(x.id) ?? x.id, ...(x.imported ? { imported: x.imported } : {}) })),
     captures: s.captures,
     annotations: s.annotations,
   });

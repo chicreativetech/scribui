@@ -147,3 +147,32 @@ describe("compiler templates", () => {
     expect([...markers]).toEqual([["a1", 1], ["b1", 2], ["a2", 1]]);
   });
 });
+
+describe("screens added by hand", () => {
+  const image = screen([]);
+  const compileWith = (imported: { kind: "image" | "html" | "page"; role: "app" | "reference"; source?: string }) =>
+    compile({
+      round: 4,
+      appName: "Demo",
+      date: "2026-10-16",
+      screens: [{ id: "ref", title: "Stripe", imported }],
+      captures: new Map([["ref", { screenId: "ref", root: image }]]),
+      annotations: resolveAll(
+        [{ id: "a", screenId: "ref", kind: "rectangle", geometry: { type: "rect", x: 20, y: 40, w: 200, h: 60 }, text: "use this header" }],
+        new Map([["ref", image]]),
+      ),
+    }).markdown;
+
+  it("a reference image: not part of the app, no elements, left out of changedScreens", () => {
+    const md = compileWith({ kind: "image", role: "reference" });
+    expect(md).toContain("Reference: a still image the user added. It is not part of this app; don't build it as a screen.");
+    expect(md).toContain("It has no elements: find what each note points at in the picture");
+    expect(md).toContain("Leave reference screens out");
+  });
+
+  it("a screenshot of the app: changed like any screen", () => {
+    const md = compileWith({ kind: "image", role: "app" });
+    expect(md).toContain("This screen is a still image the user added: a screen of this app, not captured by ScribUI.");
+    expect(md).not.toContain("Leave reference screens out");
+  });
+});
