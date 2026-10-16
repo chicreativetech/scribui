@@ -109,6 +109,34 @@
           "pageSignature": {
             "type": "string"
           },
+          "imported": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "image",
+                  "html",
+                  "page"
+                ]
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "app",
+                  "reference"
+                ]
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "role"
+            ],
+            "additionalProperties": false
+          },
           "sources": {
             "type": "array",
             "items": {

@@ -1,4 +1,4 @@
-import type { Annotation, Device, ScreenCapture, ScreenManifest, StatusFile, VisionFile } from "@scribui/core";
+import type { Annotation, Device, Imported, ScreenCapture, ScreenManifest, StatusFile, VisionFile } from "@scribui/core";
 
 export type ScreenInfo = {
   id: string;
@@ -12,6 +12,8 @@ export type ScreenInfo = {
   reason?: string;
   /** An automatic capture can take it again (web, listed or captured by hand with a url). */
   recapturable?: boolean;
+  /** Added by hand in the review view: a screenshot, HTML or a page from a URL. */
+  imported?: Imported;
   platform?: "ios" | "android" | "web";
   device?: Device;
   size?: { width: number; height: number };
@@ -55,6 +57,9 @@ export type ProjectPayload = {
   autoRecapture: boolean;
   capture: CaptureState;
 };
+
+/** A screen added by hand in the review view. */
+export type ImportRequest = { kind: "image"; role: Imported["role"]; title?: string; png: string; scale?: number };
 
 export type RoundListItem = { round: number; status: string; createdAt?: string; annotations: number };
 
@@ -114,6 +119,10 @@ export const api = {
       headers: { "content-type": "application/json", "x-client-id": CLIENT_ID },
       body: JSON.stringify(v),
     }).then((r) => json<{ ok: true }>(r)),
+  importScreen: (body: ImportRequest) =>
+    fetch("/api/imports", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then((r) =>
+      json<{ round: number; screenId: string; title: string }>(r),
+    ),
   uploadVisionImage: (blob: Blob) =>
     fetch("/api/vision/images", { method: "POST", headers: { "content-type": blob.type }, body: blob }).then((r) => json<{ src: string }>(r)),
 };

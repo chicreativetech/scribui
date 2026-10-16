@@ -4,6 +4,7 @@ import { numberAnnotations } from "./numbering.js";
 import { indexFor } from "./resolver.js";
 import type {
   Annotation,
+  Imported,
   Instruction,
   Rect,
   ReviewJson,
@@ -21,7 +22,7 @@ export type CompileInput = {
   /** YYYY-MM-DD, used for rules.md entries. Passed in so output stays deterministic. */
   date: string;
   /** Screens in manifest order. */
-  screens: { id: string; title: string }[];
+  screens: { id: string; title: string; imported?: Imported }[];
   captures: Map<string, Pick<ScreenCapture, "screenId" | "root">>;
   /** Resolved annotations (run `resolveAll` first). */
   annotations: Annotation[];
@@ -437,6 +438,8 @@ function renderMarkdown(ctx: Ctx, review: ReviewJson): string {
     seen.add(sid);
     L.push(`## ${ctx.titles.get(sid) ?? sid} (${sid})`);
     L.push(`Screenshot: screens/${sid}.annotated.png`, "");
+    const imp = ctx.input.screens.find((s) => s.id === sid)?.imported;
+    if (imp) L.push(importNote(imp), "");
     for (const i of byScreen.get(sid)!) {
       L.push(`${i.marker}. [${i.id}] ${i.instruction}`);
       for (const ink of i.ink ?? []) L.push(`   ![handwritten note ${i.id}](${ink})`);
@@ -444,11 +447,31 @@ function renderMarkdown(ctx: Ctx, review: ReviewJson): string {
     L.push("");
   }
   if (review.instructions.length === 0) L.push("No instructions in this round.", "");
+  const references = ctx.input.screens.some((s) => s.imported?.role === "reference" && byScreen.has(s.id));
   L.push(
-    'When done, set `"status": "applied"` in `.scribui/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. ScribUI then recaptures those screens.',
+    'When done, set `"status": "applied"` in `.scribui/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. ScribUI then recaptures those screens.' +
+      (references ? " Leave reference screens out: they are not part of the app and never change." : ""),
     "",
   );
   return L.join("\n");
+}
+
+/** What a screen added by hand is, and how to read its notes. */
+function importNote(imp: Imported): string {
+  const file = imp.kind === "html" && imp.source ? `.scribui/${imp.source}` : undefined;
+  const what =
+    imp.kind === "image"
+      ? "a still image the user added"
+      : imp.kind === "html"
+        ? `HTML the user added${file ? ` (${file})` : ""}, rendered by ScribUI`
+        : `the page at ${imp.source ?? "a URL"}, rendered by ScribUI`;
+  const ids =
+    imp.kind === "image"
+      ? "It has no elements: find what each note points at in the picture; bounds are its pixels."
+      : `Ids are ${imp.kind === "html" ? "that HTML's" : "that page's"}, not this codebase's${imp.role === "app" ? ": find the matching code in the app" : ""}.`;
+  if (imp.role === "app") return `This screen is ${what}: a screen of this app, not captured by ScribUI. ${ids}`;
+  const styles = file ? ` Read ${file} for exact styles (colours, fonts, spacing).` : "";
+  return `Reference: ${what}. It is not part of this app; don't build it as a screen. Take from it what the notes ask for and apply that to the app's own screens. ${ids}${styles}`;
 }
 
 function renderRules(ctx: Ctx, rules: RuleEntry[]): string {

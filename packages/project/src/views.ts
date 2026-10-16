@@ -1,6 +1,7 @@
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pngSize, toCapture, writePng } from "@scribui/capture";
-import type { ScreenEntry } from "@scribui/core";
+import type { Imported, ScreenEntry } from "@scribui/core";
 import type { ReviewStore, ViewSaveRequest, ViewSaveResult } from "@scribui/server";
 import { carryForward } from "./capture.js";
 
@@ -16,7 +17,7 @@ import { carryForward } from "./capture.js";
  */
 export async function saveCapturedView(store: ReviewStore, req: ViewSaveRequest): Promise<ViewSaveResult> {
   const manifest = await store.readManifest();
-  if (manifest.app.platform !== req.platform) {
+  if (!req.imported && manifest.app.platform !== req.platform) {
     throw new Error(`this project reviews a ${manifest.app.platform} app; a ${req.platform} view can't be added to it`);
   }
   const latest = await store.latestRound();
@@ -36,18 +37,30 @@ export async function saveCapturedView(store: ReviewStore, req: ViewSaveRequest)
   const replacing = req.replace ? existing.find((s) => s.id === req.replace) : undefined;
   if (req.replace && !replacing) throw new Error(`no screen "${req.replace}"`);
 
-  const url = req.platform === "web" && req.url ? relativeToBase(req.url, manifest.app.baseUrl) : undefined;
-  const title = req.title?.trim() || (url ?? `${req.device.name} view`);
+  const imp = req.imported;
+  // an import keeps where it came from in `imported`, never in `url`: it is not recaptured
+  const url = !imp && req.platform === "web" && req.url ? relativeToBase(req.url, manifest.app.baseUrl) : undefined;
+  const title = req.title?.trim() || (imp ? IMPORT_TITLES[imp.role] : (url ?? `${req.device.name} view`));
   const id = replacing?.id ?? uniqueId(slug(title), new Set(existing.map((s) => s.id)));
+
+  let imported = imp;
+  if (imp?.kind === "html") {
+    if (!req.html) throw new Error("an HTML import needs its markup");
+    const source = `imports/${id}.html`;
+    await mkdir(store.path("imports"), { recursive: true });
+    await writeFile(store.path(source), req.html);
+    imported = { ...imp, source };
+  }
 
   const screen: ScreenEntry = {
     id,
     title: replacing?.title ?? title,
-    group: replacing?.group ?? "Captured",
+    group: replacing?.group ?? (imp ? IMPORT_GROUPS[imp.role] : "Captured"),
     live: true,
     ...(url ? { url } : {}),
-    ...(req.platform !== "web" ? { device: req.device.name, ...(req.orientation ? { orientation: req.orientation } : {}) } : {}),
+    ...(!imp && req.platform !== "web" ? { device: req.device.name, ...(req.orientation ? { orientation: req.orientation } : {}) } : {}),
     ...(req.signature ? { pageSignature: req.signature } : {}),
+    ...(imported ? { imported } : {}),
   };
 
   const rel = `screens/${id}.png`;
@@ -61,8 +74,9 @@ export async function saveCapturedView(store: ReviewStore, req: ViewSaveRequest)
   await store.upsertScreen({ ...(replacing ?? {}), ...screen });
 
   const cur = await store.readStatus(n);
-  const reason =
-    req.platform === "web"
+  const reason = imp
+    ? importReason(imp)
+    : req.platform === "web"
       ? req.fullPage
         ? "marked up in the app tab"
         : "captured from the app tab"
@@ -75,6 +89,15 @@ export async function saveCapturedView(store: ReviewStore, req: ViewSaveRequest)
   const screens = (cur.screens ?? []).filter((s) => s.screenId !== id);
   await store.writeStatus(n, { ...cur, status: "open", updatedAt: new Date().toISOString(), screens: [...screens, entry] });
   return { round: n, screenId: id, title: screen.title };
+}
+
+const IMPORT_TITLES = { app: "Screenshot", reference: "Reference" } as const;
+const IMPORT_GROUPS = { app: "Added by hand", reference: "References" } as const;
+
+function importReason(imp: Imported): string {
+  const what = imp.kind === "image" ? "a still image" : imp.kind === "html" ? "HTML" : `a page from ${imp.source ?? "a URL"}`;
+  const role = imp.role === "reference" ? "as a reference" : "as a screen of this app";
+  return `added by hand in the review view: ${what}, ${role}${imp.kind === "image" ? "; it has no elements, so notes on it are regions" : ""}`;
 }
 
 /** A URL on the app's own origin is kept as a path, like hand-written screens. */

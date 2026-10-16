@@ -51,7 +51,8 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
             <span className="t">{info?.title ?? t.id}</span>
             {w > 170 && removeAsk !== t.id && (
               <span className="m">
-                {info?.platform ?? "—"} · {info?.device ? `${info.device.width}×${info.device.height}` : ""}
+                {info?.imported ? (info.imported.role === "reference" ? "reference" : "added") : (info?.platform ?? "—")} ·{" "}
+                {info?.imported?.kind === "image" ? "image" : info?.device ? `${info.device.width}×${info.device.height}` : ""}
               </span>
             )}
             {n > 0 && removeAsk !== t.id && <span className="n">{n}●</span>}
@@ -83,7 +84,9 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
             {capturing.has(t.id) ? (
               <span className="stale busy">capturing…</span>
             ) : (
+              // imports are kept as they are on purpose: nothing to recapture
               info?.reusedFrom !== undefined &&
+              !info.imported &&
               w > 90 &&
               (!info.recapturable ? (
                 // captured by hand (Android, iOS, web views without a url): only the Device or App tab captures it again

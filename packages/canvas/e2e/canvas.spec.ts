@@ -562,6 +562,31 @@ test("vision: the fill tool fills a closed area of a canvas, under its lines", a
   await page.request.put("/api/vision", { data: { version: 1, canvases: [], items: [] } });
 });
 
+test("a screenshot pasted on the board becomes a screen: an app screen or a reference", async ({ page }) => {
+  await reset(page);
+  const png = (await page.request.get("/files/rounds/001/screens/cart.png").then((r) => r.body())).toString("base64");
+  await page.evaluate((b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const dt = new DataTransfer();
+    dt.items.add(new File([bytes], "image.png", { type: "image/png" }));
+    window.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt }));
+  }, png);
+  const dialog = page.getByRole("dialog", { name: "Add a screen" });
+  await expect(dialog.locator(".import-preview img")).toBeVisible();
+  await expect(dialog.getByRole("radio", { name: /Our app/ })).toHaveAttribute("aria-checked", "true");
+  await dialog.getByRole("radio", { name: /Reference/ }).click();
+  await dialog.getByLabel("Name").fill("Competitor cart");
+  await page.screenshot({ path: "test-results/import-dialog.png" });
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden();
+  await expect(page.locator(".tile-label", { hasText: "Competitor cart" })).toBeVisible();
+  await expect(page.locator(".tile-label", { hasText: "Competitor cart" })).toContainText("reference");
+  const m = await page.request.get("/api/rounds/1").then((r) => r.json());
+  expect(m.screens.find((s: { id: string }) => s.id === "competitor-cart")).toMatchObject({ imported: { kind: "image", role: "reference" }, group: "References" });
+  // gone again, so the rest of the suite sees the fixture round
+  await page.request.delete("/api/rounds/1/screens/competitor-cart");
+});
+
 test("send writes the review and locks the round", async ({ page }) => {
   await focus(page, "checkout-default");
   await page.keyboard.press("x");

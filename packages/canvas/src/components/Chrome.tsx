@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { TOOLS, VISION_HINTS, isReadOnly, noteCount, unresolvedCount, useStore, type Tool } from "../store";
 import { useVision } from "../vision";
 import { Spinner } from "./Capture";
+import { openImport } from "./Import";
 import { hasLiveTab, showLive } from "./Live";
 import { LIVE_UNSUPPORTED } from "./Marking";
 import selectIcon from "../assets/icons/select.png";
@@ -352,6 +353,21 @@ export function ToolRail() {
           )}
         </div>
       </section>
+
+      {!vision && (
+        <section className="tool-group">
+          <h4>Add</h4>
+          <p>Screenshots from anywhere</p>
+          <div className="toolbox">
+            <button className="item tool" onClick={openImport} aria-label="add a screen (M)">
+              <ImageGlyph />
+              <span className="tip">
+                <b>add a screen</b> <kbd>M</kbd> <span className="dim">— paste, drop or pick a screenshot: of this app, or a reference</span>
+              </span>
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="toggles">
         <Toggle

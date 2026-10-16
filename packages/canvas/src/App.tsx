@@ -7,6 +7,7 @@ import { animateCamera, Board, boardViewport, fitAll, focusTile, panToAnnotation
 import { ActionBar, StatusLine, ToolRail, TopBar } from "./components/Chrome";
 import { CapturePanel, LanDialog, NextStepBanner } from "./components/Capture";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
+import { ImportDialog, openImport, useBoardImports, useImport } from "./components/Import";
 import { Inspector } from "./components/Inspector";
 import { hasLiveTab, LiveView, showLive, toggleView } from "./components/Live";
 import { liveKey } from "./components/Marking";
@@ -39,6 +40,7 @@ export function App() {
   }, [theme]);
 
   const view = useStore((s) => s.view);
+  useBoardImports();
 
   useEffect(() => {
     void useStore.getState().load();
@@ -118,7 +120,7 @@ export function App() {
       const t = e.target as HTMLElement;
       if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
       const st = useStore.getState();
-      if (st.helpOpen || st.sendOpen || st.sentPrompt) return;
+      if (st.helpOpen || st.sendOpen || st.sentPrompt || useImport.getState().open) return;
       const mod = e.metaKey || e.ctrlKey;
       if (!mod && !e.altKey && e.key.toLowerCase() === "l" && liveTab()) return toggleView();
       // the board's keys don't apply while the live app is shown; the mark tools' do
@@ -236,6 +238,7 @@ export function App() {
         return;
       }
       if (k === "E") return st.set({ showOutlines: !st.showOutlines });
+      if (k === "M") return openImport();
       if (k === "F" || e.key === "0") {
         st.set({ focusId: null, preFocusCamera: null });
         return animateCamera(fitAll(st.tiles, st.groups, boardViewport()));
@@ -328,6 +331,7 @@ export function App() {
       <LanDialog />
       <ToolSettings />
       <ImageImportDialog />
+      <ImportDialog />
     </div>
   );
 }
