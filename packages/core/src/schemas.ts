@@ -102,14 +102,20 @@ export const Viewport = z.object({
 
 /**
  * A screen added by hand. `kind`: a still image (no elements), HTML rendered by
- * ScribUI, or a page opened from a URL. `role`: a screen of this app the agent
+ * ScribUI, a page opened from a URL, or a snapshot of a page saved in the browser
+ * (MHTML: a page with its styles and images, as Figma's Chrome extension copies it). `role`: a screen of this app the agent
  * should change, or a reference from elsewhere it should take the look from.
  */
 export const Imported = z.object({
-  kind: z.enum(["image", "html", "page"]),
+  kind: z.enum(["image", "html", "page", "snapshot"]),
   role: z.enum(["app", "reference"]),
-  /** html: the saved file, relative to the review folder (`imports/<id>.html`); page: the URL it was opened from. */
+  /**
+   * html and snapshot: the saved file, relative to the review folder (`imports/<id>.html`,
+   * `imports/<id>.mhtml`); page: the URL it was opened from.
+   */
   source: z.string().optional(),
+  /** snapshot: the address of the page it was taken of. */
+  url: z.string().optional(),
 });
 export type Imported = z.infer<typeof Imported>;
 

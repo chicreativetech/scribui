@@ -85,15 +85,15 @@ export type ViewSaveRequest = {
   signature?: string;
   /** Added by hand in the review view (a screenshot, HTML, a page from a URL); any project can take it. */
   imported?: Imported;
-  /** HTML imports: the markup, saved as the screen's source file. */
-  html?: string;
+  /** HTML and snapshot imports: the markup (or MHTML), saved as the screen's source file. */
+  file?: string;
 };
 export type ViewSaveResult = { round: number; screenId: string; title: string };
 export type ViewSaver = (req: ViewSaveRequest) => Promise<ViewSaveResult>;
 
 /** Renders a page for an import: a URL, or pasted HTML. Width in CSS pixels. */
 export type PageRenderer = (
-  src: { url: string } | { html: string; baseUrl?: string },
+  src: { url: string } | { html: string; baseUrl?: string } | { mhtml: string },
   width: number,
 ) => Promise<{ png: Uint8Array; raw: RawElement; device: Device; title?: string }>;
 
@@ -352,6 +352,16 @@ export function createApp(opts: ServerOptions) {
           width: z.number().int().min(320).max(2560),
         }),
         z.object({
+          kind: z.literal("snapshot"),
+          role,
+          title: z.string().max(120).optional(),
+          /** A page saved in the browser as MHTML (what Figma's Chrome extension copies). */
+          mhtml: z.string().min(1).max(64 * 1024 * 1024),
+          /** The address of the page it was taken of. */
+          url: z.string().max(2048).optional(),
+          width: z.number().int().min(320).max(2560),
+        }),
+        z.object({
           kind: z.literal("page"),
           role,
           title: z.string().max(120).optional(),
@@ -366,7 +376,13 @@ export function createApp(opts: ServerOptions) {
       if (!render) throw new HttpError(501, "rendering pages needs `scribui` or the desktop app");
       let page: Awaited<ReturnType<PageRenderer>>;
       try {
-        page = await render(body.kind === "page" ? { url: body.url } : { html: body.html, ...(body.baseUrl ? { baseUrl: body.baseUrl } : {}) }, body.width);
+        const src =
+          body.kind === "page"
+            ? { url: body.url }
+            : body.kind === "snapshot"
+              ? { mhtml: body.mhtml }
+              : { html: body.html, ...(body.baseUrl ? { baseUrl: body.baseUrl } : {}) };
+        page = await render(src, body.width);
       } catch (e) {
         const err = e as Error & { detail?: string };
         throw new HttpError(422, [err.message, err.detail].filter(Boolean).join(": "));
@@ -377,8 +393,13 @@ export function createApp(opts: ServerOptions) {
         device: page.device,
         png: page.png,
         raw: page.raw,
-        imported: body.kind === "page" ? { kind: "page", role: body.role, source: body.url } : { kind: "html", role: body.role },
-        ...(body.kind === "html" ? { html: body.html } : {}),
+        imported:
+          body.kind === "page"
+            ? { kind: "page", role: body.role, source: body.url }
+            : body.kind === "snapshot"
+              ? { kind: "snapshot", role: body.role, ...(body.url ? { url: body.url } : {}) }
+              : { kind: "html", role: body.role },
+        ...(body.kind === "html" ? { file: body.html } : body.kind === "snapshot" ? { file: body.mhtml } : {}),
       });
       return c.json(r);
     }

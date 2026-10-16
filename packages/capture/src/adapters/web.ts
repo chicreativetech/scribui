@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
-import { homedir } from "node:os";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Device, RawElement, ScreenCapture, ScreenEntry } from "@scribui/core";
@@ -12,7 +13,7 @@ import { resolveFlowPath, screenshotPath, toCapture, writePng } from "./shared.j
 type Page = {
   goto(url: string, o?: object): Promise<unknown>;
   setContent(html: string, o?: object): Promise<void>;
-  setViewportSize(s: { width: number; height: number }): Promise<void>;
+  route(url: string, handler: (r: { abort(): Promise<void> }) => unknown): Promise<void>;
   title(): Promise<string>;
   waitForLoadState(s: string, o?: object): Promise<void>;
   screenshot(o?: object): Promise<Uint8Array>;
@@ -198,8 +199,48 @@ export const LIVE_ISOLATE = String.raw`(() => {
 })()`;
 export const LIVE_RESTORE = `document.getElementById("scribui-capturing")?.remove()`;
 
-/** What to render for an import: a page from any URL, or HTML (relative links resolved against `baseUrl`). */
-export type PageSource = { url: string } | { html: string; baseUrl?: string };
+/**
+ * Before a whole-page shot of an import, so it looks as it did in a window:
+ * - Window-height units (vh, svh, lvh, dvh) become pixels of the window now. Chromium
+ *   takes a whole page as one tall window, so `min-height: 80vh` would stretch down it.
+ * - Content waiting to fade in on scroll is shown. Reveal scripts park it at
+ *   `opacity: 0` with a transition until it's scrolled to, which never happens here.
+ */
+const FREEZE_PAGE = String.raw`(() => {
+  const vh = window.innerHeight / 100;
+  const px = (v) => v.replace(/(-?[\d.]+)(s|l|d)?vh\b/g, (_, n) => (parseFloat(n) * vh).toFixed(2) + "px");
+  const fix = (style) => {
+    for (let i = 0; i < style.length; i++) {
+      const k = style[i], v = style.getPropertyValue(k);
+      if (/vh\b/.test(v)) style.setProperty(k, px(v), style.getPropertyPriority(k));
+    }
+  };
+  const rules = (list) => {
+    for (const r of list) {
+      if (r.style) fix(r.style);
+      if (r.cssRules) rules(r.cssRules);
+    }
+  };
+  for (const sheet of document.styleSheets) {
+    try { rules(sheet.cssRules); } catch {}
+  }
+  for (const el of document.querySelectorAll("[style]")) {
+    fix(el.style);
+    const st = el.style;
+    if (st.opacity === "0" && st.transition) {
+      st.transition = "none";
+      st.opacity = "";
+      if (st.transform) st.transform = "";
+    }
+  }
+  return true;
+})()`;
+
+/**
+ * What to render for an import: a page from any URL, HTML (relative links resolved
+ * against `baseUrl`), or an MHTML snapshot of a page (styles and images included).
+ */
+export type PageSource = { url: string } | { html: string; baseUrl?: string } | { mhtml: string };
 export type RenderedPage = { png: Uint8Array; raw: RawElement; device: Device; title?: string };
 
 /** Tallest page an import renders, in CSS pixels: longer pages are cut off there. */
@@ -218,8 +259,8 @@ export async function renderPage(projectDir: string, src: PageSource, width: num
     const phone = width < 600;
     const scale = phone ? 2 : 1;
     const context = await browser.newContext({
-      // HTML is measured from a short window, so a snippet isn't padded out to a screen's height
-      viewport: { width, height: "url" in src ? 900 : 100 },
+      // pasted HTML is measured from a short window, so a snippet isn't padded out to a screen's height
+      viewport: { width, height: "html" in src ? 100 : 900 },
       deviceScaleFactor: scale,
       isMobile: phone,
       hasTouch: phone,
@@ -235,18 +276,33 @@ export async function renderPage(projectDir: string, src: PageSource, width: num
       }
       await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
       await page.evaluate(SETTLE).catch(() => {});
+    } else if ("mhtml" in src) {
+      // a snapshot carries everything it shows: nothing is fetched, so it looks as it did when taken
+      await page.route("http*://**", (r) => r.abort());
+      const dir = await mkdtemp(join(tmpdir(), "scribui-snapshot-"));
+      try {
+        const file = join(dir, "page.mhtml");
+        await writeFile(file, src.mhtml);
+        await page.goto(pathToFileURL(file).href, { waitUntil: "load", timeout: 30_000 });
+      } catch (e) {
+        throw new CaptureError("could not open the page snapshot", String((e as Error).message ?? e));
+      } finally {
+        await rm(dir, { recursive: true, force: true }).catch(() => {});
+      }
     } else {
       await page.setContent(withViewport(withBase(src.html, src.baseUrl)), { waitUntil: "load", timeout: 30_000 });
       await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
     }
     await page.evaluate(`document.fonts ? document.fonts.ready.then(() => true) : true`).catch(() => {});
-    // the whole page in one window, so the tree and the picture match without scrolling
-    const height = Math.min(MAX_PAGE_HEIGHT, Math.max(1, await page.evaluate<number>(`Math.ceil(document.documentElement.scrollHeight)`)));
-    await page.setViewportSize({ width, height });
+    // the whole page, taken from a window of normal height: resizing the window to the page
+    // would stretch sections sized to it (100vh heroes) down the whole page
+    await page.evaluate(FREEZE_PAGE).catch(() => {});
     await new Promise((r) => setTimeout(r, 150));
-    await page.evaluate(`window.__scribuiFullPage = false`);
-    const png = await page.screenshot({ type: "png", animations: "disabled", caret: "hide" });
-    const css = await page.evaluate<RawElement>(DOM_WALK);
+    const full = await page.evaluate<number>(`Math.ceil(document.documentElement.scrollHeight)`);
+    const height = Math.min(MAX_PAGE_HEIGHT, Math.max(1, full));
+    await page.evaluate(`window.__scribuiFullPage = true`);
+    const png = await page.screenshot({ type: "png", fullPage: true, clip: { x: 0, y: 0, width, height }, animations: "disabled", caret: "hide" });
+    const css = clipTree(await page.evaluate<RawElement>(DOM_WALK), height);
     const title = (await page.title().catch(() => "")).trim() || undefined;
     const px = pngSize(png);
     const device = { name: `Chromium ${width}×${height}`, width: Math.round(px.width / scale), height: Math.round(px.height / scale), scale };
@@ -377,6 +433,16 @@ export class WebAdapter implements CaptureAdapter {
     await this.browser?.close().catch(() => {});
     this.browser = null;
   }
+}
+
+/** A page cut off at `h` CSS pixels: what's below is dropped, what crosses is cut. */
+function clipTree(e: RawElement, h: number): RawElement {
+  const { y } = e.bounds;
+  return {
+    ...e,
+    bounds: { ...e.bounds, h: Math.max(0, Math.min(e.bounds.h, h - y)) },
+    children: e.children.filter((c) => c.bounds.y < h).map((c) => clipTree(c, h)),
+  };
 }
 
 function scaleTree(e: RawElement, s: number): RawElement {

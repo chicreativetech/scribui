@@ -7,15 +7,17 @@ import { focusTile } from "./Board";
 
 /**
  * Adding a screen by hand in the review view: a screenshot (a still image), HTML
- * (pasted, or an .html file) or a page from any URL, both rendered by ScribUI with
- * their elements. Each joins the open round as a screen of this app or as a
+ * (pasted, or an .html file), a page from any URL, or a snapshot of a page saved in
+ * the browser (MHTML: Figma's Chrome extension copies one), all but the screenshot
+ * rendered by ScribUI with their elements. Each joins the open round as a screen of this app or as a
  * reference from elsewhere.
  */
 
 type Draft =
   | { kind: "image"; blob: Blob; preview: string; width: number; height: number; name?: string }
   | { kind: "html"; html: string; name?: string }
-  | { kind: "page"; url: string };
+  | { kind: "page"; url: string }
+  | { kind: "snapshot"; mhtml: string; url?: string; name?: string };
 
 type ImportState = {
   open: boolean;
@@ -46,7 +48,7 @@ function closeImport() {
 }
 
 /** Screenshots are usually of this app; HTML and pages from elsewhere usually aren't. */
-const DEFAULT_ROLE: Record<Draft["kind"], Imported["role"]> = { image: "app", html: "reference", page: "reference" };
+const DEFAULT_ROLE: Record<Draft["kind"], Imported["role"]> = { image: "app", html: "reference", page: "reference", snapshot: "reference" };
 
 const WIDTHS = [
   { label: "Phone", width: 390 },
@@ -55,6 +57,35 @@ const WIDTHS = [
 ] as const;
 
 const isHtmlFile = (f: File) => f.type === "text/html" || /\.x?html?$/i.test(f.name);
+const isSnapshotFile = (f: File) => f.type === "multipart/related" || f.type === "message/rfc822" || /\.mht(ml)?$/i.test(f.name);
+
+/** An MHTML snapshot, with the page's title and address from its headers. */
+function snapshotDraft(mhtml: string, from: { url?: string; name?: string } = {}): Draft {
+  const head = mhtml.slice(0, 4000);
+  const header = (k: string) => new RegExp(`^${k}:\\s*(.+)$`, "im").exec(head)?.[1]?.trim();
+  return { kind: "snapshot", mhtml, url: from.url ?? header("Snapshot-Content-Location"), name: from.name ?? header("Subject") };
+}
+
+/**
+ * Figma's Chrome extension ("Capture code") copies an MHTML snapshot of the page,
+ * base64 JSON inside a `<span data-h2d>` comment. Returns it, "layers" for Figma's own
+ * layers (which only Figma reads), or null for any other HTML.
+ */
+export function fromFigmaClipboard(html: string): Draft | "layers" | null {
+  const h2d = /\(figh2d\)([A-Za-z0-9+/=\s]+)\(\/figh2d\)/.exec(html);
+  if (h2d) {
+    try {
+      const bytes = Uint8Array.from(atob(h2d[1]!.replace(/\s+/g, "")), (c) => c.charCodeAt(0));
+      const items = JSON.parse(new TextDecoder().decode(bytes)) as { type?: string; content?: string; sourceUrl?: string; title?: string }[];
+      const snap = items.find((i) => i.type === "mhtml" && i.content);
+      if (snap) return snapshotDraft(snap.content!, { url: snap.sourceUrl, name: snap.title });
+    } catch {
+      /* not what we expected: fall through */
+    }
+    return "layers";
+  }
+  return /\(figma\)|\(figmeta\)/.test(html) ? "layers" : null;
+}
 const baseName = (f: File) => f.name.replace(/\.[^.]+$/, "");
 
 /** Take a screenshot or an .html file from a paste, a drop or the file picker; false when there's neither. */
@@ -62,7 +93,8 @@ export async function takeFiles(files: FileList | File[] | null | undefined): Pr
   const list = [...(files ?? [])];
   const image = list.find((f) => f.type.startsWith("image/"));
   const page = list.find(isHtmlFile);
-  if (!image && !page) return false;
+  const snapshot = list.find(isSnapshotFile);
+  if (!image && !page && !snapshot) return false;
   try {
     if (image) {
       const img = await createImageBitmap(image);
@@ -72,6 +104,8 @@ export async function takeFiles(files: FileList | File[] | null | undefined): Pr
       setDraft({ kind: "image", blob: image, preview: URL.createObjectURL(image), width, height, name });
     } else if (page) {
       setDraft({ kind: "html", html: await page.text(), name: baseName(page) });
+    } else if (snapshot) {
+      setDraft(snapshotDraft(await snapshot.text()));
     }
   } catch {
     useStore.getState().toast({ text: "couldn't read that file", tone: "err" });
@@ -101,11 +135,20 @@ export const looksLikeHtml = (text: string) => /^\s*</.test(text) && /<\/?[a-z][
 export async function takeClipboard(data: DataTransfer | null): Promise<boolean> {
   if (!data) return false;
   if (data.files.length) return takeFiles(data.files);
+  const rich = data.getData("text/html");
+  const figma = rich ? fromFigmaClipboard(rich) : null;
+  if (figma === "layers") {
+    useStore.getState().toast({
+      text: "that's Figma layers, which only Figma can read: in Figma's Chrome extension use Capture code, or paste a link to the page",
+      tone: "warn",
+    });
+    return true;
+  }
+  if (figma) return setDraft(figma), true;
   const text = data.getData("text/plain");
   const url = asUrl(text);
   if (url) return setDraft({ kind: "page", url }), true;
   if (looksLikeHtml(text)) return setDraft({ kind: "html", html: text }), true;
-  const rich = data.getData("text/html");
   if (rich && /<(div|section|header|main|nav|table|img|button|ul|article|form)\b/i.test(rich)) return setDraft({ kind: "html", html: rich }), true;
   return false;
 }
@@ -189,6 +232,8 @@ const NOTES: Record<Draft["kind"], string> = {
   image: "A still image: it has no elements, so notes on it are areas of the picture.",
   html: "ScribUI renders the HTML with its scripts off. Notes snap to its elements, and the agent gets the HTML file for exact styles.",
   page: "ScribUI opens the page and takes it whole. Notes snap to its elements.",
+  snapshot:
+    "The page as it was in your browser, styles and images included. ScribUI renders it offline, so notes snap to its elements, and the agent gets the snapshot for exact styles.",
 };
 
 /** Add a screen: a screenshot, HTML or a page, as a screen of this app or a reference. */
@@ -208,6 +253,7 @@ export function ImportDialog() {
     setError(null);
     if (!draft) return setLink("");
     setTitle(draft.kind === "page" ? "" : (draft.name ?? (draft.kind === "html" ? (titleOf(draft.html) ?? "") : "")));
+    if (draft.kind === "snapshot") setWidth(1440);
     setRole(DEFAULT_ROLE[draft.kind]);
     setBaseUrl("");
   }, [draft]);
@@ -262,7 +308,9 @@ export function ImportDialog() {
           ? { kind: "image", role, png: await base64(await asPng(d.blob)), scale: guessScale(d.width), ...named }
           : d.kind === "html"
             ? { kind: "html", role, html: d.html, width, ...(base ? { baseUrl: base } : {}), ...named }
-            : { kind: "page", role, url: d.url, width, ...named };
+            : d.kind === "snapshot"
+              ? { kind: "snapshot", role, mhtml: d.mhtml, width, ...(d.url ? { url: d.url } : {}), ...named }
+              : { kind: "page", role, url: d.url, width, ...named };
       const r = await api.importScreen(body);
       closeImport();
       const st = useStore.getState();
@@ -304,8 +352,8 @@ export function ImportDialog() {
                 }}
                 onClick={() => input.current?.click()}
               >
-                <b>Drop a screenshot or an HTML file here</b>
-                <span className="dim">or paste one (⌘V): a screenshot, HTML, or part of a web page you copied</span>
+                <b>Drop a screenshot, an HTML file or a saved page (.mhtml) here</b>
+                <span className="dim">or paste one (⌘V): a screenshot, HTML, part of a web page you copied, or a page from Figma's Chrome extension (Capture code)</span>
                 <span className="faint">You can also paste or drop them anywhere on the board.</span>
               </div>
               <label className="import-field">
@@ -333,6 +381,11 @@ export function ImportDialog() {
                     {/* sandboxed with nothing allowed: the markup's scripts never run here */}
                     <iframe className="html-preview" sandbox="" srcDoc={draft.html} title="HTML preview" />
                     <span className="faint">HTML · {Math.max(1, Math.round(draft.html.length / 1024))} KB</span>
+                  </>
+                ) : draft.kind === "snapshot" ? (
+                  <>
+                    <span className="import-url">{draft.url ?? "Page snapshot"}</span>
+                    <span className="faint">Page snapshot · {Math.max(1, Math.round(draft.mhtml.length / 1024 / 1024))} MB</span>
                   </>
                 ) : (
                   <span className="import-url">{draft.url}</span>
@@ -387,7 +440,7 @@ export function ImportDialog() {
           <input
             ref={input}
             type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp,.html,.htm,text/html"
+            accept="image/png,image/jpeg,image/gif,image/webp,.html,.htm,text/html,.mhtml,.mht"
             hidden
             onChange={(e) => void takeFiles(e.target.files).then((ok) => ok || setError("pick a screenshot or an .html file"))}
           />
