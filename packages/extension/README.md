@@ -21,7 +21,7 @@ your computer: the page goes from Chrome to the ScribUI running next to it.
 3. Pin ScribUI from the extensions menu.
 
 Works in Chrome, Edge, Brave, Arc and other Chromium browsers (116 or later).
-`pnpm --filter @scribui/extension pack` makes a zip for the Chrome Web Store.
+`pnpm --filter @scribui/extension zip` makes a zip for the Chrome Web Store.
 
 ## Permissions
 

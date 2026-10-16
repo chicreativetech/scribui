@@ -5,6 +5,6 @@
   "description": "ScribUI for Chrome: send the page you're on to Review, as a screen of your app or a reference.",
   "type": "module",
   "scripts": {
-    "pack": "node scripts/pack.mjs"
+    "zip": "node scripts/pack.mjs"
   }
 }
