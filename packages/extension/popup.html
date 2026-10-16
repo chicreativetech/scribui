@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Send to ScribUI</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <span class="logo"><span class="back"></span><span class="front"></span></span>
+      <b>ScribUI</b>
+      <span class="dim">send this page to Review</span>
+    </header>
+
+    <main id="loading" class="msg dim">Looking for ScribUI…</main>
+
+    <main id="none" class="msg" hidden>
+      <p><b>ScribUI isn't running.</b></p>
+      <p class="dim">Open your project in the ScribUI app, or run <code>npx scribui</code> in it, then try again.</p>
+      <details>
+        <summary class="dim">Started it on another port?</summary>
+        <form id="port-form" class="row">
+          <input id="port" type="number" min="1" max="65535" placeholder="4382" aria-label="Port" />
+          <button type="submit" class="btn">Add</button>
+        </form>
+      </details>
+      <button id="retry" class="btn primary">Try again</button>
+    </main>
+
+    <main id="blocked" class="msg" hidden>
+      <p><b>This page can't be captured.</b></p>
+      <p class="dim">Chrome doesn't let extensions capture its own pages or the Web Store. Open a web page and click ScribUI again.</p>
+    </main>
+
+    <main id="form" hidden>
+      <label class="field" id="project-field">
+        <span>Project</span>
+        <select id="project"></select>
+      </label>
+      <label class="field">
+        <span>Name</span>
+        <input id="title" spellcheck="false" />
+      </label>
+      <div class="roles" role="radiogroup" aria-label="What is it?">
+        <button type="button" role="radio" data-role="app" aria-checked="false">
+          <b>Our app</b><span>A screen of this app. The agent changes it.</span>
+        </button>
+        <button type="button" role="radio" data-role="reference" aria-checked="false">
+          <b>Reference</b><span>From somewhere else. The agent takes the look from it.</span>
+        </button>
+      </div>
+      <label class="check">
+        <input id="scroll" type="checkbox" checked />
+        <span>Scroll through the page first <span class="dim">(loads images and content that appear as you scroll)</span></span>
+      </label>
+      <p id="warn" class="warn" hidden></p>
+      <button id="send" class="btn primary wide">Send to Review</button>
+      <p id="status" class="dim status" aria-live="polite"></p>
+    </main>
+
+    <main id="done" class="msg" hidden>
+      <p class="ok"><b>✓ <span id="done-title"></span></b></p>
+      <p class="dim" id="done-where"></p>
+      <button id="open" class="btn">Open Review in a tab</button>
+    </main>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

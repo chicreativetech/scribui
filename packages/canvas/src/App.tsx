@@ -103,6 +103,24 @@ export function App() {
         } else if (e.type === "annotations-changed") {
           // another tab or device edited this round
           if (e.round === st.round?.round && e.by !== clientId()) void st.load(e.round);
+        } else if (e.type === "screen-added") {
+          // added from the browser extension (the review view's own dialog shows its screen itself)
+          if (e.by === clientId()) return;
+          void st.refreshRounds();
+          if (!st.round || st.round.round === e.round || isReadOnly()) void st.load(e.round);
+          st.toast({
+            text: `"${e.title}" added from the browser`,
+            tone: "ok",
+            action: {
+              label: "show it",
+              run: () => {
+                const s = useStore.getState();
+                const go = () => (s.view === "board" ? focusTile(e.screenId) : (s.set({ view: "board" }), setTimeout(() => focusTile(e.screenId), 50)));
+                if (s.round?.round !== e.round) void s.load(e.round).then(go);
+                else go();
+              },
+            },
+          });
         } else if (e.type === "vision-changed") {
           // another tab or device drew on the vision board
           const v = useVision.getState();

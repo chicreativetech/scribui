@@ -1,0 +1,10 @@
+{
+  "name": "@scribui/extension",
+  "version": "0.2.1",
+  "private": true,
+  "description": "ScribUI for Chrome: send the page you're on to Review, as a screen of your app or a reference.",
+  "type": "module",
+  "scripts": {
+    "pack": "node scripts/pack.mjs"
+  }
+}

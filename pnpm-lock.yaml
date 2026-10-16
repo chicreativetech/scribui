@@ -197,6 +197,8 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
+  packages/extension: {}
+
   packages/project:
     dependencies:
       '@scribui/capture':

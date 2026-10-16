@@ -1,0 +1,70 @@
+/* ScribUI's own look (packages/canvas/src/styles.css): light and dark */
+:root {
+  --bg: #ffffff;
+  --surface-2: #f6f6f6;
+  --line: #e7e7e7;
+  --line-2: #d7cfcf;
+  --fg: #262626;
+  --fg-dim: #5e5e5e;
+  --accent: #fc9803;
+  --accent-ink: #262626;
+  --accent-soft: rgba(252, 152, 3, 0.14);
+  --green: #2f9e44;
+  --red: #e5484d;
+  --sans: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #232327;
+    --surface-2: #2a2a2f;
+    --line: #34343a;
+    --line-2: #47474f;
+    --fg: #f3f3f3;
+    --fg-dim: #a6a6ae;
+    --accent-ink: #000000;
+    --accent-soft: rgba(252, 152, 3, 0.18);
+    --green: #46c26a;
+  }
+}
+
+* { box-sizing: border-box; }
+body { width: 360px; margin: 0; background: var(--bg); color: var(--fg); font: 400 12.5px/1.45 var(--sans); }
+[hidden] { display: none !important; }
+.dim { color: var(--fg-dim); }
+.ok { color: var(--green); }
+.warn { margin: 10px 0 0; color: var(--red); }
+code { font: 500 11.5px/1 ui-monospace, "SF Mono", Menlo, monospace; background: var(--surface-2); padding: 2px 4px; }
+
+header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+header .dim { margin-left: auto; font-size: 11px; }
+.logo { position: relative; width: 16px; height: 16px; }
+.logo .back { position: absolute; right: 0; bottom: 0; width: 10px; height: 10px; background: var(--line-2); }
+.logo .front { position: absolute; left: 0; top: 0; width: 12px; height: 12px; background: var(--accent); }
+
+main { display: block; padding: 14px; }
+.msg p { margin: 0 0 8px; }
+
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; font-size: 11px; color: var(--fg-dim); }
+input, select { font: 400 13px/1.2 var(--sans); color: var(--fg); background: var(--bg); border: 1px solid var(--line-2); padding: 6px 8px; outline: none; }
+input:focus, select:focus { border-color: var(--accent); }
+
+.roles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 10px; }
+.roles button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 8px 10px; text-align: left; background: var(--bg); border: 1px solid var(--line-2); color: var(--fg-dim); cursor: pointer; font: 400 11px/1.35 var(--sans); }
+.roles button b { font: 600 12.5px/1.2 var(--sans); color: var(--fg); }
+.roles button:hover { border-color: var(--fg-dim); }
+.roles button[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; cursor: pointer; }
+.check input { margin: 2px 0 0; accent-color: var(--accent); }
+
+.btn { font: 500 12px/1 var(--sans); padding: 8px 12px; border: 1px solid var(--line-2); background: var(--bg); color: var(--fg); cursor: pointer; }
+.btn:hover { border-color: var(--fg-dim); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.btn:disabled { opacity: 0.55; cursor: default; }
+.btn.wide { width: 100%; margin-top: 12px; padding: 10px; font-size: 13px; }
+.status { min-height: 1.4em; margin: 8px 0 0; }
+.row { display: flex; gap: 6px; margin: 8px 0; }
+.row input { flex: 1; min-width: 0; }
+details { margin: 4px 0 10px; }
+summary { cursor: pointer; font-size: 11.5px; }
