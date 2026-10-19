@@ -43,7 +43,16 @@ export function App() {
   useBoardImports();
 
   useEffect(() => {
-    void useStore.getState().load();
+    // opened from the browser extension on a screen it just sent: ?screen=<id>&round=<n>
+    const q = new URLSearchParams(location.search);
+    const asked = q.get("screen");
+    if (asked) {
+      history.replaceState(null, "", location.pathname);
+      void useStore
+        .getState()
+        .load(Number(q.get("round")) || undefined)
+        .then(() => showScreen(undefined, asked));
+    } else void useStore.getState().load();
     return connectEvents(
       (e) => {
         const st = useStore.getState();
@@ -97,7 +106,10 @@ export function App() {
             }
           } else if (e.round === cur) {
             if (e.status === "open" && st.capture) st.set({ capture: null });
-            void st.load(e.round);
+            // the round watcher polls, so this can come after the round was loaded with that status
+            // (a capture by hand starts a round and shows it at once): reloading then would drop
+            // marks made since that aren't saved yet
+            if (st.round?.status.status !== e.status) void st.load(e.round);
             if (e.status === "applied") st.toast({ text: `round ${pad(e.round)} applied by the agent`, tone: "ok" });
           }
         } else if (e.type === "annotations-changed") {
@@ -108,19 +120,10 @@ export function App() {
           if (e.by === clientId()) return;
           void st.refreshRounds();
           if (!st.round || st.round.round === e.round || isReadOnly()) void st.load(e.round);
-          st.toast({
-            text: `"${e.title}" added from the browser`,
-            tone: "ok",
-            action: {
-              label: "show it",
-              run: () => {
-                const s = useStore.getState();
-                const go = () => (s.view === "board" ? focusTile(e.screenId) : (s.set({ view: "board" }), setTimeout(() => focusTile(e.screenId), 50)));
-                if (s.round?.round !== e.round) void s.load(e.round).then(go);
-                else go();
-              },
-            },
-          });
+          st.toast({ text: `"${e.title}" added from the browser`, tone: "ok", action: { label: "show it", run: () => void showScreen(e.round, e.screenId) } });
+        } else if (e.type === "show-screen") {
+          // "Open in ScribUI" in the browser extension
+          void showScreen(e.round, e.screenId);
         } else if (e.type === "vision-changed") {
           // another tab or device drew on the vision board
           const v = useVision.getState();
@@ -365,6 +368,17 @@ function reloadSoon(round: number) {
     if (st.round?.round === round && !st.editor) void st.load(round);
   }, 300);
 }
+/** Review, on this screen (in that round): from the browser extension. */
+async function showScreen(round: number | undefined, screenId: string | undefined) {
+  const st = useStore.getState();
+  if (round && st.round?.round !== round) await st.load(round);
+  if (st.view !== "board") useStore.getState().set({ view: "board" });
+  if (!screenId) return;
+  // the board lays its tiles out once it's shown
+  await new Promise((r) => setTimeout(r, 50));
+  focusTile(screenId);
+}
+
 const clientId = () => (window as unknown as { __icClient?: string }).__icClient ?? "";
 
 function nextUnresolved() {

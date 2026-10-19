@@ -87,9 +87,12 @@ async function createProject(root: string, opts: OpenOptions): Promise<OpenResul
   } catch (e) {
     return { ok: false, error: `${PRODUCT.folder}/screens.json can't be read: ${(e as Error).message.split("\n")[0]}` };
   }
+  // filled in once the window exists: the browser extension's "Open in ScribUI" brings it forward
+  let raise: () => boolean = () => false;
   const hosted = await hostProject(store, {
     app: "desktop",
     server: {
+      showWindow: () => raise(),
       canvasDir: CANVAS_DIR,
       runner: makeRunner(store, { platform: manifest.app.platform }),
       saveView: (req) => saveCapturedView(store, req),
@@ -207,6 +210,15 @@ async function createProject(root: string, opts: OpenOptions): Promise<OpenResul
   byWindow.set(wc.id, project);
   byDir.set(store.root, project);
   win.on("closed", () => void project.close());
+  raise = () => {
+    if (win.isDestroyed()) return false;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+    // from the browser, the app isn't the active one
+    app.focus({ steal: true });
+    return true;
+  };
   // the canvas lost its server (the CLI that owned the project stopped): say so instead of a blank window
   wc.on("did-fail-load", (_e, code, desc, url, isMain) => {
     if (isMain && code !== -3) void dialog.showMessageBox(win, { type: "error", message: "The canvas couldn't load", detail: `${url}: ${desc}` });

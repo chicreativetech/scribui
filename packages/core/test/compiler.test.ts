@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compile, numberAnnotations, phraseTarget, renderAnnotationSvg, resolveAll, sketchPartsBounds, type Annotation, type SketchPart } from "../src/index.js";
+import { compile, numberAnnotations, type Imported, phraseTarget, renderAnnotationSvg, resolveAll, sketchPartsBounds, type Annotation, type SketchPart } from "../src/index.js";
 import { el, ellipse, screen } from "./helpers.js";
 
 const tree = screen([
@@ -150,7 +150,7 @@ describe("compiler templates", () => {
 
 describe("screens added by hand", () => {
   const image = screen([]);
-  const compileWith = (imported: { kind: "image" | "html" | "page"; role: "app" | "reference"; source?: string }) =>
+  const compileWith = (imported: Imported) =>
     compile({
       round: 4,
       appName: "Demo",

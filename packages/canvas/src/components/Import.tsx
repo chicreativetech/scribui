@@ -60,7 +60,7 @@ const isHtmlFile = (f: File) => f.type === "text/html" || /\.x?html?$/i.test(f.n
 const isSnapshotFile = (f: File) => f.type === "multipart/related" || f.type === "message/rfc822" || /\.mht(ml)?$/i.test(f.name);
 
 /** An MHTML snapshot, with the page's title and address from its headers. */
-function snapshotDraft(mhtml: string, from: { url?: string; name?: string } = {}): Draft {
+function snapshotDraft(mhtml: string, from: { url?: string; name?: string } = {}): Extract<Draft, { kind: "snapshot" }> {
   const head = mhtml.slice(0, 4000);
   const header = (k: string) => new RegExp(`^${k}:\\s*(.+)$`, "im").exec(head)?.[1]?.trim();
   return { kind: "snapshot", mhtml, url: from.url ?? header("Snapshot-Content-Location"), name: from.name ?? header("Subject") };

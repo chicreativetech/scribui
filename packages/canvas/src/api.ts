@@ -152,7 +152,8 @@ export type ServerEvent =
   | { type: "status-changed"; round: number; status: string }
   | { type: "annotations-changed"; round: number; by: string }
   | { type: "vision-changed"; by: string }
-  | { type: "screen-added"; round: number; screenId: string; title: string; by: string };
+  | { type: "screen-added"; round: number; screenId: string; title: string; by: string }
+  | { type: "show-screen"; round?: number; screenId?: string };
 
 /** WebSocket with automatic reconnect. */
 export function connectEvents(onEvent: (e: ServerEvent) => void, onState: (connected: boolean) => void) {

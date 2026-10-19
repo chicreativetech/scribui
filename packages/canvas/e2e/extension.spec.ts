@@ -81,16 +81,19 @@ test("the extension sends the page in a tab to Review, scrolled through first", 
   await expect(popup.getByRole("radio", { name: /Our app/ })).toHaveAttribute("aria-checked", "true");
   await popup.getByRole("radio", { name: /Reference/ }).click();
   await popup.screenshot({ path: "test-results/extension-popup.png" });
-  await popup.getByRole("button", { name: "Send to Review" }).click();
+  await popup.getByRole("button", { name: "Send to ScribUI" }).click();
   await expect(popup.locator("#done")).toBeVisible({ timeout: 30_000 });
-  await expect(popup.locator("#done-title")).toHaveText('"Lazy pricing" is in Review');
+  await expect(popup.locator("#done-title")).toHaveText('"Lazy pricing" is in ScribUI');
   await popup.screenshot({ path: "test-results/extension-done.png" });
 
   // the open Review shows it without a reload
-  const toast = review.locator(".toast", { hasText: '"Lazy pricing" added from the browser' });
-  await expect(toast).toBeVisible();
-  await toast.getByRole("button", { name: "show it" }).click();
+  await expect(review.locator(".toast", { hasText: '"Lazy pricing" added from the browser' })).toBeVisible();
+  // run from the command line, not the desktop app: Open in ScribUI goes to the Review tab already open
+  const pages = ctx.pages().length;
+  await popup.getByRole("button", { name: "Open in ScribUI" }).click();
   await expect(review.locator(".tile-label", { hasText: "Lazy pricing" })).toBeVisible();
+  await expect.poll(() => review.evaluate(() => (window as never as { __scribui: { getState(): { focusId: string | null } } }).__scribui.getState().focusId)).toMatch(/^lazy-pricing/);
+  expect(ctx.pages().filter((p) => !p.isClosed()).length).toBeLessThanOrEqual(pages);
 
   const after = await request.get(`${SERVER}/api/project`).then((r) => r.json());
   const s = after.manifest.screens.find((x: { title: string }) => x.title === "Lazy pricing");

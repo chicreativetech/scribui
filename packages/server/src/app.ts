@@ -112,7 +112,9 @@ export type ServerEvent =
   | { type: "annotations-changed"; round: number; by: string }
   | { type: "vision-changed"; by: string }
   /** A screen was added by hand: in the review view (`by` is its client), or from the browser extension. */
-  | { type: "screen-added"; round: number; screenId: string; title: string; by: string };
+  | { type: "screen-added"; round: number; screenId: string; title: string; by: string }
+  /** Show this screen in Review (asked for from the browser extension). */
+  | { type: "show-screen"; round?: number; screenId?: string };
 
 export type ServerOptions = {
   projectDir: string;
@@ -129,6 +131,8 @@ export type ServerOptions = {
   saveView?: ViewSaver;
   /** Renders HTML and pages from a URL for imports (provided with the runner). */
   renderPage?: PageRenderer;
+  /** The desktop app: brings its window for this project to the front; false when it has none open. */
+  showWindow?: () => boolean;
   /** Web: recapture automatically when the agent marks a round applied (default true). */
   autoRecapture?: boolean;
 };
@@ -330,6 +334,14 @@ export function createApp(opts: ServerOptions) {
     const { png, tree, trigger, ...rest } = body;
     const r = await saveView({ ...rest, png: Buffer.from(png, "base64"), raw: tree as RawElement }, trigger ?? "desktop");
     return c.json(r);
+  });
+
+  /* ─────────── show Review: the desktop app's window, or a browser tab ─────────── */
+  app.post("/api/show", async (c) => {
+    const body = z.object({ round: z.number().int().optional(), screenId: z.string().optional() }).parse(await c.req.json().catch(() => ({})));
+    broadcast({ type: "show-screen", ...body });
+    // the desktop app shows it in its own window; otherwise the caller opens Review in a browser
+    return c.json({ window: opts.showWindow?.() ?? false });
   });
 
   /* ─────────── screens added by hand in the review view ─────────── */

@@ -103,9 +103,9 @@ async function main() {
       $("warn").textContent = res?.error ?? "Something went wrong.";
       return;
     }
-    $("done-title").textContent = `"${res.result.title}" is in Review`;
+    $("done-title").textContent = `"${res.result.title}" is in ScribUI`;
     $("done-where").textContent = `${role === "reference" ? "As a reference" : "As a screen of the app"} · ${p.name} · round ${pad(res.result.round)}`;
-    $("open").onclick = () => void chrome.tabs.create({ url: p.url });
+    $("open").onclick = () => void openInScribUI(p, res.result).finally(() => window.close());
     show("done");
   };
   $("send").addEventListener("click", () => void send());
@@ -115,6 +115,31 @@ async function main() {
       void send();
     }
   });
+}
+
+/**
+ * Show the screen just sent: in the desktop app's window when it runs the project,
+ * otherwise in the browser, in a Review tab already open or a new one.
+ * @param {Project} p
+ * @param {{ round: number, screenId: string }} sent
+ */
+async function openInScribUI(p, sent) {
+  // tells every open Review to show it; the desktop app also brings its window forward
+  const shown = await fetch(`${p.url}api/show`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ round: sent.round, screenId: sent.screenId }),
+  })
+    .then((r) => r.json())
+    .catch(() => ({}));
+  if (shown.window) return;
+  const [open] = await chrome.tabs.query({ url: `${p.url}*` });
+  if (open?.id) {
+    await chrome.tabs.update(open.id, { active: true });
+    await chrome.windows.update(open.windowId, { focused: true });
+    return;
+  }
+  await chrome.tabs.create({ url: `${p.url}?screen=${encodeURIComponent(sent.screenId)}&round=${sent.round}` });
 }
 
 $("retry").addEventListener("click", () => {

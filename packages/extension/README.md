@@ -1,8 +1,9 @@
 # ScribUI for Chrome
 
-Send the page you're on to ScribUI's Review: click the ScribUI button, say whether it's
-**Our app** (a screen the agent should change) or a **Reference** (the agent takes the look
-from it), and press **Send to Review**.
+Send the page you're on to ScribUI: click the ScribUI button, say whether it's **Our app**
+(a screen the agent should change) or a **Reference** (the agent takes the look from it),
+and press **Send to ScribUI**. **Open in ScribUI** then shows it in Review: in the desktop
+app when that's what runs the project, otherwise in the browser.
 
 The page goes as Chrome saves a "Webpage, Single File" (MHTML): its HTML with its styles
 and images, as it is in your tab, logged in or not. ScribUI renders it offline, so notes
