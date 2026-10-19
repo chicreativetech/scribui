@@ -17,7 +17,7 @@ type Draft =
   | { kind: "image"; blob: Blob; preview: string; width: number; height: number; name?: string }
   | { kind: "html"; html: string; name?: string }
   | { kind: "page"; url: string }
-  | { kind: "snapshot"; mhtml: string; url?: string; name?: string };
+  | { kind: "snapshot"; mhtml: string; url?: string; name?: string; figma?: boolean };
 
 type ImportState = {
   open: boolean;
@@ -78,7 +78,7 @@ export function fromFigmaClipboard(html: string): Draft | "layers" | null {
       const bytes = Uint8Array.from(atob(h2d[1]!.replace(/\s+/g, "")), (c) => c.charCodeAt(0));
       const items = JSON.parse(new TextDecoder().decode(bytes)) as { type?: string; content?: string; sourceUrl?: string; title?: string }[];
       const snap = items.find((i) => i.type === "mhtml" && i.content);
-      if (snap) return snapshotDraft(snap.content!, { url: snap.sourceUrl, name: snap.title });
+      if (snap) return { ...snapshotDraft(snap.content!, { url: snap.sourceUrl, name: snap.title }), figma: true };
     } catch {
       /* not what we expected: fall through */
     }
@@ -225,6 +225,16 @@ async function base64(blob: Blob): Promise<string> {
   });
   return url.slice(url.indexOf(",") + 1);
 }
+
+/**
+ * Saved shadow roots with no styles of their own: web components that style themselves
+ * from script (adopted stylesheets), which a saved page leaves out.
+ */
+export const unstyledShadowRoots = (mhtml: string) =>
+  mhtml
+    .split(/<template\b[^>]*shadowmode/i)
+    .slice(1)
+    .filter((rest) => !/<style|<link/i.test(rest.slice(0, Math.max(0, rest.search(/<\/template>/i))))).length;
 
 const titleOf = (html: string) => /<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1]?.trim() || undefined;
 
@@ -435,6 +445,12 @@ export function ImportDialog() {
                 </button>
               </div>
               <p className="dim import-note">{NOTES[draft.kind]} It stays as it is from round to round.</p>
+              {draft.kind === "snapshot" && draft.figma && unstyledShadowRoots(draft.mhtml) > 0 && (
+                <p className="import-note import-warn">
+                  This page is built from web components. Figma's capture leaves out their styles, so buttons and other parts may look
+                  unstyled. The ScribUI browser extension keeps them.
+                </p>
+              )}
             </>
           )}
           <input

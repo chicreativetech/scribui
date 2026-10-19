@@ -10,11 +10,22 @@ import { servePage } from "./pages";
 const EXTENSION = join(import.meta.dirname, "../../extension");
 const SERVER = "http://127.0.0.1:4399";
 
-// a page whose last section only exists once it has been scrolled to
+// a page whose last section only exists once it has been scrolled to, with a web
+// component styled the way Lit and most design systems do it (an adopted stylesheet)
 const PAGE = `<!doctype html><html><head><title>Lazy pricing</title><meta name="viewport" content="width=device-width">
 <style>body{margin:0;font:16px sans-serif} header{height:1200px;background:#123;color:#fff} #end{height:400px}</style></head>
-<body><header id="top"><h1>Plans</h1></header><div id="end"></div>
+<body><brand-badge id="badge"></brand-badge><header id="top"><h1>Plans</h1></header><div id="end"></div>
 <script>
+  customElements.define("brand-badge", class extends HTMLElement {
+    constructor() {
+      super();
+      const root = this.attachShadow({ mode: "open" });
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(":host { display: block; width: 300px; height: 60px; background: rgb(0, 0, 255); }");
+      root.adoptedStyleSheets = [sheet];
+      root.innerHTML = "<slot></slot>";
+    }
+  });
   new IntersectionObserver((seen) => {
     if (!seen[0].isIntersecting || document.getElementById("late-plan")) return;
     const b = document.createElement("button");
@@ -89,5 +100,24 @@ test("the extension sends the page in a tab to Review, scrolled through first", 
   expect(cap.device.width).toBe(1280);
   // added by the page's own script when scrolled to, before the snapshot
   expect(JSON.stringify(cap.root)).toContain('"late-plan"');
+  // the component kept its styles: sized and blue
+  type Node = { id: string; bounds: { x: number; y: number; w: number; h: number }; children: Node[] };
+  const find = (n: Node, id: string): Node | undefined => (n.id === id ? n : n.children.map((c) => find(c, id)).find(Boolean));
+  const badge = find(cap.root, "badge")!.bounds;
+  expect([badge.w, badge.h]).toEqual([300, 60]);
+  const png = await request.get(`${SERVER}/files/rounds/${String(round).padStart(3, "0")}/${cap.screenshot}`).then((r) => r.body());
+  const color = await review.evaluate(
+    async ([b64, x, y]) => {
+      const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+      const c = new OffscreenCanvas(img.width, img.height);
+      const g = c.getContext("2d")!;
+      g.drawImage(img, 0, 0);
+      return [...g.getImageData(x, y, 1, 1).data.slice(0, 3)];
+    },
+    [png.toString("base64"), badge.x + 150, badge.y + 30] as [string, number, number],
+  );
+  expect(color).toEqual([0, 0, 255]);
+  // and the page in the tab is as it was
+  expect(await tab.evaluate(() => document.querySelector("brand-badge")!.shadowRoot!.querySelectorAll("link").length)).toBe(0);
   await request.delete(`${SERVER}/api/rounds/${round}/screens/${s.id}`);
 });

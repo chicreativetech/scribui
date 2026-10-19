@@ -100,6 +100,59 @@ export async function scrollThrough() {
   return start;
 }
 
+/**
+ * Runs in the page, just before it's saved: stylesheets that scripts attach to the page
+ * and to web components (`adoptedStyleSheets`, how Lit and most design systems style
+ * their components) aren't in a saved page. Linking each where it applies keeps them:
+ * as a `data:` stylesheet, because Chrome leaves `<style>` elements out of the shadow
+ * roots it saves but keeps links. `dropAdoptedStyles` takes them out again. Returns how many.
+ */
+export function keepAdoptedStyles() {
+  const roots = [document];
+  const walk = (root) => {
+    for (const el of root.querySelectorAll("*")) {
+      if (el.shadowRoot) {
+        roots.push(el.shadowRoot);
+        walk(el.shadowRoot);
+      }
+    }
+  };
+  walk(document);
+  let kept = 0;
+  for (const root of roots) {
+    const sheets = root.adoptedStyleSheets ?? [];
+    if (!sheets.length) continue;
+    const css = sheets
+      .map((sheet) => {
+        try {
+          return [...sheet.cssRules].map((r) => r.cssText).join("\n");
+        } catch {
+          return "";
+        }
+      })
+      .join("\n");
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.setAttribute("data-scribui-adopted", "");
+    link.href = `data:text/css;charset=utf-8,${encodeURIComponent(css)}`;
+    // adopted sheets come after the root's own styles
+    (root === document ? document.head : root).append(link);
+    kept++;
+  }
+  return kept;
+}
+
+/** Runs in the page after it's saved: takes out what `keepAdoptedStyles` put in. */
+export function dropAdoptedStyles() {
+  const drop = (root) => {
+    for (const el of root.querySelectorAll("*")) {
+      if (el.matches("link[data-scribui-adopted]")) el.remove();
+      else if (el.shadowRoot) drop(el.shadowRoot);
+    }
+  };
+  drop(document);
+}
+
 /** Runs in the page: what the popup shows and sends along. */
 export function pageInfo() {
   return { title: document.title, width: innerWidth };

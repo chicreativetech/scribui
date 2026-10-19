@@ -1,4 +1,4 @@
-import { capturable, MAX_SNAPSHOT, renderWidth, scrollThrough } from "./lib.js";
+import { capturable, dropAdoptedStyles, keepAdoptedStyles, MAX_SNAPSHOT, renderWidth, scrollThrough } from "./lib.js";
 
 /**
  * Sends a page to ScribUI: scrolls through it (optional), saves it as MHTML (the
@@ -20,7 +20,15 @@ async function sendPage(req, progress) {
   }
 
   progress("Capturing the page…");
-  const blob = await chrome.pageCapture.saveAsMHTML({ tabId: req.tabId });
+  // the page's own world: that's where its components' stylesheets are
+  const inPage = (func) => chrome.scripting.executeScript({ target: { tabId: req.tabId, allFrames: false }, world: "MAIN", func }).catch(() => null);
+  await inPage(keepAdoptedStyles);
+  let blob;
+  try {
+    blob = await chrome.pageCapture.saveAsMHTML({ tabId: req.tabId });
+  } finally {
+    await inPage(dropAdoptedStyles);
+  }
   if (!blob) throw new Error("Chrome couldn't capture this page.");
   if (blob.size > MAX_SNAPSHOT) throw new Error(`This page is ${Math.round(blob.size / 1024 / 1024)} MB with its images: more than ScribUI takes (64 MB).`);
   const mhtml = await blob.text();

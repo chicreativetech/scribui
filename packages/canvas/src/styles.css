@@ -768,6 +768,7 @@ kbd {
 .width-switch button { padding: 6px 10px; background: var(--surface); border: 1px solid var(--line-2); color: var(--fg); cursor: pointer; font: 500 12px/1 var(--sans); }
 .width-switch button:hover { border-color: var(--fg-dim); }
 .width-switch button.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.import-warn { color: var(--yellow); }
 .import-err { margin-top: 10px; white-space: pre-wrap; max-height: 120px; overflow: auto; }
 @media (max-width: 480px) { .role-switch { grid-template-columns: 1fr; } }
 

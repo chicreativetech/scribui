@@ -1,10 +1,10 @@
 import { createRequire } from "node:module";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Device, RawElement, ScreenCapture, ScreenEntry } from "@scribui/core";
 import { CaptureError } from "../exec.js";
+import { parseMhtml, withShadowRoots, type Mhtml, type MhtmlPart } from "../mhtml.js";
 import { pngSize } from "../png.js";
 import type { CaptureAdapter, CaptureContext } from "../types.js";
 import { resolveFlowPath, screenshotPath, toCapture, writePng } from "./shared.js";
@@ -13,7 +13,15 @@ import { resolveFlowPath, screenshotPath, toCapture, writePng } from "./shared.j
 type Page = {
   goto(url: string, o?: object): Promise<unknown>;
   setContent(html: string, o?: object): Promise<void>;
-  route(url: string, handler: (r: { abort(): Promise<void> }) => unknown): Promise<void>;
+  route(
+    url: string,
+    handler: (r: {
+      abort(): Promise<void>;
+      continue(): Promise<void>;
+      fulfill(o: { status?: number; contentType?: string; body: string | Buffer }): Promise<void>;
+      request(): { url(): string; resourceType(): string };
+    }) => unknown,
+  ): Promise<void>;
   title(): Promise<string>;
   waitForLoadState(s: string, o?: object): Promise<void>;
   screenshot(o?: object): Promise<Uint8Array>;
@@ -243,6 +251,9 @@ const FREEZE_PAGE = String.raw`(() => {
 export type PageSource = { url: string } | { html: string; baseUrl?: string } | { mhtml: string };
 export type RenderedPage = { png: Uint8Array; raw: RawElement; device: Device; title?: string };
 
+/** What a page snapshot may fetch from its site when the snapshot doesn't have it. */
+const SNAPSHOT_FETCHES = new Set(["font", "stylesheet", "image"]);
+
 /** Tallest page an import renders, in CSS pixels: longer pages are cut off there. */
 export const MAX_PAGE_HEIGHT = 8000;
 
@@ -277,18 +288,7 @@ export async function renderPage(projectDir: string, src: PageSource, width: num
       await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
       await page.evaluate(SETTLE).catch(() => {});
     } else if ("mhtml" in src) {
-      // a snapshot carries everything it shows: nothing is fetched, so it looks as it did when taken
-      await page.route("http*://**", (r) => r.abort());
-      const dir = await mkdtemp(join(tmpdir(), "scribui-snapshot-"));
-      try {
-        const file = join(dir, "page.mhtml");
-        await writeFile(file, src.mhtml);
-        await page.goto(pathToFileURL(file).href, { waitUntil: "load", timeout: 30_000 });
-      } catch (e) {
-        throw new CaptureError("could not open the page snapshot", String((e as Error).message ?? e));
-      } finally {
-        await rm(dir, { recursive: true, force: true }).catch(() => {});
-      }
+      await openSnapshot(page, src.mhtml);
     } else {
       await page.setContent(withViewport(withBase(src.html, src.baseUrl)), { waitUntil: "load", timeout: 30_000 });
       await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
@@ -319,6 +319,49 @@ function withViewport(html: string): string {
   const tag = `<meta name="viewport" content="width=device-width, initial-scale=1">`;
   if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + tag);
   return tag + html;
+}
+
+/** Where a snapshot without an http(s) address of its own, and the stylesheets Chrome made up for it, are served. */
+const SNAPSHOT_ORIGIN = "https://snapshot.scribui.invalid/";
+
+/**
+ * Open a page snapshot at the address it was saved from, served from the snapshot.
+ * Not as an .mhtml file: Chrome opens those as archives that never fetch anything, and
+ * a snapshot leaves out web fonts. Here what the snapshot has comes from it, fonts,
+ * images and stylesheets it lacks come from the site, and nothing else is fetched
+ * (it has no scripts: what's on the page is what was on it).
+ */
+async function openSnapshot(page: Page, text: string): Promise<void> {
+  let snap: Mhtml;
+  try {
+    snap = parseMhtml(text);
+  } catch (e) {
+    throw new CaptureError((e as Error).message);
+  }
+  const address = (loc: string | undefined) =>
+    !loc ? undefined : loc.startsWith("cid:") ? `${SNAPSHOT_ORIGIN}cid/${encodeURIComponent(loc.slice(4))}` : /^https?:/i.test(loc) ? loc : undefined;
+  const pageUrl = address(snap.url) ?? SNAPSHOT_ORIGIN;
+  const served = new Map<string, MhtmlPart>();
+  for (const part of snap.parts) {
+    const at = address(part.location);
+    if (at && !served.has(at)) served.set(at, part);
+  }
+  // the stylesheets Chrome made up (a page's adopted ones) are linked as cid: addresses
+  const html = withShadowRoots(snap.page.body.toString("utf8")).replace(/(["'(])cid:([^"')\s]+)/g, (_, q: string, id: string) => `${q}${SNAPSHOT_ORIGIN}cid/${encodeURIComponent(id)}`);
+  await page.route("**/*", (r) => {
+    const url = r.request().url().split("#")[0]!;
+    if (url === pageUrl.split("#")[0]) return r.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: html });
+    const part = served.get(url);
+    if (part) return r.fulfill({ status: 200, contentType: part.type, body: part.body });
+    if (!url.startsWith(SNAPSHOT_ORIGIN) && SNAPSHOT_FETCHES.has(r.request().resourceType())) return r.continue();
+    return r.abort();
+  });
+  try {
+    await page.goto(pageUrl, { waitUntil: "load", timeout: 30_000 });
+  } catch (e) {
+    throw new CaptureError("could not open the page snapshot", String((e as Error).message ?? e));
+  }
+  await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
 }
 
 /** A `<base>` for pasted HTML whose stylesheets and images use relative links. */
