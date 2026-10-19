@@ -124,3 +124,51 @@ test("the extension sends the page in a tab to Review, scrolled through first", 
   expect(await tab.evaluate(() => document.querySelector("brand-badge")!.shadowRoot!.querySelectorAll("link").length)).toBe(0);
   await request.delete(`${SERVER}/api/rounds/${round}/screens/${s.id}`);
 });
+
+test("in ScribUI's App view the extension shows pages that refuse frames; other tabs still refuse them", async () => {
+  const locked = await servePage({
+    "/locked.html": {
+      type: "text/html; charset=utf-8",
+      body: `<!doctype html><title>Locked</title><h1 id="in">Locked</h1>`,
+      headers: { "x-frame-options": "DENY", "content-security-policy": "frame-ancestors 'none'" },
+    },
+  });
+  const framing = await servePage(`<!doctype html><iframe src="${locked.url}"></iframe>`);
+  const c = await chromium.launchPersistentContext("", {
+    channel: "chromium",
+    args: [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`],
+  });
+  try {
+    const worker = c.serviceWorkers()[0] ?? (await c.waitForEvent("serviceworker"));
+    const rules = () => worker.evaluate(() => chrome.declarativeNetRequest.getSessionRules().then((r) => r.length));
+
+    const app = await c.newPage();
+    await app.goto(`${SERVER}/`);
+    await app.getByRole("tab", { name: "App", exact: true }).click();
+    // ScribUI's tab asked through the bridge: a rule for it alone
+    await expect.poll(rules).toBe(1);
+    const address = app.locator(".live-address input");
+    await address.fill(locked.url);
+    await address.press("Enter");
+    await expect(app.frameLocator("iframe[data-scribui-live]").locator("#in")).toHaveText("Locked");
+
+    // a website on the internet: the permission for those hasn't been given yet
+    await address.fill("https://example.invalid/");
+    await address.press("Enter");
+    await expect(app.locator(".live-note", { hasText: "The ScribUI extension can show them here" })).toBeVisible();
+    await expect(app.getByRole("button", { name: "Allow it" })).toBeVisible();
+
+    // another page framing it: refused as ever
+    const other = await c.newPage();
+    await other.goto(framing.url);
+    await expect.poll(() => other.frames()[1]?.url()).toMatch(/^chrome-error:/);
+
+    // ScribUI's tab closed: its rule goes with it
+    await app.close();
+    await expect.poll(rules).toBe(0);
+  } finally {
+    await c.close();
+    await locked.close();
+    await framing.close();
+  }
+});

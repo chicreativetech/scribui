@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Show websites in ScribUI</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <span class="logo"><span class="back"></span><span class="front"></span></span>
+      <b>ScribUI</b>
+    </header>
+    <main class="msg">
+      <p><b>Show other websites in ScribUI's App view</b></p>
+      <p class="dim">
+        Most websites tell the browser not to show them inside another page. Chrome will ask to let ScribUI read and change data on
+        all websites: it only uses that to drop those two instructions, for pages shown in ScribUI's App view. Other tabs are left
+        as they are.
+      </p>
+      <p id="denied" class="warn" hidden>Not allowed. Websites other than your app still won't show in the App view.</p>
+      <button id="allow" class="btn primary wide">Allow</button>
+    </main>
+    <script type="module" src="grant.js"></script>
+  </body>
+</html>

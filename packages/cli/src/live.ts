@@ -34,8 +34,15 @@ type Page = {
   mainFrame(): Frame;
   on(event: "framenavigated", cb: (f: Frame) => void): void;
 };
+type Route = {
+  request(): { url(): string; resourceType(): string; frame(): { parentFrame(): unknown } };
+  fallback(): Promise<void>;
+  fetch(): Promise<{ url(): string; headers(): Record<string, string> }>;
+  fulfill(o: { response?: unknown; headers?: Record<string, string>; status?: number; contentType?: string; body?: string }): Promise<void>;
+};
 type Context = {
   pages(): Page[];
+  route(url: string, handler: (r: Route) => Promise<void>): Promise<void>;
   newPage(): Promise<Page>;
   exposeBinding(name: string, cb: (source: { page: Page }, arg: unknown) => unknown): Promise<void>;
   on(event: "close" | "page", cb: (p?: Page) => void): void;
@@ -78,6 +85,7 @@ export async function openLiveWindow(store: ReviewStore, canvasUrl: string, save
       }
     }
     await attachLiveCapture(c, save);
+    await showAnySite(c);
     c.on("close", () => {
       if (ctx === c) ctx = null;
     });
@@ -128,6 +136,36 @@ export async function attachLiveCapture(context: unknown, save: SaveView) {
     });
   for (const p of c.pages()) watch(p);
   c.on("page", (p) => p && watch(p));
+}
+
+/**
+ * Most websites tell the browser not to show them inside another page, so the app
+ * tab's frame would stay blank on them: for pages loaded into a frame, drop those
+ * headers. The canvas itself, and every image, script and style, load untouched.
+ */
+async function showAnySite(c: Context) {
+  await c.route("**/*", async (route) => {
+    const req = route.request();
+    let framed = false;
+    try {
+      framed = req.resourceType() === "document" && !!req.frame().parentFrame();
+    } catch {
+      /* a request without a frame (a service worker's): not a framed page */
+    }
+    if (!framed) return route.fallback();
+    try {
+      const response = await route.fetch();
+      // redirected: the frame goes to where it ended up (that request comes here too), so its address is the real one
+      if (response.url() !== req.url())
+        return await route.fulfill({ status: 200, contentType: "text/html", body: `<script>location.replace(${JSON.stringify(response.url())})</script>` });
+      const headers = { ...response.headers() };
+      delete headers["x-frame-options"];
+      delete headers["content-security-policy"];
+      await route.fulfill({ response, headers });
+    } catch {
+      await route.fallback().catch(() => {});
+    }
+  });
 }
 
 async function captureFromPage(page: Page, req: LiveCaptureRequest, save: SaveView): Promise<LiveCaptureResult> {

@@ -301,6 +301,20 @@ test("opens on the App tab, never on the vision board", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "App" })).toHaveAttribute("aria-selected", "true");
 });
 
+test("App tab: Home goes back to the app; a website elsewhere may refuse the frame, and the note says what shows it", async ({ page }) => {
+  await page.getByRole("tab", { name: "App", exact: true }).click();
+  const address = page.locator(".live-address input");
+  await address.fill("example.invalid/pricing");
+  await address.press("Enter");
+  // a bare web address opens over https
+  await expect(page.locator("iframe[data-scribui-live]")).toHaveAttribute("src", "https://example.invalid/pricing");
+  await expect(page.locator(".live-note", { hasText: "The ScribUI browser extension or the ScribUI desktop app can show them" })).toBeVisible();
+  await page.getByRole("button", { name: "home" }).click();
+  await expect(page.locator("iframe[data-scribui-live]")).toHaveAttribute("src", "http://127.0.0.1:5178");
+  await expect(address).toHaveValue("http://127.0.0.1:5178");
+  await expect(page.locator(".live-note", { hasText: "refuse to show" })).toHaveCount(0);
+});
+
 test("vision: an edge changes one side of a canvas, a corner scales it", async ({ page }) => {
   await page.request.put("/api/vision", { data: { version: 1, canvases: [{ id: "c1", x: 0, y: 0, w: 600, h: 800 }], items: [] } });
   await page.reload();

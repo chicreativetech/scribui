@@ -14,6 +14,9 @@ import { ToolSettings } from "./ToolSettings";
  * own view (`scribuiDesktop.live`): this tab reports where it should sit and
  * drives it; pages that refuse embedding work there. Mobile projects in the
  * desktop app get the device tab instead (Device.tsx).
+ * Most websites refuse to be embedded: the Chrome window ScribUI opens drops
+ * the headers that say so, and in the user's own browser the ScribUI extension
+ * can (packages/extension/bridge.js), once allowed.
  */
 
 type CaptureFn = (req: { title?: string; replace?: string; fullPage?: boolean; signature?: string }) => Promise<{ round: number; screenId: string; title: string }>;
@@ -85,6 +88,32 @@ export function toggleView() {
   else showLive();
 }
 
+/** A page on this computer: the app being built, which doesn't refuse embedding. */
+function onThisComputer(url: string): boolean {
+  try {
+    const h = new URL(url).hostname;
+    return h === "localhost" || h.endsWith(".localhost") || h === "[::1]" || h.startsWith("127.");
+  } catch {
+    return true;
+  }
+}
+
+/** The ScribUI extension, through its bridge: whether it shows other websites here. null: not installed. */
+function useExtensionFrames(ask: boolean) {
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!ask) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.source === window && e.data?.scribui === "frames") setAllowed(!!e.data.allowed);
+    };
+    window.addEventListener("message", onMessage);
+    window.postMessage({ scribui: "frames?" }, location.origin);
+    return () => window.removeEventListener("message", onMessage);
+  }, [ask]);
+  const allow = () => window.postMessage({ scribui: "frames-allow" }, location.origin);
+  return { allowed, allow };
+}
+
 function readSize(): string {
   try {
     return localStorage.getItem("scribui:live-size") || "fit";
@@ -121,6 +150,9 @@ function WebLive() {
   const covered = useStore((s) => s.helpOpen || s.sendOpen || !!s.sentPrompt || s.lanOpen);
   const preset = SIZES.find((s) => s.id === size) ?? SIZES[0]!;
   const shown = view === "live" && !covered;
+  // in a browser: another website may refuse the frame
+  const extension = useExtensionFrames(!native && visited);
+  const elsewhere = !native && !canCapture && !!src && !onThisComputer(src);
 
   // desktop: follow the app's view (address, loading, errors)
   useEffect(() => {
@@ -233,6 +265,13 @@ function WebLive() {
       setAddress(base);
     }
   }, [base, src]);
+
+  // the extension may now show the website the frame refused: load it again
+  const wasAllowed = useRef(extension.allowed);
+  useEffect(() => {
+    if (extension.allowed && wasAllowed.current === false) setReloadKey((k) => k + 1);
+    wasAllowed.current = extension.allowed;
+  }, [extension.allowed]);
 
   // the live window reports where the embedded app navigated
   useEffect(() => {
@@ -373,6 +412,20 @@ function WebLive() {
         <div className="live-note">
           Capturing works in the Chrome window ScribUI opens for web projects. Press <kbd>o</kbd> in the terminal where ScribUI runs to
           bring it back.
+        </div>
+      )}
+      {elsewhere && extension.allowed === false && (
+        <div className="live-note">
+          Most websites refuse to show inside another page, so this one may stay blank. The ScribUI extension can show them here.{" "}
+          <button className="link" onClick={extension.allow}>
+            Allow it
+          </button>
+        </div>
+      )}
+      {elsewhere && extension.allowed === null && (
+        <div className="live-note">
+          Most websites refuse to show inside another page, so this one may stay blank. The ScribUI browser extension or the ScribUI
+          desktop app can show them.
         </div>
       )}
       <div className="live-viewport">

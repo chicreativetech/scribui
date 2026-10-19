@@ -157,3 +157,43 @@ export function dropAdoptedStyles() {
 export function pageInfo() {
   return { title: document.title, width: innerWidth };
 }
+
+/** Every website: what the extension needs to show other sites in ScribUI's App view. Asked for only then. */
+export const WEB_ORIGINS = ["http://*/*", "https://*/*"];
+
+/**
+ * The rule that lets pages show inside ScribUI's App view, in that one tab: the
+ * headers that tell a browser not to show a page in a frame are dropped, for the
+ * pages in its frames only. A rule per tab, numbered by it.
+ * @param {number} tabId
+ */
+export function frameRule(tabId) {
+  return {
+    id: tabId,
+    priority: 1,
+    action: {
+      type: "modifyHeaders",
+      responseHeaders: [
+        { header: "x-frame-options", operation: "remove" },
+        { header: "content-security-policy", operation: "remove" },
+      ],
+    },
+    condition: { tabIds: [tabId], resourceTypes: ["sub_frame"] },
+  };
+}
+
+/**
+ * Whether a page on this computer is ScribUI's canvas: its server answers like ScribUI.
+ * @param {string} pageUrl
+ * @param {typeof fetch} get
+ */
+export async function isScribui(pageUrl, get = fetch) {
+  try {
+    const r = await get(new URL("/api/project", pageUrl).toString(), { signal: AbortSignal.timeout(800) });
+    if (!r.ok) return false;
+    const p = await r.json();
+    return typeof p?.root === "string" && typeof p?.folder === "string";
+  } catch {
+    return false;
+  }
+}

@@ -1,4 +1,4 @@
-import { capturable, dropAdoptedStyles, keepAdoptedStyles, MAX_SNAPSHOT, renderWidth, scrollThrough } from "./lib.js";
+import { capturable, dropAdoptedStyles, frameRule, isScribui, keepAdoptedStyles, MAX_SNAPSHOT, renderWidth, scrollThrough, WEB_ORIGINS } from "./lib.js";
 
 /**
  * Sends a page to ScribUI: scrolls through it (optional), saves it as MHTML (the
@@ -79,3 +79,56 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   // the reply comes later
   return true;
 });
+
+/* ───────── other websites in ScribUI's App view ───────── */
+
+const mayShowWebsites = () => chrome.permissions.contains({ origins: WEB_ORIGINS });
+
+/** The tabs showing ScribUI, by tab id → its origin; kept while the worker sleeps. */
+async function scribuiTabs() {
+  return (await chrome.storage.session.get("scribuiTabs")).scribuiTabs ?? {};
+}
+
+async function forgetTab(tabId) {
+  const tabs = await scribuiTabs();
+  if (!(tabId in tabs)) return;
+  delete tabs[tabId];
+  await chrome.storage.session.set({ scribuiTabs: tabs });
+  await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tabId] });
+}
+
+// ScribUI's canvas asks (through bridge.js) whether other websites can show in its App view
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg?.type !== "frames?" && msg?.type !== "frames-allow") return false;
+  const tab = sender.tab;
+  if (!tab?.id || !sender.url || sender.frameId !== 0) return false;
+  (async () => {
+    if (!(await isScribui(sender.url))) return false;
+    const tabs = await scribuiTabs();
+    tabs[tab.id] = new URL(sender.url).origin;
+    await chrome.storage.session.set({ scribuiTabs: tabs });
+    await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tab.id], addRules: [frameRule(tab.id)] });
+    if (msg.type === "frames-allow" && !(await mayShowWebsites())) {
+      // Chrome asks for a permission only from a click in the extension's own page
+      await chrome.windows.create({ url: "grant.html", type: "popup", width: 400, height: 300, focused: true });
+    }
+    return mayShowWebsites();
+  })().then(reply, () => reply(false));
+  return true;
+});
+
+// the tab closed or left ScribUI: its rule goes
+chrome.tabs.onRemoved.addListener((tabId) => void forgetTab(tabId));
+chrome.tabs.onUpdated.addListener(async (tabId, change) => {
+  if (!change.url) return;
+  const origin = (await scribuiTabs())[tabId];
+  if (origin && new URL(change.url).origin !== origin) await forgetTab(tabId);
+});
+
+// given or taken back: the open ScribUI tabs hear it
+const tellTabs = async () => {
+  const allowed = await mayShowWebsites();
+  for (const id of Object.keys(await scribuiTabs())) void chrome.tabs.sendMessage(Number(id), { type: "frames", allowed }).catch(() => {});
+};
+chrome.permissions.onAdded.addListener(tellTabs);
+chrome.permissions.onRemoved.addListener(tellTabs);
