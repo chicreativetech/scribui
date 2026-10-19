@@ -248,7 +248,8 @@ function WebLive() {
     if (!v) return;
     let url = v;
     if (v.startsWith("/") && base) url = new URL(v, base).toString();
-    else if (!/^[a-z]+:\/\//i.test(v)) url = `http://${v}`;
+    // a bare address: http for the machine and the local network, https for the web
+    else if (!/^[a-z]+:\/\//i.test(v)) url = `${/^(localhost|[\d.]+|\[[\da-f:]+\])(:\d+)?(\/|$)/i.test(v) ? "http" : "https"}://${v}`;
     setAddress(url);
     if (native) {
       started.current = true;
@@ -327,6 +328,12 @@ function WebLive() {
             <Tip name="Reload" does="loads the page again (your app's state is lost)" />
           </button>
           <input ref={addressRef} value={address} onChange={(e) => setAddress(e.target.value)} placeholder={base || "http://localhost:3000"} spellCheck={false} />
+          {base && (
+            <button type="button" className="toggle" aria-label="home" onClick={() => go(base)}>
+              {ICON.home}
+              <Tip name="Home" does="goes back to your app's start page" />
+            </button>
+          )}
         </form>
         {native && state && state.zoom < 1 && state.bounds && (
           <span className="live-zoom" title="larger than the room here: shown scaled down, captured at full size">
