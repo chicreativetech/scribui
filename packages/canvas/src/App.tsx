@@ -298,10 +298,15 @@ export function App() {
                 <p className="err">✗ {project.manifest.error}</p>
               ) : (
                 <>
-                  {project && "app" in project.manifest && project.manifest.app.platform === "web" ? (
+                  {project && "app" in project.manifest && project.manifest.app.platform === "web" && hasLiveTab("web") ? (
                     <p>
                       Open the <button className="link" onClick={showLive}>app tab</button> (<kbd>L</kbd>), browse to a view in your app and
                       mark it up with the tools above it, or press <b>Capture view</b>.
+                    </p>
+                  ) : project && "app" in project.manifest && project.manifest.app.platform === "web" ? (
+                    <p>
+                      Open your app in another tab and send its pages here with the ScribUI browser extension, or paste a screenshot or HTML
+                      (<kbd>⌘V</kbd>), drop a file, or press <kbd>M</kbd>.
                     </p>
                   ) : project && "app" in project.manifest && hasLiveTab(project.manifest.app.platform) ? (
                     <p>

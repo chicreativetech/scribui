@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capturable, defaultRole, findProjects, frameRule, isScribui, renderWidth, type Project } from "../lib.js";
+import { capturable, defaultRole, findProjects, renderWidth, type Project } from "../lib.js";
 
 const project = (p: Partial<Project>): Project => ({ port: 4382, url: "http://127.0.0.1:4382/", root: "/x", name: "X", canRenderPages: true, ...p });
 
@@ -45,25 +45,5 @@ describe("what the page is", () => {
     expect(renderWidth(3840)).toBe(2560);
     expect(renderWidth(280)).toBe(320);
     expect(renderWidth(1512.4)).toBe(1512);
-  });
-});
-
-describe("showing other websites in ScribUI's App view", () => {
-  it("drops the frame-refusing headers for that tab's frames only", () => {
-    expect(frameRule(42)).toMatchObject({
-      id: 42,
-      action: { type: "modifyHeaders", responseHeaders: [{ header: "x-frame-options", operation: "remove" }, { header: "content-security-policy", operation: "remove" }] },
-      condition: { tabIds: [42], resourceTypes: ["sub_frame"] },
-    });
-  });
-
-  it("does it only for ScribUI's own pages", async () => {
-    const json = (b: unknown) => (async () => ({ ok: true, json: async () => b }) as Response) as unknown as typeof fetch;
-    expect(await isScribui("http://127.0.0.1:4382/#live", json({ root: "/work/shop", folder: ".scribui" }))).toBe(true);
-    expect(await isScribui("http://localhost:3000/", json({ hello: "an app of its own" }))).toBe(false);
-    const down = (async () => {
-      throw new Error("refused");
-    }) as unknown as typeof fetch;
-    expect(await isScribui("http://localhost:3000/", down)).toBe(false);
   });
 });

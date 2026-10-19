@@ -20,7 +20,6 @@ import {
 } from "@scribui/project";
 import { desktopInstalled, openInDesktop } from "./desktop.js";
 import { input, interactive, select, waitFor } from "./prompts.js";
-import { openLiveWindow, type LiveWindow } from "./live.js";
 import { ensureWebTools } from "./setup.js";
 import { banner, c, errLine, line, okLine, out, warnLine } from "./ui.js";
 
@@ -250,8 +249,7 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform) 
   if (hosted.kind === "running") {
     const running = hosted.owner.url ?? "";
     okLine(`scribui is already running for this project${hosted.owner.app === "desktop" ? " in the desktop app" : ""}: ${c.accent(running)}`);
-    if (platform === "web" && hosted.owner.app !== "desktop") out(c.dim("    Its canvas is in the Chrome window ScribUI opened; press o in that terminal to bring it back."));
-    else if (flags.open !== false && running && hosted.owner.app !== "desktop") openBrowser(running);
+    if (flags.open !== false && running && hosted.owner.app !== "desktop") openBrowser(running);
     out();
     return;
   }
@@ -263,14 +261,10 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform) 
   const url = `http://127.0.0.1:${srv.port}/`;
   out();
   line("canvas", c.accent(url));
-  // web: the canvas opens in a Chrome window ScribUI controls, so its app tab can capture the app
-  let live: LiveWindow | null = null;
-  if (platform === "web" && flags.open !== false) {
-    live = await openLiveWindow(store, await liveCanvasUrl(store, srv.port), (req) => srv.saveView(req, "gui"), (msg) => warnLine(`Couldn't open the live window: ${msg}`));
-    if (live) line("app tab", c.dim("browse your app in the canvas's app tab (L) and press Capture view"));
-    else openBrowser(url);
-  } else if (flags.open !== false) openBrowser(url);
-  const show = () => (live ? void live.show() : openBrowser(url));
+  // in your own browser, next to your app: its pages come in through the ScribUI extension, or pasted
+  if (flags.open !== false) openBrowser(url);
+  if (platform === "web") line("add views", c.dim("send pages with the ScribUI browser extension, or paste a screenshot or HTML into Review"));
+  const show = () => openBrowser(url);
 
   const latest = await store.latestRound();
   if (latest !== null) line("round", `${pad(latest)}  ${c.dim(platform === "web" ? "(latest; recapture from the canvas)" : "(latest)")}`);
@@ -278,7 +272,6 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform) 
   out(c.dim(`  ${c.bold("r")} recapture changed   ${c.bold("R")} recapture all   ${c.bold("o")} open canvas   ${c.bold("q")} quit`));
 
   const stop = async () => {
-    await live?.close();
     await srv.close();
     process.exit(0);
   };
@@ -305,20 +298,6 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform) 
       }
     });
   }
-}
-
-/**
- * The canvas URL for the live window. When the app runs on localhost, the
- * canvas uses localhost too: the embedded app is then same-site, so its
- * cookies (and logins) work inside the app tab.
- */
-async function liveCanvasUrl(store: ReviewStore, port: number): Promise<string> {
-  const base = await store
-    .readManifest()
-    .then((m) => m.app.baseUrl)
-    .catch(() => undefined);
-  const host = base ? new URL(base).hostname : "";
-  return `http://${host === "localhost" ? "localhost" : "127.0.0.1"}:${port}/`;
 }
 
 export function openBrowser(url: string) {

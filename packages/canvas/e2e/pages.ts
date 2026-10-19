@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
-type File = { type: string; body: string | Buffer; headers?: Record<string, string> };
+type File = { type: string; body: string | Buffer };
 
 /**
  * A web site of the test's own, on this computer: what a link or a browser tab opens.
@@ -17,7 +17,7 @@ export async function servePage(
     hits.push(path);
     const f = files[path];
     if (!f) return void res.writeHead(404).end();
-    res.writeHead(200, { "content-type": f.type, "access-control-allow-origin": "*", ...f.headers });
+    res.writeHead(200, { "content-type": f.type, "access-control-allow-origin": "*" });
     res.end(f.body);
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));

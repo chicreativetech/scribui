@@ -1,13 +1,9 @@
-import { createHash } from "node:crypto";
-import { mkdir } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { LIVE_ISOLATE, LIVE_RESTORE, loadChromium, readLiveFrame } from "@scribui/capture";
-import type { ReviewStore, ViewSaveRequest, ViewSaveResult } from "@scribui/server";
+import { LIVE_ISOLATE, LIVE_RESTORE, readLiveFrame } from "@scribui/capture";
+import type { ViewSaveRequest, ViewSaveResult } from "@scribui/server";
 
 /**
- * The live window: a Chrome window ScribUI controls, showing the canvas. Its
- * app tab embeds the running app; "Capture view" calls a function this module
+ * Capturing the app embedded in a canvas's app tab, in a browser ScribUI controls
+ * (the desktop app's test harnesses): "Capture view" calls a function this module
  * exposes to the page, which screenshots the embedded app exactly as the user
  * left it (login, open menus, form input) and hands it to the project's owner
  * (`save`), which adds it to the open round in turn with every other capture.
@@ -34,83 +30,13 @@ type Page = {
   mainFrame(): Frame;
   on(event: "framenavigated", cb: (f: Frame) => void): void;
 };
-type Route = {
-  request(): { url(): string; resourceType(): string; frame(): { parentFrame(): unknown } };
-  fallback(): Promise<void>;
-  fetch(): Promise<{ url(): string; headers(): Record<string, string> }>;
-  fulfill(o: { response?: unknown; headers?: Record<string, string>; status?: number; contentType?: string; body?: string }): Promise<void>;
-};
 type Context = {
   pages(): Page[];
-  route(url: string, handler: (r: Route) => Promise<void>): Promise<void>;
   newPage(): Promise<Page>;
   exposeBinding(name: string, cb: (source: { page: Page }, arg: unknown) => unknown): Promise<void>;
   on(event: "close" | "page", cb: (p?: Page) => void): void;
   close(): Promise<void>;
 };
-type Chromium = { launchPersistentContext(dir: string, o: object): Promise<Context> };
-
-export type LiveWindow = {
-  /** Bring the canvas window to the front, reopening it if it was closed. */
-  show(): Promise<void>;
-  close(): Promise<void>;
-};
-
-/** Open the live window on the canvas. Returns null when Chrome can't be started. */
-export async function openLiveWindow(store: ReviewStore, canvasUrl: string, save: SaveView, onError?: (msg: string) => void): Promise<LiveWindow | null> {
-  let chromium: Chromium;
-  try {
-    chromium = (await loadChromium(store.root)) as Chromium;
-  } catch (e) {
-    onError?.((e as Error).message);
-    return null;
-  }
-  // one profile per project: logins persist between sessions, and several projects can be open at once
-  const profile = join(homedir(), ".scribui", "browser", createHash("sha1").update(store.root).digest("hex").slice(0, 12));
-  await mkdir(profile, { recursive: true });
-
-  let ctx: Context | null = null;
-
-  const launch = async (): Promise<Context | null> => {
-    const opts = { headless: false, viewport: null, args: ["--no-first-run", "--no-default-browser-check"] };
-    let c: Context;
-    try {
-      c = await chromium.launchPersistentContext(profile, { ...opts, channel: "chrome" }); // your installed Chrome
-    } catch {
-      try {
-        c = await chromium.launchPersistentContext(profile, opts); // Playwright's Chromium
-      } catch (e) {
-        onError?.((e as Error).message.split("\n")[0]!);
-        return null;
-      }
-    }
-    await attachLiveCapture(c, save);
-    await showAnySite(c);
-    c.on("close", () => {
-      if (ctx === c) ctx = null;
-    });
-    const page = c.pages()[0] ?? (await c.newPage());
-    await page.goto(canvasUrl);
-    return c;
-  };
-
-  ctx = await launch();
-  if (!ctx) return null;
-
-  return {
-    async show() {
-      if (!ctx) ctx = await launch();
-      if (!ctx) return;
-      const page = ctx.pages().find((p) => !p.isClosed());
-      if (page) await page.bringToFront();
-      else await (await ctx.newPage()).goto(canvasUrl);
-    },
-    async close() {
-      await ctx?.close().catch(() => {});
-      ctx = null;
-    },
-  };
-}
 
 /**
  * Give every canvas page in this browser context the capture function the
@@ -136,36 +62,6 @@ export async function attachLiveCapture(context: unknown, save: SaveView) {
     });
   for (const p of c.pages()) watch(p);
   c.on("page", (p) => p && watch(p));
-}
-
-/**
- * Most websites tell the browser not to show them inside another page, so the app
- * tab's frame would stay blank on them: for pages loaded into a frame, drop those
- * headers. The canvas itself, and every image, script and style, load untouched.
- */
-async function showAnySite(c: Context) {
-  await c.route("**/*", async (route) => {
-    const req = route.request();
-    let framed = false;
-    try {
-      framed = req.resourceType() === "document" && !!req.frame().parentFrame();
-    } catch {
-      /* a request without a frame (a service worker's): not a framed page */
-    }
-    if (!framed) return route.fallback();
-    try {
-      const response = await route.fetch();
-      // redirected: the frame goes to where it ended up (that request comes here too), so its address is the real one
-      if (response.url() !== req.url())
-        return await route.fulfill({ status: 200, contentType: "text/html", body: `<script>location.replace(${JSON.stringify(response.url())})</script>` });
-      const headers = { ...response.headers() };
-      delete headers["x-frame-options"];
-      delete headers["content-security-policy"];
-      await route.fulfill({ response, headers });
-    } catch {
-      await route.fallback().catch(() => {});
-    }
-  });
 }
 
 async function captureFromPage(page: Page, req: LiveCaptureRequest, save: SaveView): Promise<LiveCaptureResult> {

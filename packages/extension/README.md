@@ -30,9 +30,3 @@ Works in Chrome, Edge, Brave, Arc and other Chromium browsers (116 or later).
   through it first), only when you click.
 - **127.0.0.1 and localhost**: talk to ScribUI on this computer.
 - **storage**: remember the last project, extra ports and the scroll setting.
-- **All websites (optional, asked for only when you allow it):** show other websites in ScribUI's
-  App view. Most sites tell the browser not to show them inside another page
-  (`X-Frame-Options`, `Content-Security-Policy`); in a tab showing ScribUI, and only for the pages
-  in its frames, the extension drops those two headers (`declarativeNetRequest`). Other tabs are
-  left as they are, and the rule goes when ScribUI's tab closes. ScribUI's App view offers it when
-  you open a site that may stay blank.

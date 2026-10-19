@@ -185,8 +185,8 @@ let toastSeq = 0;
 let startViewChosen = false;
 /** The App or Device tab exists for this platform (as `hasLiveTab` in Live.tsx, without importing the components here). */
 function liveTabFor(platform: string | undefined): boolean {
-  const device = (window as unknown as { scribuiDesktop?: { device?: { platform: string } } }).scribuiDesktop?.device;
-  return platform === "web" || (!!device && platform === device.platform);
+  const desktop = (window as unknown as { scribuiDesktop?: { device?: { platform: string } } }).scribuiDesktop;
+  return platform === "web" ? !!desktop : !!desktop?.device && platform === desktop.device.platform;
 }
 
 function loadTheme(): "dark" | "light" {
@@ -258,7 +258,13 @@ export const useStore = create<Store>((set, get) => ({
     if (!round.canRecapture || !ids.some((id) => round.screens.find((x) => x.id === id)?.recapturable)) {
       const byHand = round.app?.platform !== "web" || ids.every((id) => round.screens.find((x) => x.id === id)?.recapturable === false);
       s.toast({
-        text: byHand ? "captured by hand: capture it again in the App tab" : "capturing from the canvas needs ScribUI started with `scribui`",
+        text: byHand
+          ? liveTabFor(round.app?.platform)
+            ? `captured by hand: capture it again in the ${round.app?.platform === "web" ? "App" : "Device"} tab`
+            : round.app?.platform === "web"
+              ? "captured by hand: send it again with the ScribUI browser extension, or paste a new screenshot"
+              : "captured by hand: capture it again in the ScribUI desktop app"
+          : "capturing from the canvas needs ScribUI started with `scribui`",
         tone: "warn",
       });
       return;
@@ -305,7 +311,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ captureState: project.capture ?? get().captureState, lan: project.lan ?? get().lan });
       if (!startViewChosen) {
         startViewChosen = true;
-        // start in the app (App or Device tab), where a round begins; the vision board is optional, never the start
+        // start in the app (App or Device tab), where a round begins; in a browser, in Review; the vision board is optional, never the start
         const platform = "app" in project.manifest ? project.manifest.app.platform : undefined;
         if (liveTabFor(platform)) set({ view: "live", liveVisited: true });
       }

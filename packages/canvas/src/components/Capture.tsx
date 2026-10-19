@@ -142,9 +142,13 @@ export function NextStepBanner() {
         : (changed ?? []).map((id) => round.screens.find((x) => x.id === id)?.title ?? id).join(", ");
     const device = hasLiveTab(platform);
     const text = !mobile
-      ? status === "sent"
-        ? "Sent to your agent. When it's done, capture the screens it changed again in the App tab."
-        : `The agent applied round ${pad(round.round)}${titles ? ` and changed ${titles}` : ""}. Capture ${titles ? "them" : "the changed screens"} again in the App tab: pick replace "…" next to Capture view to update a screen in place.`
+      ? !device
+        ? status === "sent"
+          ? "Sent to your agent. When it's done, send the pages it changed again with the ScribUI browser extension, or paste new screenshots."
+          : `The agent applied round ${pad(round.round)}${titles ? ` and changed ${titles}` : ""}. Send ${titles ? "them" : "the changed pages"} again with the ScribUI browser extension, or paste new screenshots.`
+        : status === "sent"
+          ? "Sent to your agent. When it's done, capture the screens it changed again in the App tab."
+          : `The agent applied round ${pad(round.round)}${titles ? ` and changed ${titles}` : ""}. Capture ${titles ? "them" : "the changed screens"} again in the App tab: pick replace "…" next to Capture view to update a screen in place.`
       : status === "sent"
         ? "Sent to your agent. When it's done, rebuild and reinstall the app, then capture the screens it changed again."
         : `The agent applied round ${pad(round.round)}${titles ? ` and changed ${titles}` : ""}. Rebuild and reinstall the app, then capture ${titles ? "them" : "the changed screens"} again${device ? " in the Device tab" : " in the ScribUI desktop app"}. Pick replace "…" next to Capture view to update a screen in place.`;

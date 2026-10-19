@@ -293,26 +293,29 @@ test("vision: draws on the canvas, starts a new canvas off it, types text, undoe
   await page.request.put("/api/vision", { data: { version: 1, canvases: [], items: [] } });
 });
 
-test("opens on the App tab, never on the vision board", async ({ page }) => {
+test("in a browser there's no App tab: the app is a tab away, and the canvas opens on Review", async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await expect(page.getByRole("tab", { name: "App" })).toHaveAttribute("aria-selected", "true");
-  await page.reload();
-  await expect(page.getByRole("tab", { name: "App" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "App", exact: true })).toHaveCount(0);
+  // L, the App tab's key, does nothing here
+  await page.keyboard.press("l");
+  await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
 });
 
-test("App tab: Home goes back to the app; a website elsewhere may refuse the frame, and the note says what shows it", async ({ page }) => {
-  await page.getByRole("tab", { name: "App", exact: true }).click();
+test("in the desktop app: opens on the App tab, and Home goes back to the app", async ({ page }) => {
+  // the desktop app's test harness surface, standing in: the app in the canvas's frame
+  await page.addInitScript(() => ((window as unknown as { scribuiDesktop: unknown }).scribuiDesktop = { version: 6, platform: "darwin" }));
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "App", exact: true })).toHaveAttribute("aria-selected", "true");
   const address = page.locator(".live-address input");
   await address.fill("example.invalid/pricing");
   await address.press("Enter");
   // a bare web address opens over https
   await expect(page.locator("iframe[data-scribui-live]")).toHaveAttribute("src", "https://example.invalid/pricing");
-  await expect(page.locator(".live-note", { hasText: "The ScribUI browser extension or the ScribUI desktop app can show them" })).toBeVisible();
   await page.getByRole("button", { name: "home" }).click();
   await expect(page.locator("iframe[data-scribui-live]")).toHaveAttribute("src", "http://127.0.0.1:5178");
   await expect(address).toHaveValue("http://127.0.0.1:5178");
-  await expect(page.locator(".live-note", { hasText: "refuse to show" })).toHaveCount(0);
 });
 
 test("vision: an edge changes one side of a canvas, a corner scales it", async ({ page }) => {

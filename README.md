@@ -63,7 +63,7 @@ ScribUI looks at the project to decide what it is. A folder without Android or i
 | --- | --- | --- | --- |
 | Runs on | macOS, Windows, Linux | macOS, Windows, Linux | **macOS only** |
 | Captures from | your local dev server | emulator or phone over USB, in the desktop app | iOS Simulator, in the desktop app |
-| How screens get captured | by hand in the App tab, and the agent's listed screens automatically | by hand in the Device tab | by hand in the Device tab |
+| How screens get captured | sent from your browser with the ScribUI extension, pasted, or by hand in the desktop app's App tab; the agent's listed screens automatically | by hand in the Device tab | by hand in the Device tab |
 | ScribUI installs for you | Playwright + Chromium | adb (Google's platform tools) | AXe |
 | You install yourself | Node 20+ (terminal only) | an emulator (Android Studio) or a phone with USB debugging | Xcode |
 
@@ -79,21 +79,19 @@ ScribUI looks at the project to decide what it is. A folder without Android or i
    - if nothing answers at the chosen address, waits until your app is up (press Enter to go on anyway).
 
    There's no list of screens to write first: you pick the views yourself.
-3. **A Chrome window opens on the canvas,** showing the **app** tab: your running app, embedded. Use it the way you normally would: log in, click through, open a menu, fill in a form. Switch between **Review** and the **app** with the toggle in the top bar or `L`. The app keeps its state when you switch.
-4. **Press Capture view** when you see something you want to comment on. ScribUI screenshots the app exactly as it is, reads its elements, and adds the view to the open round (and to `.scribui/screens.json`, marked `"live": true`). Name it first if you like, or pick **replace "…"** to update a view you captured earlier. The size picker renders the app at desktop, laptop, tablet or phone width, so views line up on the board.
+3. **The canvas opens in your browser,** in a tab next to your app, on **Review**. Use your app the way you normally would, in its own tab: log in, click through, open a menu, fill in a form.
+4. **Add the views you want to comment on.** With the [ScribUI browser extension](packages/extension/README.md), click it on your app's page and press **Send to ScribUI**: the page arrives in Review with its elements, exactly as it is in your tab, logged in or not. Or paste a screenshot or HTML into Review (`⌘V`), drop a file on it, or press `M`.
 5. **Annotate** (see below) and press **Send to agent**. Paste the prompt it shows into your agent:
 
    ```
    Implement .scribui/latest/review.md
    ```
 
-6. **When the agent is done,** ScribUI reloads the views it changed from their URLs and captures them into the next round, as **↻ Recapture** does. For a view that needs more than its URL (a login, an open menu, typed text), switch to the app tab, get back to the same view and press **Capture view** again; choosing **replace "…"** puts the new version where the old one was. Views that weren't captured again are carried over, marked `↺`.
+6. **When the agent is done,** ScribUI reloads the screens it changed that it can open from a URL and captures them into the next round, as **↻ Recapture** does. Send the other changed pages again with the extension, or paste new screenshots. Views that weren't captured again are carried over, marked `↺`.
 
-ScribUI keeps the Chrome window's profile per project in `~/.scribui/browser/`, so logins survive between sessions. When your app runs on `localhost`, the canvas does too, so the app's cookies work inside the app tab. Press `o` in the terminal to bring the window back if you close it.
+Screens your agent lists in `screens.json` with a `url` and optional setup script are captured automatically, as before.
 
-Views captured in the app tab are recaptured by reloading their URL. Anything you did on the page before capturing it (a login, an open menu, typed text, scrolling) isn't repeated, so for those views capture them again by hand. When no view can be recaptured, the Recapture button is hidden and the canvas asks you to capture the changed views in the app tab. Screens your agent lists in `screens.json` with a `url` and optional setup script work as before.
-
-**Limits:** apps that refuse to be embedded (`X-Frame-Options` or a `frame-ancestors` policy, common on third-party login pages) don't show in the app tab. Capturing only works in the Chrome window ScribUI opens; in another browser the app tab is view-only.
+In the [desktop app](#the-desktop-app), web projects also get an **App** tab: your running app inside ScribUI, where you mark it up directly or press **Capture view**.
 
 ### Android App
 
@@ -117,7 +115,7 @@ It works like Android: open the folder in the desktop app (setup confirms the bu
 
 ### In the terminal while ScribUI runs
 
-Web projects: `r` recapture changed screens · `R` recapture all screens · `o` open the canvas again (bring back the Chrome window) · `q` quit. Everything else happens in the canvas.
+Web projects: `r` recapture changed screens · `R` recapture all screens · `o` open the canvas again in your browser · `q` quit. Everything else happens in the canvas.
 
 ### Several projects at once
 
