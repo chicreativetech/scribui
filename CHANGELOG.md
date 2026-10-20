@@ -4,7 +4,7 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
-## 0.2.1 (unreleased)
+## 0.2.1 (2026-10-20)
 
 - **Mark up the app directly** in the desktop app, with Review's own tool rail in the App and Device tabs: comment, arrow, box, remove and circle, and the sketch tools (draw, line, box, ellipse, text, fill), without capturing first. Each mark becomes a note in Review, where you can change it.
   - **Web:** the page keeps scrolling while you mark it and holds still only while you draw or type a note. The first mark captures the whole page; more marks on the unchanged page join that screen, and a changed page gets a new one. Marks stay on their elements as you scroll and come back when you return to the page.
