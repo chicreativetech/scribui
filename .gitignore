@@ -9,3 +9,4 @@ playwright-report
 # generated review rounds in the examples
 examples/*/.scribui/rounds
 examples/*/.scribui/latest
+.mcp.json
