@@ -4,7 +4,7 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
-## 0.2.2 (unreleased)
+## 0.2.2 (2026-10-20)
 
 - **Start a new app with your agent.** The projects window has a **New project…** button: choose or create a folder, describe the app and press **Make prompt**. ScribUI copies a prompt for your coding agent (Claude Code, Codex, Cursor, …), which builds the app in that folder. The folder shows up in Projects; once the app runs, click it to set ScribUI up. ScribUI doesn't build anything itself.
 - **From the terminal:** running `scribui` in an empty folder says so and goes straight to the new project, in the desktop app with the folder filled in. `scribui new` does the same in any folder. Without the app (or with `--no-desktop`), you describe the app in the terminal, or pipe the description in (`scribui new < brief.md`), and the prompt is printed.
