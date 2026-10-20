@@ -23,6 +23,15 @@ contextBridge.exposeInMainWorld("scribuiLauncher", {
   updateAction: (action: string) => call("updateAction", String(action)),
   onUpdate: (cb: (s: unknown) => void) => void ipcRenderer.on("scribui:launcher:update", (_e, v) => cb(v)),
   onInstallLog: (cb: (e: { id: string; line: string }) => void) => void ipcRenderer.on("scribui:launcher:install-log", (_e, v) => cb(v)),
+  /** A new project: a folder the user chose and a description become a prompt for their agent. */
+  newProject: {
+    pick: (current?: string) => call("newPick", current ? String(current) : undefined),
+    info: (dir: string) => call("newInfo", String(dir)),
+    /** Create the folder, add it to the list and copy the prompt; resolves with the prompt. */
+    send: (dir: string, description: string) => call("newSend", String(dir), String(description)),
+    close: (dir: string) => call("newClose", String(dir)),
+    onStart: (cb: (dir: string) => void) => void ipcRenderer.on("scribui:launcher:new", (_e, dir) => cb(String(dir))),
+  },
   /** Setting up a folder that isn't a project yet (only folders the user chose). */
   setup: {
     info: (dir: string) => call("setupInfo", String(dir)),

@@ -30,17 +30,22 @@ export async function desktopInstalled(): Promise<boolean> {
   return r.code === 0 && r.stdout.toString().trim().length > 0;
 }
 
-/** Ask the app to open the project; resolves with its server once it owns the project, null if it doesn't in time. */
-export async function openInDesktop(store: ReviewStore, timeoutMs = 20_000): Promise<Owner | null> {
-  const url = desktopOpenUrl(store.root);
+/** Hand a scribui:// link to the app; false when it couldn't be started. */
+export function openDesktopLink(url: string): boolean {
   // Windows: not through cmd's `start`, which would expand the link's %-escapes as variables
   const [cmd, args] =
     process.platform === "darwin" ? ["open", [url]] : process.platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url]] : ["xdg-open", [url]];
   try {
     spawn(cmd, args, { stdio: "ignore", detached: true }).unref();
+    return true;
   } catch {
-    return null;
+    return false;
   }
+}
+
+/** Ask the app to open the project; resolves with its server once it owns the project, null if it doesn't in time. */
+export async function openInDesktop(store: ReviewStore, timeoutMs = 20_000): Promise<Owner | null> {
+  if (!openDesktopLink(desktopOpenUrl(store.root))) return null;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 400));

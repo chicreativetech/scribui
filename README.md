@@ -113,6 +113,12 @@ Android screens are captured by hand, the way you capture web views: nothing run
 
 It works like Android: open the folder in the desktop app (setup confirms the bundle id and build command), boot a simulator from the Device tab's list, move through your app and press **Capture view** for each screen. Typing goes to the simulator as a hardware keyboard in your Mac's layout. After the agent applies a round, rebuild the app and capture the changed screens again with **replace "…"**.
 
+### Starting a new app
+
+No app yet? Press **New project…** in the desktop app's projects window, choose (or create) a folder, describe the app and press **Make prompt**. ScribUI puts a prompt on your clipboard; paste it into your agent opened in that folder, and it builds the app there. ScribUI doesn't build anything itself. When the app runs, click the folder in **Projects** to set ScribUI up for it.
+
+From the terminal, `scribui new`, or plain `scribui` in an empty folder, opens the same dialog with the folder filled in. Without the desktop app (or one too old to have the dialog), or with `--no-desktop`, it asks for the description in the terminal (or reads it from a pipe: `scribui new < brief.md`) and prints the prompt.
+
 ### In the terminal while ScribUI runs
 
 `o` open the canvas again in your browser · `q` quit. Everything else happens in the canvas.

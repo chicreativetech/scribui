@@ -41,6 +41,7 @@ type UpdateState =
   | { status: "ready"; version: string }
   | { status: "error"; message: string };
 type Server = { url: string; running: boolean; title: string | null };
+type NewDirInfo = { dir: string; display: string; name: string; exists: boolean; files: number; project: boolean; blocked: boolean; warning: string | null };
 
 declare global {
   interface Window {
@@ -61,6 +62,13 @@ declare global {
       update(): Promise<UpdateState>;
       updateAction(action: "install" | "check" | "open"): Promise<void>;
       onUpdate(cb: (s: UpdateState) => void): void;
+      newProject: {
+        pick(current?: string): Promise<NewDirInfo | null>;
+        info(dir: string): Promise<NewDirInfo>;
+        send(dir: string, description: string): Promise<{ ok: true; prompt: string } | { ok: false; error: string }>;
+        close(dir: string): Promise<void>;
+        onStart(cb: (dir: string) => void): void;
+      };
       setup: {
         info(dir: string): Promise<SetupInfo>;
         servers(dir: string): Promise<Server[]>;
@@ -564,9 +572,124 @@ async function create(s: Setup) {
   renderSetup();
 }
 
+/* ─────────────────────────── new project ─────────────────────────── */
+
+/**
+ * The new-project dialog: a folder (chosen here, or filled in by `scribui
+ * new`) and what to build. Send turns them into a prompt for the user's own
+ * agent, which makes the app there; ScribUI is set up once it exists.
+ */
+type NewProject = { folder: NewDirInfo | null; description: string; prompt: string | null; error: string | null; busy: boolean };
+
+let newProject: NewProject | null = null;
+const dlg = () => $("newproject") as HTMLDialogElement;
+
+async function openNewProject(dir?: string) {
+  const folder = dir ? await api.newProject.info(dir) : null;
+  // a second `scribui new` while the dialog is open changes its folder, keeping the description
+  if (newProject && !newProject.prompt) {
+    if (folder) setNewFolder(newProject, folder);
+  } else newProject = { folder, description: "", prompt: null, error: null, busy: false };
+  renderNewProject();
+  if (!dlg().open) dlg().showModal();
+  dlg().querySelector<HTMLElement>(newProject.folder ? "textarea" : "#newpick")?.focus();
+}
+
+function setNewFolder(n: NewProject, folder: NewDirInfo) {
+  if (n.folder && n.folder.dir !== folder.dir) void api.newProject.close(n.folder.dir);
+  n.folder = folder;
+  n.error = null;
+}
+
+function renderNewProject() {
+  const n = newProject;
+  if (!n) return;
+  const close = el("button", { className: "btn", textContent: n.prompt ? "Done" : "Cancel" });
+  close.addEventListener("click", () => dlg().close());
+  const body = el("div", { className: "body" });
+  const foot = el("div", { className: "foot" });
+  dlg().replaceChildren(el("div", { className: "head" }, el("h2", { id: "newproject-title", textContent: n.prompt ? "Paste this into your agent" : "New project" })), body, foot);
+
+  if (n.prompt) {
+    const where = n.folder!.display;
+    body.append(
+      el("p", { className: "hint", textContent: "It's on your clipboard. Your agent makes the app; ScribUI doesn't run anything itself." }),
+      el("pre", { className: "prompt", textContent: n.prompt }),
+      el(
+        "ol",
+        { className: "howto" },
+        el("li", {}, "Open your coding agent (Claude Code, Codex, Cursor, …) in ", el("code", { textContent: where }), "."),
+        el("li", {}, "Paste the prompt and let it build the app."),
+        el("li", {}, "Start the app the way your agent says, then click ", el("strong", { textContent: n.folder!.name }), " in Projects to set ScribUI up for it."),
+      ),
+    );
+    foot.append(copyButton(n.prompt, "Copy again"), el("span", { className: "spacer" }), close);
+    close.classList.add("primary");
+    return;
+  }
+
+  // folder
+  const f = n.folder;
+  const pick = el("button", { className: "btn", id: "newpick", textContent: f ? "Change…" : "Choose…" });
+  pick.addEventListener("click", async () => {
+    const picked = await api.newProject.pick(f?.dir);
+    if (!picked || newProject !== n) return;
+    setNewFolder(n, picked);
+    renderNewProject();
+  });
+  const note = !f ? null : f.warning ? el("span", { className: f.blocked ? "hint error" : "hint warn", textContent: f.warning }) : el("span", { className: "hint", textContent: f.exists ? "An empty folder." : "A new folder: it's created when you make the prompt." });
+  const dirbox = el("div", { className: `dirbox ${f ? "" : "none"}`, textContent: f ? `‎${f.display}` : "No folder chosen", title: f?.dir ?? "" });
+  body.append(
+    el("div", { className: "field" }, el("span", { className: "flabel", textContent: "Folder" }), el("div", { className: "dirrow" }, dirbox, pick), note),
+  );
+
+  // description
+  const text = el("textarea", { value: n.description, placeholder: "What should the app do, who is it for, which screens should it have? Name a stack if you have one in mind.", spellcheck: true });
+  text.id = "newdesc";
+  const send = el("button", { className: "btn primary", textContent: "Make prompt" });
+  const ready = () => !!n.folder && !n.folder.blocked && !!n.description.trim() && !n.busy;
+  send.disabled = !ready();
+  text.addEventListener("input", () => {
+    n.description = text.value;
+    send.disabled = !ready();
+  });
+  text.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && ready()) void sendNewProject(n);
+  });
+  send.addEventListener("click", () => void sendNewProject(n));
+  body.append(el("label", { className: "field" }, el("span", { className: "flabel", textContent: "Describe your project" }), text));
+  if (n.error) body.append(el("div", { className: "hint error", textContent: n.error }));
+  foot.append(close, el("span", { className: "spacer" }), send);
+}
+
+async function sendNewProject(n: NewProject) {
+  if (!n.folder) return;
+  n.busy = true;
+  n.error = null;
+  renderNewProject();
+  const r = await api.newProject.send(n.folder.dir, n.description);
+  n.busy = false;
+  if (newProject !== n) return;
+  if (r.ok) n.prompt = r.prompt;
+  else n.error = r.error;
+  renderNewProject();
+  if (r.ok) void renderProjects();
+}
+
+dlg().addEventListener("close", () => {
+  if (newProject?.folder) void api.newProject.close(newProject.folder.dir);
+  newProject = null;
+  dlg().replaceChildren();
+});
+// Escape closes the dialog, unless it's sending
+dlg().addEventListener("cancel", (e) => {
+  if (newProject?.busy) e.preventDefault();
+});
+
 /* ─────────────────────────── start ─────────────────────────── */
 
 $("open").addEventListener("click", async () => handleOpen(await api.pick()));
+$("new").addEventListener("click", () => void openNewProject());
 $("recheck").addEventListener("click", () => void renderTools());
 /** The footer: this version, and an update when there is one. */
 function renderUpdate(st: UpdateState) {
@@ -587,11 +710,12 @@ void api.update().then(renderUpdate);
 api.onUpdate(renderUpdate);
 api.onChange(() => void renderProjects());
 api.setup.onStart((dir) => void startSetup(dir));
+api.newProject.onStart((dir) => void openNewProject(dir));
 window.addEventListener("focus", () => {
   if (!setup) void renderProjects();
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && setup && !setup.busy) leaveSetup();
+  if (e.key === "Escape" && setup && !setup.busy && !dlg().open) leaveSetup();
 });
 
 void renderProjects();

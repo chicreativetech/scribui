@@ -2,8 +2,8 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, win32 } from "node:path";
 import { describe, expect, it } from "vitest";
-import { desktopOpenUrl } from "@scribui/core";
-import { findOpenUrl, parseOpenUrl } from "../src/openUrl.js";
+import { desktopNewUrl, desktopOpenUrl } from "@scribui/core";
+import { findLink, findOpenUrl, parseLink, parseOpenUrl } from "../src/openUrl.js";
 import { RecentProjects } from "../src/recent.js";
 import { mergePath } from "../src/shellPath.js";
 import { placeWindow, readWindowState, writeWindowState } from "../src/windowState.js";
@@ -25,6 +25,16 @@ describe("scribui:// links", () => {
     expect(parseOpenUrl("https://open?dir=/tmp/x")).toBeNull();
     expect(parseOpenUrl("scribui://open?dir=/tmp/x%00y")).toBeNull();
     expect(parseOpenUrl("not a url")).toBeNull();
+  });
+
+  it("starts a new project in a folder, but never opens it as one", () => {
+    expect(parseLink(desktopNewUrl("/Users/me/new app"))).toEqual({ action: "new", dir: "/Users/me/new app" });
+    expect(parseOpenUrl(desktopNewUrl("/p"))).toBeNull();
+    expect(parseLink("scribui://new?dir=relative")).toBeNull();
+    expect(parseLink(desktopNewUrl("/p", "abc12345"))).toEqual({ action: "new", dir: "/p", ack: "abc12345" });
+    expect(parseLink("scribui://new?dir=%2Fp&ack=..%2Fx")).toEqual({ action: "new", dir: "/p" });
+    expect(findLink(["/app/ScribUI", desktopNewUrl("/p")])).toEqual({ action: "new", dir: "/p" });
+    expect(findOpenUrl(["/app/ScribUI", desktopNewUrl("/p")])).toBeNull();
   });
 
   it("finds the link among a launch's arguments", () => {

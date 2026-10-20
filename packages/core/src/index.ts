@@ -23,7 +23,11 @@ export const PRODUCT = {
   defaultPort: 4382,
 } as const;
 
-/** The desktop app's link scheme: `scribui://open?dir=<absolute path>` opens a project in it. */
+/** The desktop app's link scheme: `scribui://open?dir=<absolute path>` opens a project in it, `scribui://new?dir=…` starts a new project there. */
 export const DESKTOP_PROTOCOL = "scribui";
 export const desktopOpenUrl = (dir: string) => `${DESKTOP_PROTOCOL}://open?dir=${encodeURIComponent(dir)}`;
+/** `ack`: the app confirms it took the link by creating `~/.scribui/handoff/<ack>` (an older app ignores the link). */
+export const desktopNewUrl = (dir: string, ack?: string) => `${DESKTOP_PROTOCOL}://new?dir=${encodeURIComponent(dir)}${ack ? `&ack=${ack}` : ""}`;
+export const HANDOFF_DIR = "handoff";
+export const validAck = (v: unknown): v is string => typeof v === "string" && /^[a-z0-9]{8,64}$/.test(v);
 export * from "./fill.js";

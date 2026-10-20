@@ -8,6 +8,7 @@ import { BY_HAND, capturedByHand, Platform, PRODUCT, ReviewJson } from "@scribui
 import { lanAddress, ReviewStore, type CaptureState } from "@scribui/server";
 import { captureProject, describePlan, detectProject, hostProject, makeRunner, portRange, saveCapturedView, pageRenderer, type CaptureEvent, type Owner } from "@scribui/project";
 import { runMcp } from "./mcp.js";
+import { cmdNew } from "./newProject.js";
 import { migrateHome, migrateProject } from "./migrate.js";
 import { handToDesktop, openBrowser, start } from "./start.js";
 import { banner, c, errLine, fail, line, okLine, out, warnLine } from "./ui.js";
@@ -347,6 +348,12 @@ common(cli.command("open", "Start the server and open the canvas on the latest r
   .action((f: Flags) => cmdOpen(f));
 
 common(cli.command("status", "Print the latest round's state and counts")).action((f: Flags) => cmdStatus(f));
+
+cli
+  .command("new", "Start a new app in this folder with your agent: describe it, paste the prompt (in the ScribUI app when it's installed)")
+  .option("--dir <path>", "Folder for the new app (default: current directory)")
+  .option("--no-desktop", "Ask for the description here even when the ScribUI app is installed")
+  .action((f: Flags) => cmdNew(f.dir ?? process.cwd(), { desktop: f.desktop }));
 
 cli
   .command("mcp", "Start the MCP server over stdio")

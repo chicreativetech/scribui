@@ -3,9 +3,16 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { androidFlowHelper, androidFlowScript, capturedByHand, screensGuide, screensPrompt, starterManifest, ScreenManifest, upsertAgentSection } from "../src/index.js";
+import { androidFlowHelper, androidFlowScript, capturedByHand, newProjectPrompt, screensGuide, screensPrompt, starterManifest, ScreenManifest, upsertAgentSection } from "../src/index.js";
 
 describe("templates", () => {
+  it("puts the folder and the trimmed description in the new-project prompt", () => {
+    const p = newProjectPrompt("/Users/me/shop", "\n  A shop with a cart.\nAnd checkout.  \n");
+    expect(p).toContain("Create a new app in /Users/me/shop");
+    expect(p).toContain("Work only inside /Users/me/shop.");
+    expect(p.endsWith("Description:\n\nA shop with a cart.\nAnd checkout.\n")).toBe(true);
+  });
+
   it("replaces the agent section written under the old name in place", () => {
     const old = "# Mine\n\n<!-- intentcue:start -->\nDesign feedback lives in `.intentcue/`.\n<!-- intentcue:end -->\n\nAfter.\n";
     const next = upsertAgentSection(old);

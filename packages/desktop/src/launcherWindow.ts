@@ -1,9 +1,10 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, isAbsolute, join, parse, resolve } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainEvent, type IpcMainInvokeEvent } from "electron";
 import { detectTools, installEnv, playwrightStatus, type ToolStatus } from "@scribui/capture";
-import type { Platform } from "@scribui/core";
+import { HANDOFF_DIR, NEW_PROJECT_MAX, newProjectPrompt, PRODUCT, validAck, type Platform } from "@scribui/core";
 import { reachable } from "@scribui/project";
 import { ReviewStore } from "@scribui/server";
 import { cancelInstall, installTool, isInstallable } from "./installs.js";
@@ -15,8 +16,9 @@ import { checkAnswers, createProject, devServers, normalizeUrl, setupInfo } from
 
 /**
  * The projects window: recent projects, "Open app folder…", the capture tools
- * found on this machine (installed from here when the app can), and the
- * setup of a folder that isn't a ScribUI project yet.
+ * found on this machine (installed from here when the app can), the
+ * setup of a folder that isn't a ScribUI project yet, and new projects: a
+ * folder and a description become a prompt for the user's agent.
  */
 
 let win: BrowserWindow | null = null;
@@ -46,16 +48,17 @@ export function showLauncher() {
     },
   });
   win.once("ready-to-show", () => win?.show());
-  // a setup asked for before the page loaded starts once it has
+  // a setup or new project asked for before the page loaded starts once it has
   win.webContents.once("did-finish-load", () => {
-    if (pendingSetup && win) win.webContents.send("scribui:launcher:setup", pendingSetup);
-    pendingSetup = null;
+    for (const [channel, dir] of pendingStarts.splice(0)) win?.webContents.send(channel, dir);
   });
   win.webContents.on("will-navigate", (e) => e.preventDefault());
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   win.on("closed", () => {
     win = null;
     setupDirs.clear();
+    newDirs.clear();
+    pendingStarts.length = 0;
   });
   void win.loadFile(join(__dirname, "launcher.html"));
   return win;
@@ -81,9 +84,9 @@ export async function openAndRemember(dir: string): Promise<OpenResult> {
   });
   if (r.ok) {
     launcherChanged();
-    // keep the window while it's setting up another folder
+    // keep the window while it's setting up another folder or starting a new project
     setupDirs.delete(r.project.store.root);
-    if (!setupDirs.size) closeLauncher();
+    if (!setupDirs.size && !newDirs.size) closeLauncher();
   }
   return r;
 }
@@ -108,14 +111,67 @@ export function explainFailure(r: OpenResult) {
 
 /** Folders the user chose that the window may set up; the window can't name others. */
 const setupDirs = new Set<string>();
-let pendingSetup: string | null = null;
+/** Messages for the window that wait until its page has loaded. */
+const pendingStarts: [channel: string, dir: string][] = [];
+
+function sendToLauncher(channel: string, dir: string) {
+  const w = showLauncher();
+  if (w.webContents.isLoading()) pendingStarts.push([channel, dir]);
+  else w.webContents.send(channel, dir);
+}
 
 /** Walk through setting up `dir` in the projects window. */
 export function startSetup(dir: string) {
   setupDirs.add(dir);
-  const w = showLauncher();
-  if (w.webContents.isLoading()) pendingSetup = dir;
-  else w.webContents.send("scribui:launcher:setup", dir);
+  sendToLauncher("scribui:launcher:setup", dir);
+}
+
+/* ─────────────────────────── new projects ─────────────────────────── */
+
+/** Folders the user chose for a new project (picked, or from `scribui new`); the window can't name others. */
+const newDirs = new Set<string>();
+
+/** Open the new-project dialog with `dir` filled in; `ack` tells the CLI that sent the link that the app took it. */
+export function startNewProject(dir: string, ack?: string) {
+  newDirs.add(dir);
+  sendToLauncher("scribui:launcher:new", dir);
+  if (!validAck(ack)) return;
+  try {
+    const at = join(homedir(), PRODUCT.folder, HANDOFF_DIR);
+    mkdirSync(at, { recursive: true });
+    writeFileSync(join(at, ack), "");
+  } catch {
+    /* the CLI falls back to asking in the terminal */
+  }
+}
+
+function newDir(dir: unknown): string {
+  if (typeof dir !== "string" || !newDirs.has(dir)) throw new Error("not a folder chosen for a new project");
+  return dir;
+}
+
+/**
+ * What the dialog says about a folder: it doesn't exist yet (it's created),
+ * it holds files, or it's a project already. `blocked`: no app goes there.
+ */
+function newDirInfo(dir: string) {
+  const info = { dir, display: display(dir), name: basename(dir) || dir, exists: false, files: 0, project: false, blocked: false, warning: null as string | null };
+  const root = resolve(dir);
+  const block = (warning: string) => ({ ...info, blocked: true, warning });
+  if (root === resolve(homedir())) return block("This is your home folder. Choose or create a folder for the new app.");
+  if (root === parse(root).root) return block("This is the root of a drive. Choose or create a folder for the new app.");
+  try {
+    if (!statSync(dir).isDirectory()) return block(`${info.display} is a file, not a folder.`);
+    info.exists = true;
+    // dotfiles (.git, .DS_Store) don't make a folder taken
+    info.files = readdirSync(dir).filter((f) => !f.startsWith(".")).length;
+    info.project = existsSync(join(dir, PRODUCT.folder));
+  } catch {
+    /* doesn't exist yet: created on send */
+  }
+  if (!info.warning && info.project) info.warning = "This folder is a ScribUI project already. Your agent will add to the app that's there.";
+  else if (!info.warning && info.files) info.warning = `This folder isn't empty (${info.files} ${info.files === 1 ? "item" : "items"}). Your agent may change or replace what's there.`;
+  return info;
 }
 
 function setupDir(dir: unknown): string {
@@ -225,6 +281,45 @@ export function registerLauncherApi() {
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }
+  });
+  // new projects
+  handle("newPick", async (current) => {
+    const opts = {
+      title: "Choose a folder for the new app",
+      buttonLabel: "Choose",
+      ...(typeof current === "string" && isAbsolute(current) ? { defaultPath: current } : {}),
+      properties: ["openDirectory" as const, "createDirectory" as const, "promptToCreate" as const],
+    };
+    const pick = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
+    const dir = pick.filePaths[0];
+    if (pick.canceled || !dir) return null;
+    newDirs.add(dir);
+    return newDirInfo(dir);
+  });
+  handle("newInfo", (dir) => newDirInfo(newDir(dir)));
+  handle("newSend", async (dir, description) => {
+    const d = newDir(dir);
+    const text = typeof description === "string" ? description.trim() : "";
+    if (!text) return { ok: false, error: "Describe your project first." };
+    if (text.length > NEW_PROJECT_MAX) return { ok: false, error: `The description is too long (at most ${NEW_PROJECT_MAX.toLocaleString("en")} characters).` };
+    const info = newDirInfo(d);
+    if (info.blocked) return { ok: false, error: info.warning };
+    try {
+      // the agent builds in it; the list shows it until it's set up
+      await mkdir(d, { recursive: true });
+    } catch (e) {
+      return { ok: false, error: `Can't create ${info.display}: ${(e as Error).message}` };
+    }
+    if (!info.project) {
+      recent.add({ dir: d, name: info.name, platform: null });
+      refreshMenu();
+    }
+    const prompt = newProjectPrompt(d, text);
+    clipboard.writeText(prompt);
+    return { ok: true, prompt };
+  });
+  handle("newClose", (dir) => {
+    if (typeof dir === "string") newDirs.delete(dir);
   });
   handle("cancelSetup", (dir) => {
     if (typeof dir === "string") setupDirs.delete(dir);

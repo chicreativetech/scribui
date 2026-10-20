@@ -19,6 +19,7 @@ import {
   type ProjectInfo,
 } from "@scribui/project";
 import { desktopInstalled, openInDesktop } from "./desktop.js";
+import { cmdNew, emptyFolder } from "./newProject.js";
 import { input, interactive, select, waitFor } from "./prompts.js";
 import { ensureWebTools } from "./setup.js";
 import { banner, c, errLine, line, okLine, out, warnLine } from "./ui.js";
@@ -48,6 +49,13 @@ export async function start(store: ReviewStore, flags: StartFlags) {
   const info = detectProject(store.root);
   const firstRun = !store.exists();
   let platform: Platform;
+
+  // nothing to review yet: the agent makes the app first
+  if (firstRun && interactive() && !flags.platform && emptyFolder(store.root)) {
+    out(`  This is an empty folder. Starting a new project in ${c.bold(info.name)}.`);
+    out();
+    return cmdNew(store.root, { desktop: flags.desktop, banner: false });
+  }
 
   if (firstRun) {
     out(`  First time with ScribUI in ${c.bold(info.name)}. Setting it up.`);
