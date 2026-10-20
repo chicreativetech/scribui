@@ -338,3 +338,7 @@ UPDATE_GOLDEN=1 pnpm test   # after an intended change to compiled output
 Releases are version tags built by CI into a draft GitHub release; how to make one, and the signing secrets, are in [RELEASING.md](RELEASING.md).
 
 Thresholds for the resolver and pen gestures live in one object: [`packages/core/src/config.ts`](packages/core/src/config.ts).
+
+## License
+
+MIT, see [LICENSE](LICENSE).

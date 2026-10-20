@@ -1,6 +1,7 @@
 {
   "name": "@scribui/extension",
   "version": "0.2.1",
+  "license": "MIT",
   "private": true,
   "description": "ScribUI for Chrome: send the page you're on to Review, as a screen of your app or a reference.",
   "type": "module",

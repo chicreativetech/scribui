@@ -1,6 +1,7 @@
 {
   "name": "@scribui/project",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Project ownership (lock), the capture runner and saving captured views; shared by the CLI and the desktop app.",
