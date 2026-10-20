@@ -12,8 +12,8 @@ import { migrateHome, migrateProject } from "./migrate.js";
 import { handToDesktop, openBrowser, start } from "./start.js";
 import { banner, c, errLine, fail, line, okLine, out, warnLine } from "./ui.js";
 
-const VERSION = "0.1.0";
 const here = dirname(fileURLToPath(import.meta.url));
+const VERSION: string = JSON.parse(readFileSync(join(here, "../package.json"), "utf8")).version;
 
 type Flags = {
   all?: boolean;

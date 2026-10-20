@@ -3,6 +3,27 @@
   "version": "0.2.0",
   "description": "Visual review layer between you and your coding agent: annotate app screens, get precise file-based instructions.",
   "license": "MIT",
+  "author": "c.HI Creative Tech AB",
+  "homepage": "https://github.com/chicreativetech/scribui#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chicreativetech/scribui.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/chicreativetech/scribui/issues"
+  },
+  "keywords": [
+    "design-review",
+    "ui-review",
+    "annotation",
+    "coding-agent",
+    "ai-agent",
+    "mcp",
+    "claude-code",
+    "cursor",
+    "visual-feedback"
+  ],
   "type": "module",
   "bin": {
     "scribui": "./dist/cli.js"
