@@ -18,8 +18,8 @@ export async function runMcp(store: ReviewStore) {
       inputSchema: {
         type: "object",
         properties: {
-          screens: { type: "array", items: { type: "string" }, description: "Capture exactly these; reuse the rest" },
-          all: { type: "boolean", description: "Recapture every screen" },
+          screens: { type: "array", items: { type: "string" }, description: "Capture exactly these" },
+          all: { type: "boolean", description: "Capture every screen, changed or not" },
         },
       },
     },
@@ -33,7 +33,7 @@ export async function runMcp(store: ReviewStore) {
           mark_applied: { type: "boolean", description: "Mark the latest sent round as applied" },
           changed_screens: {
             description:
-              'With mark_applied: ids of screens whose UI you changed, or "all" for shared styles/components. Only these are recaptured next time.',
+              'With mark_applied: ids of screens whose UI you changed, or "all" for shared styles/components. ScribUI starts the next round, empty, and names these so the user adds them again.',
             oneOf: [{ type: "array", items: { type: "string" } }, { type: "string", enum: ["all"] }],
           },
         },

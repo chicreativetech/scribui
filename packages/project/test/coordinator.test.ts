@@ -235,6 +235,23 @@ describe("screens added by hand in the review view", () => {
     expect((await post({ kind: "image", role: "app", png: Buffer.from("GIF89a").toString("base64") })).status).toBe(400);
   });
 
+  it("a view saved after the round was sent starts a new round with only that view", async () => {
+    const { store, n } = await project();
+    await store.setStatus(n, "sent");
+    const r = await saveCapturedView(store, {
+      platform: "web",
+      url: "http://127.0.0.1:5178/cart",
+      device: { name: "Desktop", width: 390, height: 844, scale: 2 },
+      png,
+      raw: { type: "screen", bounds: { x: 0, y: 0, w: 780, h: 1688 }, children: [] },
+    });
+    expect(r.round).toBe(n + 1);
+    expect([...(await store.readCaptures(n + 1)).keys()]).toEqual([r.screenId]);
+    expect((await store.readStatus(n + 1)).screens!.map((s) => s.screenId)).toEqual([r.screenId]);
+    // the sent round is as it was
+    expect([...(await store.readCaptures(n)).keys()].sort()).toEqual(["cart", "checkout-default"]);
+  });
+
   it("an imported screen is never recaptured", async () => {
     const { store, n } = await project();
     await saveCapturedView(store, {
@@ -245,7 +262,7 @@ describe("screens added by hand in the review view", () => {
       noElements: true,
       imported: { kind: "image", role: "reference" },
     });
-    await expect(captureRound(store, { screens: ["reference"], intoRound: n })).rejects.toThrow(/added by hand in the review view/);
+    await expect(captureRound(store, { screens: ["reference"] })).rejects.toThrow(/added by hand in the review view/);
   });
 });
 

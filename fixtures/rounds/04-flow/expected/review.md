@@ -17,4 +17,4 @@ Screenshot: screens/checkout-default.annotated.png
 4. [R2-4] Move the "Pay now" button (id: payButton) to the area at (x 390, y 1520). Pin it to the bottom.
 5. [R2-5] Move the container (id: orderSummary) next to the container (id: shippingForm).
 
-When done, set `"status": "applied"` in `.scribui/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. ScribUI then recaptures those screens.
+When done, set `"status": "applied"` in `.scribui/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. ScribUI then starts the next round, empty, and names those screens so the user adds them again.

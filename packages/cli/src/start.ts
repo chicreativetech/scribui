@@ -267,9 +267,9 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform) 
   const show = () => openBrowser(url);
 
   const latest = await store.latestRound();
-  if (latest !== null) line("round", `${pad(latest)}  ${c.dim(platform === "web" ? "(latest; recapture from the canvas)" : "(latest)")}`);
+  if (latest !== null) line("round", `${pad(latest)}  ${c.dim("(latest)")}`);
   out();
-  out(c.dim(`  ${c.bold("r")} recapture changed   ${c.bold("R")} recapture all   ${c.bold("o")} open canvas   ${c.bold("q")} quit`));
+  out(c.dim(`  ${c.bold("o")} open canvas   ${c.bold("q")} quit`));
 
   const stop = async () => {
     await srv.close();
@@ -283,19 +283,10 @@ async function serve(store: ReviewStore, flags: StartFlags, platform: Platform) 
     emitKeypressEvents(process.stdin);
     process.stdin.setRawMode(true);
     process.stdin.resume();
-    process.stdin.on("keypress", (_s: string, key: { name?: string; ctrl?: boolean; shift?: boolean }) => {
+    process.stdin.on("keypress", (_s: string, key: { name?: string; ctrl?: boolean }) => {
       if (key?.ctrl && key.name === "c") void stop();
       else if (key?.name === "q") void stop();
       else if (key?.name === "o") show();
-      else if (key?.name === "r") {
-        try {
-          out();
-          // R: every screen, even when nothing looks changed
-          srv.runCapture({ trigger: "gui", ...(key.shift ? { all: true } : {}) });
-        } catch (e) {
-          warnLine((e as Error).message);
-        }
-      }
     });
   }
 }

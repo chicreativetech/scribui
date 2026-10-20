@@ -6,12 +6,10 @@ export type ScreenInfo = {
   group: string;
   captured: boolean;
   error?: string;
-  /** Not recaptured in this round: copied from this round. */
+  /** Copied unchanged from this round (rounds from before each round held only its own screens). */
   reusedFrom?: number;
   /** Why it was captured or reused. */
   reason?: string;
-  /** An automatic capture can take it again (web, listed or captured by hand with a url). */
-  recapturable?: boolean;
   /** Added by hand in the review view: a screenshot, HTML or a page from a URL. */
   imported?: Imported;
   platform?: "ios" | "android" | "web";
@@ -26,8 +24,6 @@ export type RoundPayload = {
   app?: ScreenManifest["app"];
   screens: ScreenInfo[];
   annotations: Annotation[];
-  /** The server can recapture screens (started by the CLI). */
-  canRecapture?: boolean;
 };
 
 export type CaptureState = {
@@ -56,7 +52,6 @@ export type ProjectPayload = {
   canCapture: boolean;
   /** HTML, links and page snapshots can be added (the server has Playwright to render them). */
   canRenderPages?: boolean;
-  autoRecapture: boolean;
   capture: CaptureState;
 };
 
@@ -102,12 +97,6 @@ export const api = {
     fetch(`/api/rounds/${n}/send`, { method: "POST" }).then((r) =>
       json<{ round: number; prompt: string; counts: { instructions: number; unresolved: number; needsText: number; rules: number } }>(r),
     ),
-  recapture: (n: number, screens: string[]) =>
-    fetch(`/api/rounds/${n}/recapture`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ screens }),
-    }).then((r) => json<CaptureState>(r)),
   capture: (body: { screens?: string[]; all?: boolean; build?: boolean } = {}) =>
     fetch("/api/capture", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then((r) =>
       json<CaptureState>(r),

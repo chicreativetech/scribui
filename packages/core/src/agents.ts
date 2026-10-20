@@ -15,7 +15,8 @@ Design feedback lives in \`.scribui/\`.
 - When \`.scribui/latest/status.json\` says \`sent\`, implement \`.scribui/latest/review.md\`,
   then set its status to \`applied\` and add \`"changedScreens"\`: the ids of every screen whose UI
   you changed (check screens that share the components you edited), or \`"all"\` if you changed
-  shared styles, theme or design-system components. Only those screens are recaptured.
+  shared styles, theme or design-system components. ScribUI then starts the next round, empty,
+  and names those screens so the user adds them again.
 - When you add, remove or change screens, update \`.scribui/screens.json\`.
 - If an instruction is marked \`unresolved\`, ask the user instead of guessing.
 - To request a review, run \`npx scribui capture\` and tell the user it is ready.

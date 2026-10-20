@@ -1,7 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { TOOLS, VISION_HINTS, isReadOnly, noteCount, unresolvedCount, useStore, type Tool } from "../store";
 import { useVision } from "../vision";
-import { Spinner } from "./Capture";
 import { openImport } from "./Import";
 import { hasLiveTab, showLive } from "./Live";
 import { LIVE_UNSUPPORTED } from "./Marking";
@@ -13,7 +12,6 @@ import removeIcon from "../assets/icons/remove.svg";
 import ruleIcon from "../assets/icons/rule.svg";
 import penIcon from "../assets/icons/pen.svg";
 import lineIcon from "../assets/icons/line.svg";
-import recaptureIcon from "../assets/icons/recapture.svg";
 import tabletIcon from "../assets/icons/tablet.svg";
 import panelIcon from "../assets/icons/panel.svg";
 import elementsIcon from "../assets/icons/elements.svg";
@@ -121,13 +119,12 @@ export function showView(view: "vision" | "board") {
   if (view === "vision" && !VISION_TOOLS.includes(st.tool)) st.setTool("select");
 }
 
-/* ───────── recapture & send ───────── */
+/* ───────── send ───────── */
 
 export function ActionBar({ onSend }: { onSend: () => void }) {
   const round = useStore((s) => s.round);
   const cs = useStore((s) => s.captureState);
   const ext = useStore((s) => s.externalCapture);
-  const canCapture = useStore((s) => !!s.project?.canCapture);
   const status = round?.status.status;
   const notes = useStore((s) => noteCount(s.annotations));
   const ro = isReadOnly();
@@ -138,28 +135,6 @@ export function ActionBar({ onSend }: { onSend: () => void }) {
 
   return (
     <div className="float actions-float">
-      {canCapture && (
-        <button
-          className="item recap-btn"
-          onClick={() => void useStore.getState().captureNext()}
-          disabled={capturing}
-          title="capture the next round: only screens that changed are recaptured (:capture all for everything)"
-        >
-          {capturing ? (
-            <>
-              <Spinner />{" "}
-              {cs.phase === "building"
-                ? "building"
-                : `capturing${(cs.total ?? ext?.total) ? ` ${cs.done ?? ext?.done ?? 0}/${cs.total ?? ext?.total}` : ""}`}
-            </>
-          ) : (
-            <>
-              <img className="icon" src={recaptureIcon} width={12} height={12} alt="" />
-              Recapture
-            </>
-          )}
-        </button>
-      )}
       <button
         className="send-btn"
         onClick={onSend}
@@ -490,7 +465,7 @@ export function StatusLine({ onCommand }: { onCommand: (cmd: string) => void }) 
             }}
             onBlur={() => useStore.getState().set({ command: null })}
             spellCheck={false}
-            placeholder="send · fit · recapture [id|stale|all] · outlines · pen · theme light|dark · round <n> · zoom <pct> · next · help"
+            placeholder="send · fit · outlines · pen · theme light|dark · round <n> · zoom <pct> · next · help"
           />
         </div>
       ) : (

@@ -87,7 +87,7 @@ ScribUI looks at the project to decide what it is. A folder without Android or i
    Implement .scribui/latest/review.md
    ```
 
-6. **When the agent is done,** ScribUI reloads the screens it changed that it can open from a URL and captures them into the next round, as **↻ Recapture** does. Send the other changed pages again with the extension, or paste new screenshots. Views that weren't captured again are carried over, marked `↺`.
+6. **When the agent is done,** it marks the round applied and the next round starts on its own, empty; the canvas switches to it and names the screens the agent changed. Send those pages again with the extension, or paste new screenshots. Earlier rounds stay as they were, in the round menu in the top bar.
 
 Screens your agent lists in `screens.json` with a `url` and optional setup script are captured automatically, as before.
 
@@ -103,7 +103,7 @@ Android screens are captured by hand, the way you capture web views: nothing run
 2. **Open the Device tab.** It connects to the emulator or phone you used last, or the only one connected, and lists emulators you can start. Install and open your app on it.
 3. **Move through your app** with the mouse and keyboard: click to tap, scroll, type, Back, Home, rotate. When a screen is the way you want to review it, **name it and press Capture view**. ScribUI freezes the picture, reads the elements, checks the screen held still, and adds it to the open round and to `screens.json`.
 4. **Annotate and Send,** then paste `Implement .scribui/latest/review.md` into your agent.
-5. **When the agent is done,** it marks the round applied and lists the screens it changed; the canvas names them. Rebuild and reinstall the app, then capture those screens again in the Device tab, picking **replace "…"** next to Capture view to update a screen in place. Screens you don't capture again are carried forward, marked `↺`.
+5. **When the agent is done,** it marks the round applied and lists the screens it changed; the canvas names them. The next round starts on its own, empty. Rebuild and reinstall the app, then capture those screens again in the Device tab. Earlier rounds stay as they were.
 
 ### iOS App
 
@@ -115,7 +115,7 @@ It works like Android: open the folder in the desktop app (setup confirms the bu
 
 ### In the terminal while ScribUI runs
 
-Web projects: `r` recapture changed screens · `R` recapture all screens · `o` open the canvas again in your browser · `q` quit. Everything else happens in the canvas.
+`o` open the canvas again in your browser · `q` quit. Everything else happens in the canvas.
 
 ### Several projects at once
 
@@ -180,26 +180,24 @@ Screenshot: screens/checkout-default.annotated.png
 4. [R1-4] Add a secure-payment badge in the empty area at (x 40, y 1360, 700 × 80), below the "Pay with Apple Pay" button (id: applePayButton).
 ```
 
-When the agent finishes, it sets the round to `applied` and lists the screens it changed (`review.md` and `AGENTS.md` tell it to). Older rounds stay in the round menu in the top bar, read-only.
+When the agent finishes, it sets the round to `applied` and lists the screens it changed (`review.md` and `AGENTS.md` tell it to). While ScribUI runs, the next round then starts on its own, empty, and the canvas names those screens so you add them again. A round holds only what was added to it: older rounds stay in the round menu in the top bar, read-only and unchanged.
 
-### Only changed screens are recaptured (web)
+### `scribui capture` takes only changed screens (web)
 
-This is about screens your agent lists in `screens.json` for a web app; screens captured by hand are only captured again by you on Android and iOS; web views from the App tab are reloaded from their URL (views without one are only captured again by you). Unchanged screens are copied forward from the previous round, so round 2 of a 7-screen app usually captures one or two. A screen is recaptured when any of these says it may have changed:
+This is about screens your agent lists in `screens.json` for a web app, captured with `scribui capture` (or the agent's MCP `request_review`). They go into the open round when nobody has marked it up yet (the empty one that starts after the agent applies a round), otherwise into a new one, and only screens that may have changed are captured; the others stay in the rounds they were captured in. A screen is captured when any of these says it may have changed:
 
 - it had instructions in the round the agent just applied;
 - the agent listed it in `changedScreens` when it marked the round applied (the `AGENTS.md` section asks for this);
 - its setup script or `screens.json` entry changed, or it's new, or it failed last time;
-- it loads the same page as a recaptured screen (`/checkout` and `/checkout?error=card`);
+- it loads the same page as a screen being captured (`/checkout` and `/checkout?error=card`);
 - a file matching its `sources` globs changed (optional, see below).
 
-Everything is recaptured when the round added design rules, when the agent reports `"changedScreens": "all"`, when a file in `app.sharedSources` changed, or when files changed and nothing says which screens they affect.
-
-Reused screens are marked `↺ R001` above their tile. Click the badge to recapture that screen, or run `:recapture stale` (or `:recapture all`) in the canvas.
+Everything is captured when the round added design rules, when the agent reports `"changedScreens": "all"`, when a file in `app.sharedSources` changed, or when files changed and nothing says which screens they affect.
 
 ```sh
-scribui capture --dry-run      # show what would be captured or reused, and why
-scribui capture --all          # recapture everything
-scribui capture --screens shop # capture these, reuse the rest
+scribui capture --dry-run      # show what would be captured, and why
+scribui capture --all          # capture everything
+scribui capture --screens shop # capture just these
 ```
 
 For the most precise results, tell ScribUI which code draws which screen:
@@ -243,7 +241,7 @@ Tools: `request_review` (web: captures a round; Android and iOS: tells the agent
 | Marks attach to the wrong element | press `E` to show all element outlines, then fix the target via the chip; add testIDs for the long run |
 | Chips say `container 632×50` instead of a name | the element has no id or label; add an accessibility id or `data-testid` |
 | A mobile capture says "the screen was still changing" | something on screen kept moving (a spinner, an animation, a timer): wait for it, press **Try again**, or **Keep first frame** |
-| A screen looks out of date | it was reused (`↺` badge): click the badge, press `R` in the terminal, or run `scribui capture --all` |
+| A screen looks out of date | it's from an earlier round: add it again (extension, paste, or the App or Device tab), or for screens listed in `screens.json` run `scribui capture --screens <id>` |
 | The desktop app's Device tab says a tool is missing | press **Install** there, or in the projects window (**File → Projects…**) |
 | The desktop app crashed or misbehaves | **Help → Report a Problem…** opens a prefilled GitHub issue; the logs are under **Help → Show Logs and Crash Reports** |
 

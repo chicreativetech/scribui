@@ -449,7 +449,7 @@ function renderMarkdown(ctx: Ctx, review: ReviewJson): string {
   if (review.instructions.length === 0) L.push("No instructions in this round.", "");
   const references = ctx.input.screens.some((s) => s.imported?.role === "reference" && byScreen.has(s.id));
   L.push(
-    'When done, set `"status": "applied"` in `.scribui/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. ScribUI then recaptures those screens.' +
+    'When done, set `"status": "applied"` in `.scribui/latest/status.json` and add `"changedScreens"`: the ids of every screen whose UI you changed, or `"all"` if you changed shared styles or components. ScribUI then starts the next round, empty, and names those screens so the user adds them again.' +
       (references ? " Leave reference screens out: they are not part of the app and never change." : ""),
     "",
   );

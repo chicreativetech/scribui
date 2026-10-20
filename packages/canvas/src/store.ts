@@ -169,8 +169,6 @@ type Actions = {
   /** Replace part `i` of the open sketch (the fill tool recolours and fills parts). */
   setOpenPart(i: number, part: SketchPart): void;
 
-  recapture(screenIds: string[]): Promise<void>;
-  captureNext(opts?: { build?: boolean; all?: boolean }): Promise<void>;
   removeScreen(id: string): Promise<void>;
 };
 
@@ -250,34 +248,6 @@ export const useStore = create<Store>((set, get) => ({
   drawing: null,
   sketchHistory: { past: [], future: [] },
 
-  /** Recapture some screens into the current open round. */
-  async recapture(ids) {
-    const s = get();
-    const round = s.round;
-    if (!round || ids.length === 0) return;
-    if (!round.canRecapture || !ids.some((id) => round.screens.find((x) => x.id === id)?.recapturable)) {
-      const byHand = round.app?.platform !== "web" || ids.every((id) => round.screens.find((x) => x.id === id)?.recapturable === false);
-      s.toast({
-        text: byHand
-          ? liveTabFor(round.app?.platform)
-            ? `captured by hand: capture it again in the ${round.app?.platform === "web" ? "App" : "Device"} tab`
-            : round.app?.platform === "web"
-              ? "captured by hand: send it again with the ScribUI browser extension, or paste a new screenshot"
-              : "captured by hand: capture it again in the ScribUI desktop app"
-          : "capturing from the canvas needs ScribUI started with `scribui`",
-        tone: "warn",
-      });
-      return;
-    }
-    ids = ids.filter((id) => round.screens.find((x) => x.id === id)?.recapturable);
-    if (readOnly(round)) return get().captureNext();
-    try {
-      set({ captureState: await api.recapture(round.round, ids) });
-    } catch (e) {
-      get().toast({ text: (e as Error).message, tone: "err" });
-    }
-  },
-
   /** Remove a screen (and the notes on it) from the open round. */
   async removeScreen(id) {
     const round = get().round;
@@ -289,15 +259,6 @@ export const useStore = create<Store>((set, get) => ({
       if (get().focusId === id) set({ focusId: null, preFocusCamera: null });
       await get().load(round.round);
       get().toast({ text: `removed "${title}"${r.notes ? ` and ${r.notes} note${r.notes === 1 ? "" : "s"}` : ""}`, tone: "ok" });
-    } catch (e) {
-      get().toast({ text: (e as Error).message, tone: "err" });
-    }
-  },
-
-  /** Capture the next round (only screens that changed), optionally rebuilding the app first. */
-  async captureNext(opts = {}) {
-    try {
-      set({ captureState: await api.capture(opts) });
     } catch (e) {
       get().toast({ text: (e as Error).message, tone: "err" });
     }

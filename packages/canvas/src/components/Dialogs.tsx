@@ -196,7 +196,7 @@ export function SentDialog() {
                   <b>1</b> Your agent implements the changes and marks the round applied.
                 </div>
                 <div>
-                  <b>2</b> ScribUI recaptures the changed screens automatically and shows the next round here.
+                  <b>2</b> The next round starts here, empty: add the screens it changed.
                 </div>
               </>
             )}

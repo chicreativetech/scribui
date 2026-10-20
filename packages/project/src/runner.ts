@@ -39,7 +39,6 @@ export function makeRunner(
     let toCaptureCount = 0;
     let queue: string[] = [];
     const result = await captureRound(store, {
-      ...(req.into !== undefined ? { intoRound: req.into } : {}),
       ...(req.screens ? { screens: req.screens } : {}),
       ...(req.all ? { all: true } : {}),
       ...(defaults.platform ? { platform: defaults.platform } : {}),
@@ -71,7 +70,7 @@ export function makeRunner(
     });
     if (!result) throw new Error(problems.join("\n") || "capture tools are not ready; run `scribui doctor`");
     if (result.skipped) return { round: null, summary: `nothing to capture: ${result.plan.why}`, failed: [], ok: [], reused: result.reused, skipped: true };
-    const reused = result.reused.length ? `, ${result.reused.length} reused` : "";
+    const reused = result.reused.length ? `, ${result.reused.length} unchanged` : "";
     return { round: result.round, summary: `${result.ok.length} captured${reused}`, failed: result.failed, ok: result.ok, reused: result.reused };
   };
 }

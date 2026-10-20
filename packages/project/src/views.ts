@@ -3,11 +3,10 @@ import { join } from "node:path";
 import { pngSize, renderPage, toCapture, writePng } from "@scribui/capture";
 import type { Imported, ScreenEntry } from "@scribui/core";
 import type { PageRenderer, ReviewStore, ViewSaveRequest, ViewSaveResult } from "@scribui/server";
-import { carryForward } from "./capture.js";
 
 /**
- * Add one view captured by hand to the open round: a new round when the
- * latest one is already sent or applied (its screens carried forward), and an
+ * Add one view captured by hand to the open round: a new, empty round when the
+ * latest one is already sent or applied (that one stays as it is), and an
  * entry in screens.json so the agent and later rounds know about it.
  *
  * Platform-neutral: the caller brings the PNG and the element tree. Web views
@@ -24,13 +23,7 @@ export async function saveCapturedView(store: ReviewStore, req: ViewSaveRequest)
   const st = latest !== null ? await store.readStatus(latest).catch(() => null) : null;
   if (st?.status === "capturing") throw new Error("a capture is running; try again when it's done");
 
-  let n: number;
-  if (latest !== null && st?.status === "open") n = latest;
-  else {
-    n = await store.createRound();
-    const carried = latest !== null ? await carryForward(store, latest, n) : [];
-    await store.setStatus(n, "open", { screens: carried });
-  }
+  const n = latest !== null && st?.status === "open" ? latest : await store.openRound();
 
   const starter = await store.isStarterManifest();
   const existing = starter ? [] : manifest.screens;

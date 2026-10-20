@@ -5,7 +5,7 @@ import { fitCamera } from "./layout";
 import { TOOLS, isReadOnly, useStore } from "./store";
 import { animateCamera, Board, boardViewport, fitAll, focusTile, panToAnnotation, unfocus, zoomAt } from "./components/Board";
 import { ActionBar, StatusLine, ToolRail, TopBar } from "./components/Chrome";
-import { CapturePanel, LanDialog, NextStepBanner } from "./components/Capture";
+import { LanDialog, LastChanges, NextStepBanner } from "./components/Capture";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
 import { ImportDialog, openImport, useBoardImports, useImport } from "./components/Import";
 import { Inspector } from "./components/Inspector";
@@ -75,14 +75,8 @@ export function App() {
               void st.refreshRounds();
               void st.load(e.state.round);
               st.toast({ text: `round ${pad(e.state.round)} ready · ${e.state.summary ?? ""}`, tone: "ok" });
-            } else if (e.state.phase === "done") {
-              // nothing changed: offer the full capture the user may have meant
-              st.toast({
-                text: e.state.summary ?? "nothing to capture",
-                tone: "info",
-                action: { label: "capture all", run: () => void useStore.getState().captureNext({ all: true }) },
-              });
-            }
+            } else if (e.state.phase === "done") st.toast({ text: e.state.summary ?? "nothing to capture", tone: "info" });
+            else if (e.state.phase === "failed") st.toast({ text: `capture failed: ${e.state.error ?? ""}`, tone: "err" });
           }
         } else if (e.type === "lan-changed") {
           st.set({ lan: { ...st.lan, enabled: e.enabled, paired: e.paired } });
@@ -96,10 +90,10 @@ export function App() {
             const busy = st.annotations.length > 0 && !isReadOnly();
             if (!cur || !busy) {
               void st.load(e.round);
-              st.toast({ text: `round ${pad(e.round)} captured`, tone: "ok" });
+              st.toast({ text: `round ${pad(e.round)} is open`, tone: "ok" });
             } else {
               st.toast({
-                text: `round ${pad(e.round)} captured`,
+                text: `round ${pad(e.round)} is open`,
                 tone: "info",
                 action: { label: "open it", run: () => void useStore.getState().load(e.round) },
               });
@@ -282,9 +276,8 @@ export function App() {
         <Board />
         <VisionBoard />
         <NextStepBanner />
-        <CapturePanel />
         <LiveView />
-        {!round && !loading && view === "board" && (
+        {(!round || round.screens.length === 0) && !loading && view === "board" && (
           <div className="empty-board">
             <div className="box">
               <h1>
@@ -298,6 +291,7 @@ export function App() {
                 <p className="err">✗ {project.manifest.error}</p>
               ) : (
                 <>
+                  {round && <LastChanges round={round} />}
                   {project && "app" in project.manifest && project.manifest.app.platform === "web" && hasLiveTab("web") ? (
                     <p>
                       Open the <button className="link" onClick={showLive}>app tab</button> (<kbd>L</kbd>), browse to a view in your app and
@@ -442,23 +436,6 @@ function runCommand(raw: string) {
     case "next":
     case "n":
       return nextUnresolved();
-    case "recapture":
-    case "rc": {
-      const screens = st.round?.screens ?? [];
-      const arg = args[0] ?? (st.focusId ? st.focusId : "stale");
-      const ids =
-        arg === "all"
-          ? screens.map((s) => s.id)
-          : arg === "stale"
-            ? screens.filter((s) => s.reusedFrom !== undefined).map((s) => s.id)
-            : args.filter((a) => screens.some((s) => s.id === a));
-      if (!ids.length) return st.toast({ text: arg === "stale" ? "no reused screens in this round" : `no screen "${arg}"`, tone: "warn" });
-      return void st.recapture(ids);
-    }
-    case "capture":
-      return void st.captureNext({ all: args[0] === "all" });
-    case "rebuild":
-      return void st.captureNext({ build: true });
     case "ipad":
     case "lan":
       return st.set({ lanOpen: true });

@@ -38,8 +38,6 @@ export type CaptureState = {
 };
 
 export type CaptureRequest = {
-  /** Recapture into this open round instead of starting a new one. */
-  into?: number;
   screens?: string[];
   all?: boolean;
   /** Run app.build first (mobile). */
@@ -133,8 +131,8 @@ export type ServerOptions = {
   renderPage?: PageRenderer;
   /** The desktop app: brings its window for this project to the front; false when it has none open. */
   showWindow?: () => boolean;
-  /** Web: recapture automatically when the agent marks a round applied (default true). */
-  autoRecapture?: boolean;
+  /** Start the next round, empty, when the agent marks a round applied (default true). */
+  nextRoundOnApply?: boolean;
 };
 
 /** Hooks filled in by startServer once it is listening. */
@@ -283,7 +281,6 @@ export function createApp(opts: ServerOptions) {
       // Android and iOS screens are captured by hand (the desktop app's Device tab), never by a round;
       // on the web, only when some screen can be captured without a hand
       canCapture: "app" in manifest && canAutoCapture(manifest),
-      autoRecapture: opts.autoRecapture !== false,
       // HTML, pages from a URL and page snapshots can be added (Playwright renders them)
       canRenderPages: !!opts.renderPage,
       capture,
@@ -479,7 +476,6 @@ export function createApp(opts: ServerOptions) {
     const captures = await store.readCaptures(n);
     const annotations = await store.readAnnotations(n);
     const entries = manifest?.screens ?? [];
-    const canRecapture = !!manifest && canAutoCapture(manifest);
     const known = new Set(entries.map((s) => s.id));
     const failures = new Map((status.screens ?? []).filter((s) => !s.ok).map((s) => [s.screenId, s.error]));
     const capInfo = new Map((status.screens ?? []).map((s) => [s.screenId, s]));
@@ -498,8 +494,6 @@ export function createApp(opts: ServerOptions) {
           error: failures.get(s.id),
           reusedFrom: capInfo.get(s.id)?.reusedFrom,
           reason: capInfo.get(s.id)?.reason,
-          // a capture whose screen is no longer in screens.json can't be taken again
-          recapturable: canRecapture && entries.some((e) => e.id === s.id && recapturable(e)),
           imported: entries.find((e) => e.id === s.id)?.imported,
           platform: cap?.platform,
           device: cap?.device,
@@ -510,14 +504,7 @@ export function createApp(opts: ServerOptions) {
             : undefined,
         };
       });
-    return c.json({ round: n, status, app: manifest?.app, screens, annotations, canRecapture });
-  });
-
-  app.post("/api/rounds/:n/recapture", async (c) => {
-    const n = roundParam(c);
-    const body = z.object({ screens: z.array(z.string()).min(1) }).parse(await c.req.json());
-    const job = runCapture({ into: n, screens: body.screens, trigger: "gui" });
-    return c.json({ ...capture, job: job.id }, 202);
+    return c.json({ round: n, status, app: manifest?.app, screens, annotations });
   });
 
   app.get("/api/rounds/:n/screens/:id", async (c) => {
@@ -688,16 +675,13 @@ export async function startServer(opts: ServerOptions) {
     return `http://${ip}:${actualPort}`;
   };
 
-  // web: the agent marking a round applied triggers the next capture
-  const onStatus = async (round: number, status: string) => {
-    if (status !== "applied" || !opts.runner || opts.autoRecapture === false || queue.has("round")) return;
-    const manifest = await store.readManifest().catch(() => null);
-    // views captured by hand without a url: the canvas asks for them in the app tab instead
-    if (manifest?.app.platform !== "web" || !manifest.screens.some(recapturable)) return;
-    setTimeout(() => {
-      if (!queue.has("round")) runCapture({ trigger: "agent-applied" });
-    }, 1500); // give the dev server a moment to hot-reload
-    void round;
+  // the agent is done: the next round starts, empty, and the applied one stays as it is.
+  // In turn with the captures, so a view saved meanwhile doesn't start a second round.
+  const onStatus = (round: number, status: string) => {
+    if (status !== "applied" || opts.nextRoundOnApply === false) return;
+    queue.enqueue("view", "agent-applied", async () => {
+      if ((await store.latestRound()) === round) await store.openRound();
+    });
   };
   const stopWatch = watchRounds(store, broadcast, opts.watchMs ?? 700, onStatus);
 

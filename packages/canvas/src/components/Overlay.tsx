@@ -84,31 +84,14 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
             {capturing.has(t.id) ? (
               <span className="stale busy">capturing…</span>
             ) : (
-              // imports are kept as they are on purpose: nothing to recapture
+              // from before rounds held only their own screens: copied from an earlier round
               info?.reusedFrom !== undefined &&
               !info.imported &&
-              w > 90 &&
-              (!info.recapturable ? (
-                // captured by hand (Android, iOS, web views without a url): only the Device or App tab captures it again
-                <span
-                  className="stale"
-                  title={`Copied unchanged from round ${pad(info.reusedFrom)}. Capture it again in the ${round?.app?.platform === "web" ? "App" : "Device"} tab to update it.`}
-                >
+              w > 90 && (
+                <span className="stale" title={`Copied unchanged from round ${pad(info.reusedFrom)}`}>
                   ↺ R{pad(info.reusedFrom)}
                 </span>
-              ) : (
-                <span className="stale" title={`Not recaptured: copied unchanged from round ${pad(info.reusedFrom)}. Click to recapture.`}>
-                  <span
-                    role="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void useStore.getState().recapture([t.id]);
-                    }}
-                  >
-                    ↺ R{pad(info.reusedFrom)}
-                  </span>
-                </span>
-              ))
+              )
             )}
           </div>
         );

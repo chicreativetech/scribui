@@ -110,33 +110,25 @@ describe("send", () => {
 });
 
 describe("http api", () => {
-  it("offers recapture only for screens an automatic capture can take", async () => {
+  it("the agent applying a round starts the next one, empty; the applied round stays as it was", async () => {
     const { dir, store, n } = await project();
-    const runner = async () => ({ round: null, summary: "", failed: [] });
-    const { app } = createApp({ projectDir: dir, runner });
-    const local = { incoming: { socket: { remoteAddress: "127.0.0.1" } } };
-    const get = async <T>(path: string) => (await (await app.request(path, undefined, local)).json()) as T;
-    type Round = { canRecapture: boolean; screens: { id: string; recapturable?: boolean }[] };
-    const setScreens = async (live: { url?: string }) => {
-      const m = await store.readManifest();
-      // both views captured by hand in the app tab
-      m.screens = m.screens.filter((s) => s.id === "cart" || s.id === "checkout-default").map((s) => ({ id: s.id, title: s.title, live: true, ...live }));
-      writeFileSync(store.path("screens.json"), JSON.stringify(m));
-    };
-
-    // with a url: reloaded from it
-    await setScreens({ url: "/cart" });
-    expect((await get<{ canCapture: boolean }>("/api/project")).canCapture).toBe(true);
-    const withUrl = await get<Round>(`/api/rounds/${n}`);
-    expect(withUrl.canRecapture).toBe(true);
-    expect(withUrl.screens.every((s) => s.recapturable)).toBe(true);
-
-    // without one: only the app tab can capture them again
-    await setScreens({});
-    expect((await get<{ canCapture: boolean }>("/api/project")).canCapture).toBe(false);
-    const noUrl = await get<Round>(`/api/rounds/${n}`);
-    expect(noUrl.canRecapture).toBe(false);
-    expect(noUrl.screens.some((s) => s.recapturable)).toBe(false);
+    const srv = await startServer({ projectDir: dir, port: 0, watchMs: 30 });
+    try {
+      await new Promise((r) => setTimeout(r, 100));
+      await store.setStatus(n, "sent");
+      await store.setStatus(n, "applied", { changedScreens: ["cart"] });
+      await expect.poll(() => store.latestRound(), { timeout: 3000 }).toBe(n + 1);
+      const next = await store.readStatus(n + 1);
+      expect(next).toMatchObject({ status: "open", screens: [] });
+      expect((await store.readCaptures(n + 1)).size).toBe(0);
+      expect((await store.readStatus(n)).status).toBe("applied");
+      expect([...(await store.readCaptures(n)).keys()].sort()).toEqual(["cart", "checkout-default"]);
+      // once only: the watcher seeing it again starts nothing more
+      await new Promise((r) => setTimeout(r, 200));
+      expect(await store.latestRound()).toBe(n + 1);
+    } finally {
+      await srv.close();
+    }
   });
 
   it("serves rounds, validates and saves annotations, sends", async () => {

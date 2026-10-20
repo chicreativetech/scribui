@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { servePage } from "./pages";
 
@@ -892,4 +893,20 @@ test("device tab: picking a tool holds the screen, the first mark captures it, l
   // Escape stops marking; the screen is live again
   await page.keyboard.press("Escape");
   await expect(page.locator(".mark-pad")).toHaveCount(0);
+});
+
+test("the agent applying the round starts the next one, empty, naming what it changed; the applied round stays as it was", async ({ page }) => {
+  await expect(page.getByRole("button", { name: /Recapture/ })).toHaveCount(0);
+  const project = await (await page.request.get("/api/project")).json();
+  const n: number = project.latest;
+  const shown = (await (await page.request.get(`/api/rounds/${n}`)).json()).screens as { id: string; title: string }[];
+  // the agent marks it applied, the way it does: in the round's status.json
+  const file = join(project.root, `.scribui/rounds/${String(n).padStart(3, "0")}/status.json`);
+  writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), status: "applied", changedScreens: [shown[0]!.id] }));
+  await expect(page.locator(".empty-board")).toContainText(`The agent applied round ${String(n).padStart(3, "0")} and changed ${shown[0]!.title}`, { timeout: 10_000 });
+  await expect(page.locator(".empty-board")).toContainText("browser extension");
+  expect((await (await page.request.get("/api/project")).json()).latest).toBe(n + 1);
+  expect((await (await page.request.get(`/api/rounds/${n + 1}`)).json()).screens).toEqual([]);
+  // the applied round, as it was, behind the round picker
+  expect((await (await page.request.get(`/api/rounds/${n}`)).json()).screens).toEqual(shown);
 });

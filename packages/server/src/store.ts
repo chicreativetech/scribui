@@ -228,6 +228,13 @@ export class ReviewStore {
     return n;
   }
 
+  /** A new round, open and empty: screens are added to it one by one. Earlier rounds stay as they are. */
+  async openRound(): Promise<number> {
+    const n = await this.createRound();
+    await this.setStatus(n, "open");
+    return n;
+  }
+
   async readStatus(n: number): Promise<StatusFile> {
     const raw = JSON.parse(await readFile(join(this.roundDir(n), "status.json"), "utf8"));
     return StatusFile.parse(raw);
