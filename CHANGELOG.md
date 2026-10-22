@@ -4,7 +4,7 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
-## 0.2.3 (unreleased)
+## 0.2.3 (2026-10-22)
 
 - **The App tab is now Capture Screens**, and the view switcher has icons: a light bulb for Vision, a camera for Capture Screens (a phone for Device), a pen for Review.
 - **Capture view is a round button floating over your app**, in its bottom-right corner, instead of in the bar above it. It's there before a page loads too, greyed out. The name and "as a new view" / "replace …" fields stay in the bar. The button is never in the screenshot.
