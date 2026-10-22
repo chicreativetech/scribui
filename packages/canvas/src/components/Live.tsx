@@ -1,15 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { focusTile } from "./Board";
-import { Spinner } from "./Capture";
+import { BROWSER_INTRO, DESKTOP_INTRO, hintSeen, IntroCardView, markHintSeen, type IntroCard } from "./CaptureIntro";
+import { captureButton, FloatStack, pressToggle, useStackToggles, type StackButton } from "./FloatStack";
 import { deviceApi, DeviceTab, ICON, Tip } from "./Device";
 import { addWebMark, deleteNote, editNote, layerMarks, liveTool, notePage, OPEN_NOTE, pagePath, surfaceStyles } from "./Marking";
 import { ToolSettings } from "./ToolSettings";
 
 /**
- * The app tab: the running web app, for capturing views by hand. Only in the
- * desktop app: in a browser the app is a tab away, and its pages come to Review
- * through the ScribUI extension or by pasting. The app has its own view
+ * The Capture Screens tab: the running web app, for capturing views by hand.
+ * Only in the desktop app: in a browser the app is a tab away, its pages come
+ * to Review through the ScribUI extension or by pasting, and the tab only says
+ * so (CaptureIntro.tsx). The app has its own view
  * (`scribuiDesktop.live`): this tab reports where it should sit and drives it.
  * The desktop's test harnesses embed it in an iframe instead, capturing through
  * `window.__scribuiCapture`. Mobile projects get the device tab (Device.tsx).
@@ -47,11 +49,17 @@ type DesktopLive = {
   markMode?(tool: string | null, styles?: unknown, theme?: string): void;
   setMarks?(list: { url: string; marks: unknown[]; confirmed: string[]; selected?: string | null }): void;
   onMark?(cb: (ev: MarkEvent) => void): () => void;
+  /** Desktop 6+: the floating Capture view button, a view of its own over the app's. */
+  stack?(stack: { toggles: StackButton[]; main: StackButton | null; theme: "light" | "dark" } | null): void;
+  onStackPress?(cb: (id: string) => void): () => void;
+  /** Desktop 6+: the intro card, a view of its own over the app's (null removes it). */
+  card?(card: (IntroCard & { theme: "light" | "dark" }) | null): void;
+  onCardClose?(cb: () => void): () => void;
 };
 declare global {
   interface Window {
     __scribuiCapture?: CaptureFn;
-    scribuiDesktop?: { version: number; platform: string; live?: DesktopLive };
+    scribuiDesktop?: { version: number; platform: string; live?: DesktopLive; hints?: { seen(id: string): Promise<boolean>; mark(id: string): void } };
   }
 }
 
@@ -74,6 +82,11 @@ export function hasLiveTab(platform: string | undefined): boolean {
   return platform === "web" ? !!window.scribuiDesktop : !!deviceApi && platform === deviceApi.platform;
 }
 
+/** The tab is shown: where it works, and for web projects in a browser, where it says what to use instead. */
+export function showsLiveTab(platform: string | undefined): boolean {
+  return hasLiveTab(platform) || (platform === "web" && !window.scribuiDesktop);
+}
+
 export function showLive() {
   useStore.getState().set({ view: "live", liveVisited: true });
 }
@@ -93,8 +106,25 @@ function readSize(): string {
 }
 
 export function LiveView() {
-  return deviceApi ? <DeviceTab api={deviceApi} /> : <WebLive />;
+  return deviceApi ? <DeviceTab api={deviceApi} /> : window.scribuiDesktop ? <WebLive /> : <BrowserLive />;
 }
+
+/** In a browser: no app here, only what to use instead. */
+function BrowserLive() {
+  const view = useStore((s) => s.view);
+  if (view !== "live") return null;
+  return (
+    <section className="live-pane">
+      <div className="live-viewport">
+        <IntroCardView card={BROWSER_INTRO} onClose={() => useStore.getState().set({ view: "board" })} />
+        {/* there, but not for pressing: the card says what to use instead */}
+        <FloatStack main={captureButton(false, false)} />
+      </div>
+    </section>
+  );
+}
+
+const INTRO_HINT = "capture-intro";
 
 function WebLive() {
   const view = useStore((s) => s.view);
@@ -120,6 +150,22 @@ function WebLive() {
   const covered = useStore((s) => s.helpOpen || s.sendOpen || !!s.sentPrompt || s.lanOpen);
   const preset = SIZES.find((s) => s.id === size) ?? SIZES[0]!;
   const shown = view === "live" && !covered;
+  const theme = useStore((s) => s.theme);
+
+  // the intro card, the first time the tab opens (and from the bar's ? button)
+  const [intro, setIntro] = useState(false);
+  useEffect(() => {
+    if (!visited) return;
+    let gone = false;
+    void hintSeen(INTRO_HINT).then((seen) => !gone && !seen && setIntro(true));
+    return () => void (gone = true);
+  }, [visited]);
+  const closeIntro = () => {
+    setIntro(false);
+    markHintSeen(INTRO_HINT);
+  };
+  useEffect(() => native?.card?.(intro && shown ? { ...DESKTOP_INTRO, theme } : null), [intro, shown, theme]);
+  useEffect(() => native?.onCardClose?.(() => closeIntro()), []);
 
   // desktop: follow the app's view (address, loading, errors)
   useEffect(() => {
@@ -164,7 +210,6 @@ function WebLive() {
 
   const markTool = useStore((s) => liveTool(s.tool));
   const toolStyles = useStore((s) => s.toolStyles);
-  const theme = useStore((s) => s.theme);
   const canMark = !!native?.markMode && !!state?.url && !state.error;
   const pageUrl = state?.url ?? "";
   const confirmed = useRef<string[]>([]);
@@ -240,6 +285,17 @@ function WebLive() {
     return () => window.removeEventListener("scribui:live-url", onUrl);
   }, []);
 
+  // desktop: the floating Capture view button over the app's view presses here
+  // desktop: the round buttons over the app's view (floatStack.ts); always there, Capture view greyed out without a page or under the card
+  const captureRef = useRef<() => void>(() => {});
+  const hasApp = !!state?.bounds && !!state.url && !state.error;
+  const toggles = useStackToggles();
+  const main = captureButton(canCapture && hasApp && !intro, busy);
+  // as JSON: the buttons are new objects on every render, the effect only runs when they change
+  const stack = JSON.stringify({ toggles, main, theme });
+  useEffect(() => native?.stack?.(shown ? JSON.parse(stack) : null), [shown, stack]);
+  useEffect(() => native?.onStackPress?.((id) => (id === "capture" ? captureRef.current() : pressToggle(id))), []);
+
   if (!visited) return null;
 
   const go = (raw: string) => {
@@ -297,6 +353,8 @@ function WebLive() {
       setBusy(false);
     }
   };
+
+  captureRef.current = () => void capture();
 
   const frameStyle = preset.w ? { width: preset.w, height: preset.h } : { width: "100%", height: "100%" };
 
@@ -363,8 +421,9 @@ function WebLive() {
             </option>
           ))}
         </select>
-        <button className="live-capture" onClick={() => void capture()} disabled={!canCapture || busy} title="screenshot the app exactly as it is now">
-          {busy ? <Spinner /> : "●"} Capture view
+        <button type="button" className="toggle live-help" aria-label="how capturing works" onClick={() => setIntro(true)}>
+          ?
+          <Tip name="How it works" does="shows what to do in this tab again" />
         </button>
       </div>
       {native?.markMode && <ToolSettings inline />}
@@ -397,6 +456,10 @@ function WebLive() {
         ) : (
           <div className="live-empty">Type your app's address above.</div>
         )}
+        {/* the desktop's own view gets the card from a view of its own (liveCard.ts) */}
+        {!native && intro && <IntroCardView card={DESKTOP_INTRO} onClose={closeIntro} />}
+        {/* in a harness's iframe the canvas can draw over the app; the desktop's own view gets native buttons (floatStack.ts) */}
+        {!native && <FloatStack main={captureButton(canCapture && !!src && !intro, busy)} onMain={() => void capture()} />}
       </div>
     </section>
   );

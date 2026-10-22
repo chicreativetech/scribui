@@ -4,12 +4,14 @@ import { connectEvents } from "./api";
 import { fitCamera } from "./layout";
 import { TOOLS, isReadOnly, useStore } from "./store";
 import { animateCamera, Board, boardViewport, fitAll, focusTile, panToAnnotation, unfocus, zoomAt } from "./components/Board";
-import { ActionBar, StatusLine, ToolRail, TopBar } from "./components/Chrome";
+import { StatusLine, ToolRail, TopBar } from "./components/Chrome";
+import { deviceApi } from "./components/Device";
+import { FloatStack, useSendButton } from "./components/FloatStack";
 import { LanDialog, LastChanges, NextStepBanner } from "./components/Capture";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
 import { ImportDialog, openImport, useBoardImports, useImport } from "./components/Import";
 import { Inspector } from "./components/Inspector";
-import { hasLiveTab, LiveView, showLive, toggleView } from "./components/Live";
+import { hasLiveTab, LiveView, showLive, showsLiveTab, toggleView } from "./components/Live";
 import { liveKey } from "./components/Marking";
 import { ToolSettings } from "./components/ToolSettings";
 import { ImageImportDialog, VisionBoard, visionKey, zoomVision, fitVisionCamera } from "./components/Vision";
@@ -17,7 +19,7 @@ import { useVision } from "./vision";
 
 const liveTab = () => {
   const p = useStore.getState().project;
-  return !!p && "app" in p.manifest && hasLiveTab(p.manifest.app.platform);
+  return !!p && "app" in p.manifest && showsLiveTab(p.manifest.app.platform);
 };
 
 export function App() {
@@ -269,6 +271,7 @@ export function App() {
   }, []);
 
   const onSend = () => useStore.getState().set({ sendOpen: true });
+  const send = useSendButton();
 
   return (
     <div className={`app ${inspectorOpen ? "with-panel" : ""} ${view === "live" ? "live-view" : ""}`}>
@@ -294,8 +297,8 @@ export function App() {
                   {round && <LastChanges round={round} />}
                   {project && "app" in project.manifest && project.manifest.app.platform === "web" && hasLiveTab("web") ? (
                     <p>
-                      Open the <button className="link" onClick={showLive}>app tab</button> (<kbd>L</kbd>), browse to a view in your app and
-                      mark it up with the tools above it, or press <b>Capture view</b>.
+                      Open <button className="link" onClick={showLive}>Capture Screens</button> (<kbd>L</kbd>), browse to a view in your app and
+                      mark it up with the tools beside it, or press <b>Capture view</b>.
                     </p>
                   ) : project && "app" in project.manifest && project.manifest.app.platform === "web" ? (
                     <p>
@@ -342,7 +345,8 @@ export function App() {
       </main>
       <ToolRail />
       <TopBar />
-      <ActionBar onSend={onSend} />
+      {/* Capture Screens has its own (Live.tsx); the device tab only the toggles, its Capture view is in its bar */}
+      {(view !== "live" || deviceApi) && <FloatStack className="stage-stack" main={view === "board" ? send : undefined} onMain={onSend} />}
       <Inspector />
       <StatusLine onCommand={runCommand} />
       <SendDialog />

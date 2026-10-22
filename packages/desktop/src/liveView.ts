@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import { shell, WebContentsView, type BrowserWindow, type WebContents } from "electron";
 import type { ViewSaveResult } from "@scribui/server";
+import { FloatStack, type Stack } from "./floatStack.js";
+import { LiveCard, type Card } from "./liveCard.js";
 import { layoutLiveView, scaleRect, type LiveLayout, type Rect, type Size } from "./liveLayout.js";
 import { captureFromView, nextPaint, type LiveCaptureRequest, type SaveView } from "./webCapture.js";
 
@@ -10,7 +12,9 @@ import { captureFromView, nextPaint, type LiveCaptureRequest, type SaveView } fr
  * tab) with no Node, in the project's own session. The canvas tells it where
  * to sit; ScribUI's UI never overlaps it. Its one preload, markLayer.ts, draws
  * the marks over the page in an isolated world the app can't reach; this class
- * relays between it and the canvas.
+ * relays between it and the canvas. The tab's intro card sits over it in a
+ * view of its own (liveCard.ts), and the round buttons over both, Capture
+ * view among them (floatStack.ts).
  */
 
 /** Mark mode and the notes on the shown page, from the canvas, kept for the next page load. */
@@ -42,12 +46,35 @@ export class LiveView {
   private capturing = false;
   private mode: MarkMode = { tool: null };
   private marks: MarkList | null = null;
+  private stack: FloatStack | null = null;
+  private card: LiveCard | null = null;
 
   constructor(
     private win: BrowserWindow,
     private partition: string,
     private tell: (s: LiveState) => void,
+    /** A round button was pressed (capture, tablet, panel, pen): the canvas acts on it (it holds the name and what to replace). */
+    private onStackPress: (id: string) => void = () => {},
+    /** The intro card's button (or Escape) was pressed. */
+    private onCardClose: () => void = () => {},
   ) {}
+
+  /** The intro card over the tab, from the canvas; null removes it. */
+  setCard(card: Card | null) {
+    if (!card) {
+      this.card?.dispose();
+      this.card = null;
+    } else if (this.card) this.card.set(card);
+    else this.card = new LiveCard(this.win, card, () => this.onCardClose());
+    this.apply();
+  }
+
+  /** The round buttons, from the canvas; null removes them. */
+  setStack(stack: Stack | null) {
+    if (stack && !this.stack) this.stack = new FloatStack(this.win, (id) => this.onStackPress(id));
+    this.stack?.set(stack);
+    this.apply();
+  }
 
   /** The canvas's free area for the app (CSS px) and the chosen size; null area hides the view. */
   place(area: Rect | null, size: Size | null) {
@@ -146,6 +173,10 @@ export class LiveView {
   dispose() {
     const view = this.view;
     this.view = null;
+    this.stack?.dispose(this.win);
+    this.stack = null;
+    this.card?.dispose();
+    this.card = null;
     if (!view) return;
     if (!this.win.isDestroyed()) this.win.contentView.removeChildView(view);
     view.webContents.close();
@@ -153,18 +184,32 @@ export class LiveView {
 
   private apply() {
     const view = this.view;
-    if (!view || this.capturing) return this.report();
-    if (!this.area || this.error || this.win.isDestroyed()) {
+    if (this.capturing || this.win.isDestroyed()) return this.report();
+    const factor = this.win.webContents.getZoomFactor();
+    // the card and the buttons cover the whole area, app or not (no address yet, or it didn't load)
+    const area = this.area && scaleRect(this.area, factor);
+    this.card?.place(area, factor);
+    this.stack?.place(area, factor);
+    this.restack();
+    if (!view) return this.report();
+    if (!this.area || this.error) {
       view.setVisible(false);
       this.layout = this.area ? layoutLiveView(this.area, this.size) : null;
       return this.report();
     }
     this.layout = layoutLiveView(this.area, this.size);
-    const factor = this.win.webContents.getZoomFactor();
     view.setBounds(scaleRect(this.layout.bounds, factor));
     view.webContents.setZoomFactor(this.layout.zoom);
     view.setVisible(true);
     this.report();
+  }
+
+  /** The app's view, then the card, then the buttons on top; views added later go on top, so put these back. */
+  private restack() {
+    const want = [this.card?.view, this.stack?.view].filter((v): v is WebContentsView => !!v);
+    const kids = this.win.contentView.children;
+    if (want.every((v, i) => kids.at(i - want.length) === v)) return;
+    for (const v of want) this.win.contentView.addChildView(v);
   }
 
   private report() {
@@ -200,6 +245,7 @@ export class LiveView {
     view.setVisible(false);
     this.win.contentView.addChildView(view);
     this.view = view;
+    this.restack();
     const wc = view.webContents;
 
     // http(s) only; links that open windows go to the system browser

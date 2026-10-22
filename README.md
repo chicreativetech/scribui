@@ -63,7 +63,7 @@ ScribUI looks at the project to decide what it is. A folder without Android or i
 | --- | --- | --- | --- |
 | Runs on | macOS, Windows, Linux | macOS, Windows, Linux | **macOS only** |
 | Captures from | your local dev server | emulator or phone over USB, in the desktop app | iOS Simulator, in the desktop app |
-| How screens get captured | sent from your browser with the ScribUI extension, pasted, or by hand in the desktop app's App tab; the agent's listed screens automatically | by hand in the Device tab | by hand in the Device tab |
+| How screens get captured | sent from your browser with the ScribUI extension, pasted, or by hand in the desktop app's Capture Screens tab; the agent's listed screens automatically | by hand in the Device tab | by hand in the Device tab |
 | ScribUI installs for you | Playwright + Chromium | adb (Google's platform tools) | AXe |
 | You install yourself | Node 20+ (terminal only) | an emulator (Android Studio) or a phone with USB debugging | Xcode |
 
@@ -81,7 +81,7 @@ ScribUI looks at the project to decide what it is. A folder without Android or i
    There's no list of screens to write first: you pick the views yourself.
 3. **The canvas opens in your browser,** in a tab next to your app, on **Review**. Use your app the way you normally would, in its own tab: log in, click through, open a menu, fill in a form.
 4. **Add the views you want to comment on.** With the [ScribUI browser extension](packages/extension/README.md), click it on your app's page and press **Send to ScribUI**: the page arrives in Review with its elements, exactly as it is in your tab, logged in or not. Or paste a screenshot or HTML into Review (`⌘V`), drop a file on it, or press `M`.
-5. **Annotate** (see below) and press **Send to agent**. Paste the prompt it shows into your agent:
+5. **Annotate** (see below) and press the round **Send** button in Review's bottom-right corner. Paste the prompt it shows into your agent:
 
    ```
    Implement .scribui/latest/review.md
@@ -91,7 +91,7 @@ ScribUI looks at the project to decide what it is. A folder without Android or i
 
 Screens your agent lists in `screens.json` with a `url` and optional setup script are captured automatically, as before.
 
-In the [desktop app](#the-desktop-app), web projects also get an **App** tab: your running app inside ScribUI, where you mark it up directly or press **Capture view**.
+In the [desktop app](#the-desktop-app), web projects also get a **Capture Screens** tab: your running app inside ScribUI, where you mark it up directly or press the round **Capture view** button over it. In a browser the tab is there too, but only says to use the extension instead.
 
 ### Android App
 
@@ -133,8 +133,8 @@ The desktop app does everything the terminal and the browser canvas do, in one w
 
 - **Setting up a project:** **Open app folder…** on a folder that isn't a ScribUI project yet walks you through what `scribui` asks in the terminal: the platform (the detected one is marked), where the web app runs (running dev servers are listed with their page titles) or the mobile app's id and build command, the tools that platform needs, and for mobile, the line to paste into your agent while ScribUI waits for it to list the screens.
 - **Installing tools:** the projects window lists the capture tools on your computer and installs the missing ones with **Install**: adb (downloaded from Google), AXe and Android Studio (with Homebrew, or winget on Windows), Playwright, and Xcode's selection when only the Command Line Tools are active. The output shows as it runs.
-- **Web:** the **App** tab is your running app as a normal page, so logins, cookies and pages that refuse to be embedded all work. Size it to desktop, laptop, tablet or phone and press **Capture view**.
-- **Mark up the app directly:** the App and Device tabs have Review's own tool rail. Pick a Guide tool (comment, arrow, box, remove, circle) or sketch with the Sketch tools (draw, line, box, ellipse, text, fill: all one sketch until **Ready** or `⏎`, then a note), with their colour and stroke in the strip above the app. Select (`V`) or `Esc` goes back to clicking and typing in the app. Each mark becomes a note in **Review**, where you can change it, and **Send** sends them all. Rules are made in Review.
+- **Web:** the **Capture Screens** tab is your running app as a normal page, so logins, cookies and pages that refuse to be embedded all work. Size it to desktop, laptop, tablet or phone and press the round **Capture view** button in its bottom-right corner (it's never in the screenshot). Above it, smaller round buttons for **Tablet**, **Panel** and **Pen mode** (in Review they sit above **Send**). It's there even before a page loads, greyed out. The first time the tab opens, a card over the app says what to do there; **?** at the end of its bar shows it again.
+- **Mark up the app directly:** the Capture Screens and Device tabs have Review's own tool rail. Pick a Guide tool (comment, arrow, box, remove, circle) or sketch with the Sketch tools (draw, line, box, ellipse, text, fill: all one sketch until **Ready** or `⏎`, then a note), with their colour and stroke in the strip above the app. Select (`V`) or `Esc` goes back to clicking and typing in the app. Each mark becomes a note in **Review**, where you can change it, and **Send** sends them all. Rules are made in Review.
   - **Web:** the page keeps scrolling while a tool is on and only holds still while you draw a mark or type its note, so you can work down a whole page. The first mark on a page captures the whole page as a screen; more marks on the same page join it as long as the page hasn't changed (a changed page gets a new screen). Your marks stay on the page, on the elements you made them on, as you scroll, and come back when you return to the page; a mark whose element is gone is listed as "not found" instead.
   - **Android and iOS:** picking a tool holds the picture still. The first mark captures the screen, more marks join it, and `Esc` lets the device run again. The marks are then in Review.
 - **Android and iOS:** mobile projects get a **Device** tab with the emulator, phone or simulator live in it, and it's the only way their screens are captured. Use it with the mouse and keyboard (scrolling, typing, Back/Home, rotate) and press **Capture view**: ScribUI freezes the picture, reads the elements and checks the screen held still. iOS needs a Mac with Xcode, plus AXe.
@@ -247,7 +247,7 @@ Tools: `request_review` (web: captures a round; Android and iOS: tells the agent
 | Marks attach to the wrong element | press `E` to show all element outlines, then fix the target via the chip; add testIDs for the long run |
 | Chips say `container 632×50` instead of a name | the element has no id or label; add an accessibility id or `data-testid` |
 | A mobile capture says "the screen was still changing" | something on screen kept moving (a spinner, an animation, a timer): wait for it, press **Try again**, or **Keep first frame** |
-| A screen looks out of date | it's from an earlier round: add it again (extension, paste, or the App or Device tab), or for screens listed in `screens.json` run `scribui capture --screens <id>` |
+| A screen looks out of date | it's from an earlier round: add it again (extension, paste, or the Capture Screens or Device tab), or for screens listed in `screens.json` run `scribui capture --screens <id>` |
 | The desktop app's Device tab says a tool is missing | press **Install** there, or in the projects window (**File → Projects…**) |
 | The desktop app crashed or misbehaves | **Help → Report a Problem…** opens a prefilled GitHub issue; the logs are under **Help → Show Logs and Crash Reports** |
 
@@ -296,7 +296,7 @@ Flags: `--dir`, `--platform ios|android|web`, `--device`, `--screens a,b`, `--al
 | --- | --- | --- | --- | --- |
 | iOS simulator (macOS only) | by hand, in the Device tab | `simctl io screenshot` | AXe (idb's accessibility tree, web views included) | Xcode, AXe |
 | Android emulator or phone | by hand, in the Device tab | `adb screencap` | `uiautomator dump`, plus the on-screen keyboard | adb |
-| Web | `url` + optional setup script, or by hand in the App tab | Playwright, or the app's own view | DOM walk | `playwright` + Chromium for automatic captures |
+| Web | `url` + optional setup script, or by hand in the Capture Screens tab | Playwright, or the app's own view | DOM walk | `playwright` + Chromium for automatic captures |
 
 Ids are taken in this order: accessibility identifier, testID (`data-testid` on web), DOM id, then a stable generated id. On web, `data-component` and `data-source="src/File.tsx:12"` attributes flow into the instructions as source locations.
 

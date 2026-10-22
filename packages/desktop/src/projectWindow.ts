@@ -9,7 +9,10 @@ import { hostProject, makeRunner, renameGenericProject, saveCapturedView, pageRe
 import { liveInput } from "./deviceInput.js";
 import { installTool } from "./installs.js";
 import { DeviceView } from "./deviceView.js";
+import { hintSeen, markSeen } from "./hints.js";
 import type { Rect, Size } from "./liveLayout.js";
+import { readStack } from "./floatStack.js";
+import { readCard } from "./liveCard.js";
 import { LiveView } from "./liveView.js";
 import { captureFromCanvas, LIVE_FRAME, saveViaServer, type SaveView } from "./webCapture.js";
 import { placeWindow, readWindowState, writeWindowState } from "./windowState.js";
@@ -185,9 +188,19 @@ async function createProject(root: string, opts: OpenOptions): Promise<OpenResul
   });
   if (surface === "iframe") reportFrameNavigation(wc);
 
-  const live = new LiveView(win, appPartition, (state) => {
-    if (!wc.isDestroyed()) wc.send("scribui:live-state", state);
-  });
+  const live = new LiveView(
+    win,
+    appPartition,
+    (state) => {
+      if (!wc.isDestroyed()) wc.send("scribui:live-state", state);
+    },
+    (id) => {
+      if (!wc.isDestroyed()) wc.send("scribui:live-stack-press", id);
+    },
+    () => {
+      if (!wc.isDestroyed()) wc.send("scribui:live-card-close");
+    },
+  );
   const project: Project = {
     store,
     name: manifest.app.name,
@@ -401,6 +414,37 @@ export function registerCanvasApi() {
   ipcMain.on("scribui:live-place", (e, area: unknown, sz: unknown) => {
     try {
       senderProject(e).live.place(rect(area), size(sz));
+    } catch {
+      /* not the canvas */
+    }
+  });
+
+  ipcMain.on("scribui:live-stack", (e, s: unknown) => {
+    try {
+      senderProject(e).live.setStack(readStack(s));
+    } catch {
+      /* not the canvas */
+    }
+  });
+
+  ipcMain.on("scribui:live-card", (e, card: unknown) => {
+    try {
+      senderProject(e).live.setCard(readCard(card));
+    } catch {
+      /* not the canvas */
+    }
+  });
+
+  // one-time hints, seen across projects (hints.ts)
+  const hintsFile = () => join(app.getPath("userData"), "hints.json");
+  ipcMain.handle("scribui:hint-seen", (e, id: unknown) => {
+    senderProject(e);
+    return hintSeen(hintsFile(), id);
+  });
+  ipcMain.on("scribui:hint-mark", (e, id: unknown) => {
+    try {
+      senderProject(e);
+      markSeen(hintsFile(), id);
     } catch {
       /* not the canvas */
     }

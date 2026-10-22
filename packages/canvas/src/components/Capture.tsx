@@ -69,7 +69,7 @@ function addAgain(platform: string | undefined): string {
   if (platform === "android" || platform === "ios")
     return `Rebuild and reinstall the app, then capture the screens it changed${hasLiveTab(platform) ? " in the Device tab" : " in the ScribUI desktop app"}.`;
   return hasLiveTab(platform)
-    ? "Capture the screens it changed in the App tab."
+    ? "Capture the screens it changed in the Capture Screens tab."
     : "Send the pages it changed with the ScribUI browser extension, or paste new screenshots.";
 }
 

@@ -1,8 +1,8 @@
 import { useMemo, type ReactNode } from "react";
-import { TOOLS, VISION_HINTS, isReadOnly, noteCount, unresolvedCount, useStore, type Tool } from "../store";
+import { TOOLS, VISION_HINTS, noteCount, unresolvedCount, useStore, type Tool } from "../store";
 import { useVision } from "../vision";
 import { openImport } from "./Import";
-import { hasLiveTab, showLive } from "./Live";
+import { showLive, showsLiveTab } from "./Live";
 import { LIVE_UNSUPPORTED } from "./Marking";
 import selectIcon from "../assets/icons/select.png";
 import commentIcon from "../assets/icons/comment.png";
@@ -10,10 +10,8 @@ import circleIcon from "../assets/icons/circle.png";
 import arrowIcon from "../assets/icons/arrow.svg";
 import removeIcon from "../assets/icons/remove.svg";
 import ruleIcon from "../assets/icons/rule.svg";
-import penIcon from "../assets/icons/pen.svg";
 import lineIcon from "../assets/icons/line.svg";
-import tabletIcon from "../assets/icons/tablet.svg";
-import panelIcon from "../assets/icons/panel.svg";
+import penIcon from "../assets/icons/pen.svg";
 import elementsIcon from "../assets/icons/elements.svg";
 
 const pad = (n: number) => String(n).padStart(3, "0");
@@ -85,17 +83,19 @@ export function TopBar() {
           aria-selected={view === "vision"}
           title="vision: sketch the visual direction on blank canvases"
         >
+          {VIEW_ICON.vision}
           Vision
         </button>
-        {hasLiveTab(platform) && (
+        {showsLiveTab(platform) && (
           <button
             className={`item ${view === "live" ? "on" : ""}`}
             onClick={showLive}
             role="tab"
             aria-selected={view === "live"}
-            title={mobile ? "your app on an emulator or phone: use it and capture views (L)" : "your running app: browse and capture views (L)"}
+            title={mobile ? "your app on an emulator or phone: use it and capture views (L)" : "your running app: browse it, mark it up and capture its screens (L)"}
           >
-            {mobile ? "Device" : "App"}
+            {mobile ? VIEW_ICON.device : VIEW_ICON.capture}
+            {mobile ? "Device" : "Capture Screens"}
           </button>
         )}
         <button
@@ -105,6 +105,7 @@ export function TopBar() {
           aria-selected={view === "board"}
           title="review: every marked-up screen and its notes, to check and change before you send"
         >
+          {VIEW_ICON.review}
           Review
         </button>
       </div>
@@ -112,39 +113,30 @@ export function TopBar() {
   );
 }
 
+/** The view switcher's icons: a light bulb (ideas), a camera, a phone, a pen. */
+const viewIcon = (children: ReactNode, filled = false) => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {children}
+  </svg>
+);
+const VIEW_ICON = {
+  vision: viewIcon(<><path d="M8 1.75a4.25 4.25 0 0 0-2.5 7.69V11h5V9.44A4.25 4.25 0 0 0 8 1.75Z" /><path d="M6 13.5h4" fill="none" /></>, true),
+  // Bootstrap Icons' camera-fill: a filled shape, so no outline
+  capture: (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0" />
+      <path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0" />
+    </svg>
+  ),
+  device: viewIcon(<><rect x="4.25" y="1.75" width="7.5" height="12.5" rx="1.25" /><path d="M7 11.75h2" /></>),
+  review: viewIcon(<path d="M10.5 2.5 13.5 5.5 6 13H3v-3Z" />, true),
+};
+
 /** Switch view; tools that don't exist in the new view fall back to select. */
 export function showView(view: "vision" | "board") {
   const st = useStore.getState();
   st.set({ view });
   if (view === "vision" && !VISION_TOOLS.includes(st.tool)) st.setTool("select");
-}
-
-/* ───────── send ───────── */
-
-export function ActionBar({ onSend }: { onSend: () => void }) {
-  const round = useStore((s) => s.round);
-  const cs = useStore((s) => s.captureState);
-  const ext = useStore((s) => s.externalCapture);
-  const status = round?.status.status;
-  const notes = useStore((s) => noteCount(s.annotations));
-  const ro = isReadOnly();
-  const capturing = cs.running || !!ext;
-  // the button says what goes: "Send 5 notes"; with nothing to send it greys out
-  const label =
-    status === "sent" ? "Sent to agent" : status === "applied" ? "Applied" : notes ? `Send ${notes} note${notes === 1 ? "" : "s"}` : "Send to agent";
-
-  return (
-    <div className="float actions-float">
-      <button
-        className="send-btn"
-        onClick={onSend}
-        disabled={!round || ro || status === "capturing" || capturing || !notes}
-        title={ro ? undefined : notes ? "send this round's notes to your agent (⌘⏎)" : "add notes to the screens, then send them to your agent"}
-      >
-        {label}
-      </button>
-    </div>
-  );
 }
 
 /* ───────── tool panel ───────── */
@@ -261,10 +253,7 @@ export function ToolRail() {
   const ro = useStore(
     (s) => !s.round || s.round.status.status === "sent" || s.round.status.status === "applied",
   );
-  const penMode = useStore((s) => s.penMode);
   const showOutlines = useStore((s) => s.showOutlines);
-  const inspectorOpen = useStore((s) => s.inspectorOpen);
-  const lan = useStore((s) => s.lan);
   const set = useStore((s) => s.set);
   const view = useStore((s) => s.view);
   const vision = view === "vision";
@@ -344,22 +333,8 @@ export function ToolRail() {
         </section>
       )}
 
-      <div className="toggles">
-        <Toggle
-          on={lan.paired > 0}
-          icon={<img className="icon" src={tabletIcon} width={12} height={12} alt="" />}
-          label={lan.paired > 0 ? `Tablet · ${lan.paired}` : "Tablet"}
-          onClick={() => set({ lanOpen: true })}
-          title="review on a tablet: show a pairing QR code"
-        />
-        <Toggle
-          on={inspectorOpen}
-          icon={<img className="icon" src={panelIcon} width={12} height={12} alt="" />}
-          label="Panel"
-          onClick={() => set({ inspectorOpen: !inspectorOpen })}
-          title="inspector (tab)"
-        />
-        {view === "board" && (
+      {view === "board" && (
+        <div className="toggles">
           <Toggle
             on={showOutlines}
             icon={<img className="icon" src={elementsIcon} width={7} height={10} alt="" />}
@@ -367,15 +342,8 @@ export function ToolRail() {
             onClick={() => set({ showOutlines: !showOutlines })}
             title="show all element outlines (E)"
           />
-        )}
-        <Toggle
-          on={penMode}
-          icon={<img className="icon" src={penIcon} width={12} height={12} alt="" />}
-          label="Pen mode"
-          onClick={() => set({ penMode: !penMode })}
-          title="pen mode: pen draws, touch pans (turns on with the first pen stroke)"
-        />
-      </div>
+        </div>
+      )}
     </nav>
   );
 }

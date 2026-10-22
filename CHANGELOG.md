@@ -4,6 +4,16 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
+## 0.2.3 (unreleased)
+
+- **The App tab is now Capture Screens**, and the view switcher has icons: a light bulb for Vision, a camera for Capture Screens (a phone for Device), a pen for Review.
+- **Capture view is a round button floating over your app**, in its bottom-right corner, instead of in the bar above it. It's there before a page loads too, greyed out. The name and "as a new view" / "replace …" fields stay in the bar. The button is never in the screenshot.
+- **Round buttons in the bottom-right corner:** Tablet, Panel and Pen mode moved from the tool rail to smaller round buttons stacked above the main one: Capture view in Capture Screens, **Send** in Review (it replaces the send box above the panel and still says what goes, like *Send 3 notes*). The vision board and the Device tab have the three without a main button. Elements stays on Review's rail.
+- **The first time you open Capture Screens, a card says what to do there**: browse to a screen, capture it or mark it up, then send from Review, and that the ScribUI browser extension sends pages from any tab. **?** at the end of the tab's bar shows it again.
+- **Capture Screens is in the browser too**, for web projects, but there it only says that capturing is in the desktop app and to use the browser extension instead (`L` opens it, as in the app).
+- **Review's "Nothing to review yet" is a card** in the same style.
+- The camera icons are filled.
+
 ## 0.2.2 (2026-10-20)
 
 - **Start a new app with your agent.** The projects window has a **New project…** button: choose or create a folder, describe the app and press **Make prompt**. ScribUI copies a prompt for your coding agent (Claude Code, Codex, Cursor, …), which builds the app in that folder. The folder shows up in Projects; once the app runs, click it to set ScribUI up. ScribUI doesn't build anything itself.

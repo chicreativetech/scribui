@@ -10,3 +10,5 @@ import { app } from "electron";
 if (!app.isPackaged) app.setPath("userData", join(app.getPath("appData"), "ScribUI Dev"));
 // a fidelity or spike harness runs next to a development app that's open, with data of its own
 if (process.env.SCRIBUI_FIDELITY || process.env.SCRIBUI_SPIKE) app.setPath("userData", join(app.getPath("appData"), "ScribUI Harness"));
+// a test run (Playwright) next to a development app that's open: a folder of its own
+if (!app.isPackaged && process.env.SCRIBUI_DEV_DATA) app.setPath("userData", process.env.SCRIBUI_DEV_DATA);

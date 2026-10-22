@@ -294,21 +294,49 @@ test("vision: draws on the canvas, starts a new canvas off it, types text, undoe
   await page.request.put("/api/vision", { data: { version: 1, canvases: [], items: [] } });
 });
 
-test("in a browser there's no App tab: the app is a tab away, and the canvas opens on Review", async ({ page }) => {
+test("in a browser, Capture Screens only says to use the extension, and the canvas opens on Review", async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("tab", { name: "App", exact: true })).toHaveCount(0);
-  // L, the App tab's key, does nothing here
+  // L opens the tab: no app in it, only the card
+  await expect(page.getByRole("tab", { name: "Capture Screens", exact: true })).toBeVisible();
   await page.keyboard.press("l");
+  await expect(page.getByRole("tab", { name: "Capture Screens", exact: true })).toHaveAttribute("aria-selected", "true");
+  const card = page.getByRole("dialog", { name: "Capture screens" });
+  await expect(card).toContainText("isn't available in the browser");
+  await expect(card.getByRole("link", { name: "ScribUI browser extension" })).toHaveAttribute("href", /packages\/extension/);
+  await expect(page.locator(".live-bar")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Capture view" })).toBeDisabled();
+  await page.screenshot({ path: "test-results/capture-browser.png" });
+  await card.getByRole("button", { name: "Go to Review" }).click();
   await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
 });
 
 test("in the desktop app: opens on the App tab, and Home goes back to the app", async ({ page }) => {
   // the desktop app's test harness surface, standing in: the app in the canvas's frame
   await page.addInitScript(() => ((window as unknown as { scribuiDesktop: unknown }).scribuiDesktop = { version: 6, platform: "darwin" }));
+  await page.evaluate(() => localStorage.removeItem("scribui:hint:capture-intro"));
   await page.reload();
-  await expect(page.getByRole("tab", { name: "App", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Capture Screens", exact: true })).toHaveAttribute("aria-selected", "true");
+  // the first time, a card says what to do here, over the app
+  const intro = page.getByRole("dialog", { name: "Capture screens" });
+  await expect(intro).toContainText("Capture view");
+  await expect(intro.getByRole("link", { name: "ScribUI browser extension" })).toBeVisible();
+  // the button it talks about is there, greyed out until the card is closed
+  await expect(page.getByRole("button", { name: "Capture view" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Pen mode" })).toBeVisible();
+  await page.screenshot({ path: "test-results/capture-intro.png" });
+  await intro.getByRole("button", { name: "Got it" }).click();
+  await expect(intro).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Capture Screens", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".live-bar")).toBeVisible();
+  await expect(intro).toHaveCount(0);
+  // the bar's ? shows it again
+  await page.getByRole("button", { name: "how capturing works" }).click();
+  await expect(intro).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(intro).toHaveCount(0);
   const address = page.locator(".live-address input");
   await address.fill("example.invalid/pricing");
   await address.press("Enter");
@@ -830,7 +858,7 @@ test("device tab: picking a tool holds the screen, the first mark captures it, l
     };
   }, png);
   await page.reload();
-  await page.getByRole("tab", { name: "App", exact: true }).click();
+  await page.getByRole("tab", { name: "Capture Screens", exact: true }).click();
   const screen = page.locator(".device-screen");
   await expect(screen).toBeVisible();
 
@@ -905,6 +933,10 @@ test("the agent applying the round starts the next one, empty, naming what it ch
   writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), status: "applied", changedScreens: [shown[0]!.id] }));
   await expect(page.locator(".empty-board")).toContainText(`The agent applied round ${String(n).padStart(3, "0")} and changed ${shown[0]!.title}`, { timeout: 10_000 });
   await expect(page.locator(".empty-board")).toContainText("browser extension");
+  await page.locator(".empty-board .box").screenshot({ path: "test-results/empty-review.png" });
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await page.locator(".empty-board .box").screenshot({ path: "test-results/empty-review-dark.png" });
+  await page.evaluate(() => document.documentElement.removeAttribute("data-theme"));
   expect((await (await page.request.get("/api/project")).json()).latest).toBe(n + 1);
   expect((await (await page.request.get(`/api/rounds/${n + 1}`)).json()).screens).toEqual([]);
   // the applied round, as it was, behind the round picker

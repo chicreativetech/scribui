@@ -34,6 +34,11 @@ const box = (b: Box | null) => (b ? { x: +b.x, y: +b.y, width: +b.width, height:
 contextBridge.exposeInMainWorld("scribuiDesktop", {
   version: 6,
   platform: process.platform,
+  /** One-time hints (the Capture Screens intro): seen in any project, so they show once. */
+  hints: {
+    seen: (id: string) => ipcRenderer.invoke("scribui:hint-seen", String(id)) as Promise<boolean>,
+    mark: (id: string) => ipcRenderer.send("scribui:hint-mark", String(id)),
+  },
   ...(config.surface === "view"
     ? {
         live: {
@@ -51,6 +56,12 @@ contextBridge.exposeInMainWorld("scribuiDesktop", {
             ipcRenderer.send("scribui:live-mark-mode", JSON.parse(JSON.stringify({ tool: tool ?? null, ...(styles ? { styles } : {}), ...(theme ? { theme } : {}) }))),
           setMarks: (list: unknown) => ipcRenderer.send("scribui:live-marks", JSON.parse(JSON.stringify(list ?? null))),
           onMark: (cb: (ev: unknown) => void) => listen("scribui:live-mark", cb),
+          /** The round buttons over the app (Tablet, Panel, Pen mode, Capture view; null removes them), and their presses by id. */
+          stack: (s: unknown) => ipcRenderer.send("scribui:live-stack", JSON.parse(JSON.stringify(s ?? null))),
+          onStackPress: (cb: (id: string) => void) => listen("scribui:live-stack-press", (id) => cb(String(id))),
+          /** The intro card over the app (words, button, theme; null removes it), and its button's presses. */
+          card: (c: unknown) => ipcRenderer.send("scribui:live-card", JSON.parse(JSON.stringify(c ?? null))),
+          onCardClose: (cb: () => void) => listen("scribui:live-card-close", () => cb()),
         },
       }
     : {}),

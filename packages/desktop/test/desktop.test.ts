@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, win32 } from "node:path";
 import { describe, expect, it } from "vitest";
 import { desktopNewUrl, desktopOpenUrl } from "@scribui/core";
+import { hintSeen, markSeen, readSeen } from "../src/hints.js";
 import { findLink, findOpenUrl, parseLink, parseOpenUrl } from "../src/openUrl.js";
 import { RecentProjects } from "../src/recent.js";
 import { mergePath } from "../src/shellPath.js";
@@ -111,5 +112,26 @@ describe("window placement", () => {
     expect(placeWindow(readWindowState(join(dir, "w.json")), [screen]).maximized).toBe(true);
     writeWindowState(join(dir, "w.json"), { maximized: false, bounds: { x: 1, y: 30, width: 900, height: 700 } });
     expect(readWindowState(join(dir, "w.json")).bounds?.width).toBe(900);
+  });
+});
+
+describe("one-time hints", () => {
+  it("are remembered once seen, and a missing or broken file means none", () => {
+    const file = join(mkdtempSync(join(tmpdir(), "scribui-hints-")), "sub", "hints.json");
+    expect(hintSeen(file, "capture-intro")).toBe(false);
+    markSeen(file, "capture-intro");
+    markSeen(file, "capture-intro");
+    expect(hintSeen(file, "capture-intro")).toBe(true);
+    expect(readSeen(file)).toEqual(["capture-intro"]);
+    writeFileSync(file, "{nope");
+    expect(hintSeen(file, "capture-intro")).toBe(false);
+  });
+
+  it("ignores ids that aren't short slugs", () => {
+    const file = join(mkdtempSync(join(tmpdir(), "scribui-hints-")), "hints.json");
+    markSeen(file, "../x");
+    markSeen(file, 5);
+    expect(readSeen(file)).toEqual([]);
+    expect(hintSeen(file, { length: 1 })).toBe(false);
   });
 });
