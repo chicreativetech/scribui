@@ -53,7 +53,7 @@ export class LiveView {
     private win: BrowserWindow,
     private partition: string,
     private tell: (s: LiveState) => void,
-    /** A round button was pressed (capture, tablet, panel, pen): the canvas acts on it (it holds the name and what to replace). */
+    /** A dock button was pressed (select, comment, add, capture, or the toast's): the canvas acts on it (it holds the name and what to replace). */
     private onStackPress: (id: string) => void = () => {},
     /** The intro card's button (or Escape) was pressed. */
     private onCardClose: () => void = () => {},
@@ -206,7 +206,7 @@ export class LiveView {
 
   /** The app's view, then the card, then the buttons on top; views added later go on top, so put these back. */
   private restack() {
-    const want = [this.card?.view, this.stack?.view].filter((v): v is WebContentsView => !!v);
+    const want = [this.card?.view, this.stack?.view, this.stack?.toastView].filter((v): v is WebContentsView => !!v);
     const kids = this.win.contentView.children;
     if (want.every((v, i) => kids.at(i - want.length) === v)) return;
     for (const v of want) this.win.contentView.addChildView(v);

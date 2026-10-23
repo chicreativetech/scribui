@@ -329,7 +329,7 @@ export function Toasts() {
     <div className="toasts">
       {toasts.map((t) => (
         <div key={t.id} className={`toast ${t.tone ?? ""}`}>
-          <span>{t.text}</span>
+          <span title={t.text}>{t.text}</span>
           {t.action && (
             <button
               onClick={() => {

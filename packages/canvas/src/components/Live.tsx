@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { focusTile } from "./Board";
 import { BROWSER_INTRO, DESKTOP_INTRO, hintSeen, IntroCardView, markHintSeen, type IntroCard } from "./CaptureIntro";
-import { captureButton, FloatStack, pressToggle, useStackToggles, type StackButton } from "./FloatStack";
+import { captureButton, FloatStack, pressDockTool, useDockTools, type StackButton, type StackToast } from "./FloatStack";
 import { deviceApi, DeviceTab, ICON, Tip } from "./Device";
 import { addWebMark, deleteNote, editNote, layerMarks, liveTool, notePage, OPEN_NOTE, pagePath, surfaceStyles } from "./Marking";
 import { ToolSettings } from "./ToolSettings";
@@ -50,7 +50,7 @@ type DesktopLive = {
   setMarks?(list: { url: string; marks: unknown[]; confirmed: string[]; selected?: string | null }): void;
   onMark?(cb: (ev: MarkEvent) => void): () => void;
   /** Desktop 6+: the floating Capture view button, a view of its own over the app's. */
-  stack?(stack: { toggles: StackButton[]; main: StackButton | null; theme: "light" | "dark" } | null): void;
+  stack?(stack: { toggles: StackButton[]; main: StackButton | null; toast: StackToast | null; theme: "light" | "dark" } | null): void;
   onStackPress?(cb: (id: string) => void): () => void;
   /** Desktop 6+: the intro card, a view of its own over the app's (null removes it). */
   card?(card: (IntroCard & { theme: "light" | "dark" }) | null): void;
@@ -286,15 +286,36 @@ function WebLive() {
   }, []);
 
   // desktop: the floating Capture view button over the app's view presses here
-  // desktop: the round buttons over the app's view (floatStack.ts); always there, Capture view greyed out without a page or under the card
+  // desktop: the dock over the app's view (floatStack.ts); always there, Capture view greyed out without a page or under the card
   const captureRef = useRef<() => void>(() => {});
   const hasApp = !!state?.bounds && !!state.url && !state.error;
-  const toggles = useStackToggles();
+  const toggles = useDockTools();
   const main = captureButton(canCapture && hasApp && !intro, busy);
+  // the latest toast shows beside the buttons: the canvas's own would sit under the app
+  const last = useStore((s) => s.toasts.at(-1));
+  const toast = last ? { id: last.id, text: last.text, tone: last.tone ?? "info", action: last.action?.label ?? null } : null;
   // as JSON: the buttons are new objects on every render, the effect only runs when they change
-  const stack = JSON.stringify({ toggles, main, theme });
+  const stack = JSON.stringify({ toggles, main, toast, theme });
   useEffect(() => native?.stack?.(shown ? JSON.parse(stack) : null), [shown, stack]);
-  useEffect(() => native?.onStackPress?.((id) => (id === "capture" ? captureRef.current() : pressToggle(id))), []);
+  useEffect(() => {
+    if (!native?.stack || !shown) return;
+    document.documentElement.classList.add("native-toasts");
+    return () => document.documentElement.classList.remove("native-toasts");
+  }, [shown]);
+  useEffect(
+    () =>
+      native?.onStackPress?.((id) => {
+        if (id === "capture") return captureRef.current();
+        const st = useStore.getState();
+        const t = st.toasts.at(-1);
+        if (id === "toast-action" && t) {
+          t.action?.run();
+          st.dismissToast(t.id);
+        } else if (id === "toast-close" && t) st.dismissToast(t.id);
+        else pressDockTool(id);
+      }),
+    []
+  );
 
   if (!visited) return null;
 
@@ -347,6 +368,9 @@ function WebLive() {
           },
         },
       });
+      // it sits over the app in the desktop, so it stays a while only
+      const t = useStore.getState().toasts.at(-1);
+      if (t) setTimeout(() => useStore.getState().dismissToast(t.id), 8000);
     } catch (e) {
       st.toast({ text: (e as Error).message.replace(/^Error:\s*/, ""), tone: "err" });
     } finally {

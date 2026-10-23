@@ -302,6 +302,9 @@ test("in a browser, Capture Screens only says to use the extension, and the canv
   await expect(page.getByRole("tab", { name: "Capture Screens", exact: true })).toBeVisible();
   await page.keyboard.press("l");
   await expect(page.getByRole("tab", { name: "Capture Screens", exact: true })).toHaveAttribute("aria-selected", "true");
+  // the accent thumb slides under the selected tab
+  const tab = await page.getByRole("tab", { name: "Capture Screens", exact: true }).boundingBox();
+  await expect.poll(async () => (await page.locator(".view-switch .thumb").boundingBox())?.x).toBeCloseTo(tab!.x, 0);
   const card = page.getByRole("dialog", { name: "Capture screens" });
   await expect(card).toContainText("isn't available in the browser");
   await expect(card.getByRole("link", { name: "ScribUI browser extension" })).toHaveAttribute("href", /packages\/extension/);
@@ -372,8 +375,8 @@ test("vision: an edge changes one side of a canvas, a corner scales it", async (
   expect(Math.abs(b.height - a.height)).toBeLessThan(1);
   expect(Math.abs(b.x - a.x) + Math.abs(b.y - a.y)).toBeLessThan(2);
 
-  // the bottom edge: only taller
-  await drag([b.x + b.width / 2, b.y + b.height], [0, -50]);
+  // the bottom edge (beside the dock, which sits over its middle): only taller
+  await drag([b.x + 30, b.y + b.height], [0, -50]);
   const c = (await canvas.boundingBox())!;
   expect(c.height).toBeLessThan(b.height - 30);
   expect(Math.abs(c.width - b.width)).toBeLessThan(1);

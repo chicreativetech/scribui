@@ -56,7 +56,7 @@ contextBridge.exposeInMainWorld("scribuiDesktop", {
             ipcRenderer.send("scribui:live-mark-mode", JSON.parse(JSON.stringify({ tool: tool ?? null, ...(styles ? { styles } : {}), ...(theme ? { theme } : {}) }))),
           setMarks: (list: unknown) => ipcRenderer.send("scribui:live-marks", JSON.parse(JSON.stringify(list ?? null))),
           onMark: (cb: (ev: unknown) => void) => listen("scribui:live-mark", cb),
-          /** The round buttons over the app (Tablet, Panel, Pen mode, Capture view; null removes them), and their presses by id. */
+          /** The dock over the app (Select, Comment, Add screen, Capture view; null removes it), and its presses by id. */
           stack: (s: unknown) => ipcRenderer.send("scribui:live-stack", JSON.parse(JSON.stringify(s ?? null))),
           onStackPress: (cb: (id: string) => void) => listen("scribui:live-stack-press", (id) => cb(String(id))),
           /** The intro card over the app (words, button, theme; null removes it), and its button's presses. */

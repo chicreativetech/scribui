@@ -29,7 +29,7 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><style>
 :root.light { --surface: #ffffff; --fg: #262626; --fg-dim: #5e5e5e; --line: #e7e7e7; --code: #f6f6f6; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
 body { background: rgba(0, 0, 0, 0.4); display: grid; place-items: center; font: 12.5px/1.7 "Inter", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
-.card { box-sizing: border-box; max-width: 540px; max-height: calc(100% - 48px); overflow: auto; margin: 24px; padding: 34px 38px 30px; background: var(--surface); color: var(--fg-dim); border: 1px solid var(--line); box-shadow: 3px 4px 19px 5px rgba(0, 0, 0, 0.25); }
+.card { box-sizing: border-box; border-radius: 5px; max-width: 540px; max-height: calc(100% - 48px); overflow: auto; margin: 24px; padding: 34px 38px 30px; background: var(--surface); color: var(--fg-dim); border: 1px solid var(--line); box-shadow: 3px 4px 19px 5px rgba(0, 0, 0, 0.25); }
 h1 { font-size: 46px; font-weight: 700; line-height: 0.95; letter-spacing: -0.045em; color: var(--fg); margin: 0 0 20px; }
 h1 span { color: #fc9803; }
 p { margin: 0 0 9px; }

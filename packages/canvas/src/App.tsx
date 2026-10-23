@@ -345,7 +345,7 @@ export function App() {
       </main>
       <ToolRail />
       <TopBar />
-      {/* Capture Screens has its own (Live.tsx); the device tab only the toggles, its Capture view is in its bar */}
+      {/* Capture Screens has its own (Live.tsx); the device tab only the tools, its Capture view is in its bar */}
       {(view !== "live" || deviceApi) && <FloatStack className="stage-stack" main={view === "board" ? send : undefined} onMain={onSend} />}
       <Inspector />
       <StatusLine onCommand={runCommand} />

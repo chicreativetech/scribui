@@ -4,6 +4,14 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
+## 0.2.4 (unreleased)
+
+- **A dock at the bottom centre** replaces the round buttons in the bottom-right corner. It has **Select**, **Comment** and **Add screen** as icons, whose names slide out on hover, next to **Capture view** in Capture Screens and **Send** in Review. On the vision board it has Select and Image.
+- **Tablet, Panel and Pen mode are back on the tool rail**, with Elements in Review.
+- **The capture note is easier to see:** in the desktop app's Capture Screens tab it shows over your app, just above the dock, and goes away after 8 seconds.
+- **The view switcher's highlight slides** to the tab you pick.
+- Panels, cards, menus and dialogs have slightly rounded corners.
+
 ## 0.2.3 (2026-10-22)
 
 - **The App tab is now Capture Screens**, and the view switcher has icons: a light bulb for Vision, a camera for Capture Screens (a phone for Device), a pen for Review.

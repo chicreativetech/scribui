@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { TOOLS, VISION_HINTS, noteCount, unresolvedCount, useStore, type Tool } from "../store";
 import { useVision } from "../vision";
 import { openImport } from "./Import";
@@ -13,6 +13,8 @@ import ruleIcon from "../assets/icons/rule.svg";
 import lineIcon from "../assets/icons/line.svg";
 import penIcon from "../assets/icons/pen.svg";
 import elementsIcon from "../assets/icons/elements.svg";
+import tabletIcon from "../assets/icons/tablet.svg";
+import panelIcon from "../assets/icons/panel.svg";
 
 const pad = (n: number) => String(n).padStart(3, "0");
 
@@ -36,6 +38,8 @@ export function TopBar() {
   const mobile = platform === "android" || platform === "ios";
   const status = round?.status.status;
   const count = useMemo(() => noteCount(annotations), [annotations]);
+  const switchRef = useRef<HTMLDivElement>(null);
+  useSwitchThumb(switchRef, view);
 
   return (
     <header className="bar">
@@ -75,7 +79,8 @@ export function TopBar() {
           </div>
         )}
       </div>
-      <div className="float pill-box view-switch" role="tablist" aria-label="view">
+      <div className="float pill-box view-switch" role="tablist" aria-label="view" ref={switchRef}>
+        <span className="thumb" aria-hidden="true" />
         <button
           className={`item ${view === "vision" ? "on" : ""}`}
           onClick={() => showView("vision")}
@@ -111,6 +116,33 @@ export function TopBar() {
       </div>
     </header>
   );
+}
+
+/** Slides the switch's accent thumb under the selected tab: placed without
+ *  animating on first paint, then eased across on every switch (and kept in
+ *  place when the tabs resize, e.g. the Capture tab appearing). */
+function useSwitchThumb(ref: React.RefObject<HTMLDivElement | null>, view: string) {
+  useLayoutEffect(() => {
+    const box = ref.current;
+    const thumb = box?.querySelector<HTMLElement>(".thumb");
+    if (!box || !thumb) return;
+    const place = () => {
+      const on = box.querySelector<HTMLElement>(".item.on");
+      thumb.style.opacity = on ? "1" : "0";
+      if (!on) return;
+      thumb.style.width = `${on.offsetWidth}px`;
+      thumb.style.transform = `translateX(${on.offsetLeft}px)`;
+    };
+    place();
+    // the first placement lands without a slide; later ones animate
+    const raf = requestAnimationFrame(() => box.classList.add("ready"));
+    const ro = new ResizeObserver(place);
+    ro.observe(box);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [ref, view]);
 }
 
 /** The view switcher's icons: a light bulb (ideas), a camera, a phone, a pen. */
@@ -254,6 +286,9 @@ export function ToolRail() {
     (s) => !s.round || s.round.status.status === "sent" || s.round.status.status === "applied",
   );
   const showOutlines = useStore((s) => s.showOutlines);
+  const penMode = useStore((s) => s.penMode);
+  const inspectorOpen = useStore((s) => s.inspectorOpen);
+  const paired = useStore((s) => s.lan.paired);
   const set = useStore((s) => s.set);
   const view = useStore((s) => s.view);
   const vision = view === "vision";
@@ -333,8 +368,22 @@ export function ToolRail() {
         </section>
       )}
 
-      {view === "board" && (
-        <div className="toggles">
+      <div className="toggles">
+        <Toggle
+          on={paired > 0}
+          icon={<img className="icon" src={tabletIcon} width={12} height={12} alt="" />}
+          label={paired > 0 ? `Tablet · ${paired}` : "Tablet"}
+          onClick={() => set({ lanOpen: true })}
+          title="review on a tablet: show a pairing QR code"
+        />
+        <Toggle
+          on={inspectorOpen}
+          icon={<img className="icon" src={panelIcon} width={12} height={12} alt="" />}
+          label="Panel"
+          onClick={() => set({ inspectorOpen: !inspectorOpen })}
+          title="the notes and files panel (tab)"
+        />
+        {view === "board" && (
           <Toggle
             on={showOutlines}
             icon={<img className="icon" src={elementsIcon} width={7} height={10} alt="" />}
@@ -342,8 +391,15 @@ export function ToolRail() {
             onClick={() => set({ showOutlines: !showOutlines })}
             title="show all element outlines (E)"
           />
-        </div>
-      )}
+        )}
+        <Toggle
+          on={penMode}
+          icon={<img className="icon" src={penIcon} width={12} height={12} alt="" />}
+          label="Pen mode"
+          onClick={() => set({ penMode: !penMode })}
+          title="pen mode: pen draws, touch pans (turns on with the first pen stroke)"
+        />
+      </div>
     </nav>
   );
 }

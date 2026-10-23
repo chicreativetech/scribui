@@ -39,6 +39,8 @@
   --rail-w: 132px;
   --top-h: 35px;
   --side-w: 290px;
+  /* the corners of every box and card (the dock is rounder) */
+  --radius: 5px;
   color-scheme: light;
 }
 
@@ -108,8 +110,11 @@ kbd {
   --right-space: calc(var(--gap) + var(--panel-space));
 }
 .app.with-panel { --panel-space: calc(var(--side-w) + 8px); }
-.float { position: absolute; z-index: 30; background: var(--surface); border: 1px solid var(--panel-line); box-shadow: var(--panel-shadow); }
+.float { position: absolute; z-index: 30; background: var(--surface); border: 1px solid var(--panel-line); box-shadow: var(--panel-shadow); border-radius: var(--radius); }
 .dim { color: var(--fg-dim); }
+/* the other boxes and cards share the panels' corners */
+.popover, .modal, .toast, .ro-banner, .empty-board .box, .live-pane, .intro-card, .device-wait, .device-progress, .view-switch .item, .view-switch .thumb { border-radius: var(--radius); }
+.live-pane, .modal { overflow: hidden; }
 .faint { color: var(--fg-faint); }
 .warn { color: var(--yellow); }
 .err { color: var(--red); }
@@ -153,8 +158,16 @@ kbd {
 .toggle:hover { color: var(--fg); }
 .view-switch { grid-column: 2; gap: 4px; padding: 0 4px; }
 .view-switch .item { min-width: 96px; height: 27px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; font: 600 12px/1 var(--sans); }
-.view-switch .item:not(.on) { border-color: transparent; color: var(--fg-dim); }
-.view-switch .item:not(.on):hover { color: var(--fg); }
+.view-switch .item { position: relative; z-index: 1; background: transparent; border-color: transparent; transition: color 160ms ease; }
+.view-switch .item:not(.on) { color: var(--fg-dim); }
+.view-switch .item:not(.on):hover { color: var(--fg); background: transparent; }
+/* the accent block behind the selected tab, slid across by useSwitchThumb */
+.view-switch .thumb {
+  position: absolute; top: 50%; left: 0; height: 27px; margin-top: -13.5px; width: 0;
+  background: var(--accent); border: 1px solid var(--on-border); box-sizing: border-box; pointer-events: none; opacity: 0;
+}
+.view-switch.ready .thumb { transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1); }
+@media (prefers-reduced-motion: reduce) { .view-switch.ready .thumb { transition: none; } }
 .round-select {
   appearance: none; background: transparent; border: 0; color: var(--fg); font: 600 12px var(--sans); cursor: pointer; padding: 0;
 }
@@ -293,7 +306,8 @@ kbd {
 }
 .hover-label .lv { opacity: 0.65; margin-left: 6px; }
 .popover {
-  position: absolute; z-index: 20; min-width: 280px; max-width: 360px; background: var(--surface);
+  /* above the panels and the dock */
+  position: absolute; z-index: 35; min-width: 280px; max-width: 360px; background: var(--surface);
   border: 1px solid var(--line-2); box-shadow: 0 18px 40px -10px rgba(0, 0, 0, 0.6);
 }
 .popover .head {
@@ -426,11 +440,14 @@ kbd {
 .help-grid .r span:last-child { color: var(--fg); }
 
 /* ───────── toasts & banners ───────── */
-.toasts { position: absolute; right: calc(var(--right-space) + 8px + var(--stack-w)); bottom: 44px; display: flex; flex-direction: column; gap: 6px; z-index: 40; pointer-events: none; }
+.toasts { position: absolute; left: var(--left-space); right: var(--right-space); bottom: calc(var(--gap) + 26px + var(--dock-above) + var(--dock-h) + 12px); display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 40; pointer-events: none; }
 .toast {
   pointer-events: auto; background: var(--surface); border: 1px solid var(--line-2); border-left: 3px solid var(--blue);
-  padding: 8px 10px; font-size: 11.5px; display: flex; align-items: center; gap: 12px; max-width: 420px;
+  padding: 8px 10px; font: 500 12px/1.3 var(--sans); display: flex; align-items: center; gap: 12px; max-width: 420px;
+  box-shadow: var(--panel-shadow); animation: toast-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+@keyframes toast-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
 .toast.ok { border-left-color: var(--green); }
 .toast.warn { border-left-color: var(--yellow); }
 .toast.err { border-left-color: var(--red); }
@@ -530,8 +547,10 @@ kbd {
 .live-address .toggle.spin { animation: live-spin 0.9s linear infinite; }
 @keyframes live-spin { to { transform: rotate(360deg); } }
 /* desktop: the app's view covers the pane, so toasts go beside it, over the status line, one at a time */
-.desktop-live .app.live-view .toasts { bottom: 3px; }
+.desktop-live .app.live-view .toasts { bottom: 3px; align-items: flex-end; }
 .desktop-live .app.live-view .toast:not(:last-child) { display: none; }
+/* …and in Capture Screens, the desktop shows the latest beside the round buttons, over the app (floatStack.ts) */
+.native-toasts .app.live-view .toasts { display: none; }
 
 /* device tab (mobile projects in the desktop app) */
 .device-pick { max-width: 240px; }
@@ -762,18 +781,41 @@ kbd {
 .live-help { font-size: 13px; }
 .intro-button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 
-/* ───────── the round buttons, bottom right (FloatStack.tsx; in the desktop's Capture Screens tab, floatStack.ts) ───────── */
-.app { --stack-w: 104px; }
-.float-stack { position: absolute; right: 14px; bottom: 14px; z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; }
-.float-stack.stage-stack { z-index: 30; right: calc(var(--right-space) + 14px); bottom: calc(var(--gap) + 26px + 14px); }
-.fab {
-  pointer-events: auto; flex: none; border-radius: 50%; padding: 0 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  text-align: center; font: 700 11px/1.15 var(--sans); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3); transition: transform 0.08s, filter 0.08s;
+/* ───────── the dock, bottom centre (FloatStack.tsx; in the desktop's Capture Screens tab, floatStack.ts) ───────── */
+/* its height and its gap to the status line, for what sits above it */
+.app { --dock-h: 55px; --dock-above: 38px; }
+.dock {
+  position: absolute; left: 50%; bottom: 30px; z-index: 6; height: var(--dock-h); display: flex; align-items: center; gap: 22px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--panel-line); border-radius: 33px; box-shadow: var(--panel-shadow);
+  transform: translateX(-50%);
 }
-.fab.small { width: 68px; height: 68px; background: var(--surface); color: var(--fg); border: 1px solid var(--line); font-weight: 600; font-size: 10.5px; }
-.fab.small.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.fab.main { width: 84px; height: 84px; background: var(--accent); color: var(--accent-ink); border: 0; font-size: 12px; }
-.fab:hover:not(:disabled) { filter: brightness(1.06); }
-.fab:active:not(:disabled) { transform: scale(0.95); }
-.fab.main:disabled { background: var(--surface-3); color: var(--fg-faint); cursor: default; }
-.fab:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+/* over the board: centred on it, the dock's gap above the status line */
+.dock.stage-stack { z-index: 30; left: calc((var(--left-space) + 100% - var(--right-space)) / 2); bottom: calc(var(--gap) + 26px + var(--dock-above)); }
+/* the hovered toggle widens and the others give it room, so the dock keeps its width */
+.dock-toggles { display: flex; height: 45px; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3)); }
+.dock-toggle {
+  flex: 1 1 0; min-width: 0; height: 100%; padding: 0 4px; display: flex; align-items: center; justify-content: center;
+  transition: flex-grow 160ms ease-out; background: var(--surface); color: var(--fg); border: 1px solid var(--line); font: 600 10.5px/1 var(--sans);
+}
+.dock-toggle + .dock-toggle { margin-left: -1px; }
+.dock-toggle:first-child { border-radius: 31px 0 0 31px; }
+.dock-toggle:last-child { border-radius: 0 31px 31px 0; }
+.dock-toggle.on { position: relative; background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+/* icon only; on hover the icon shrinks and the name slides out beside it */
+.dock-toggle svg { flex: none; width: 18px; height: 18px; transition: width 160ms ease-out, height 160ms ease-out; }
+.dock-label { max-width: 0; margin-left: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; opacity: 0; transition: max-width 160ms ease-out, margin-left 160ms ease-out, opacity 120ms ease-out; }
+.dock-toggle:hover svg, .dock-toggle:focus-visible svg { width: 11px; height: 11px; }
+.dock-toggle:hover, .dock-toggle:focus-visible { flex-grow: 1.9; }
+.dock-toggle:hover .dock-label, .dock-toggle:focus-visible .dock-label { max-width: 80px; margin-left: 4px; opacity: 1; }
+.dock-main {
+  height: 45px; width: 159px; padding: 0 12px; display: flex; align-items: center; justify-content: center; gap: 11px; white-space: nowrap;
+  background: var(--accent); color: var(--accent-ink); border: 1px solid var(--line); border-radius: 31px; font: 600 12px/1 var(--sans);
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3)); transition: transform 80ms, filter 80ms;
+}
+.dock-main svg { flex: none; }
+.dock-toggle:hover:not(.on) { background: var(--surface-2); }
+.dock-main:hover:not(:disabled) { filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3)) brightness(1.06); }
+.dock-main:active:not(:disabled), .dock-toggle:active { transform: scale(0.96); }
+.dock-main:disabled { background: var(--surface-3); color: var(--fg-faint); cursor: default; }
+.dock-toggle:focus-visible, .dock-main:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .dock-toggle, .dock-toggle svg, .dock-label { transition: none; } }
