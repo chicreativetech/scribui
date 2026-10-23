@@ -3,6 +3,7 @@ import { bboxOf, indexFor, sketchPartsBounds, type Annotation, type Rect, type S
 import { worldToScreen, type TileLayout } from "../layout";
 import { describeElement, elementOf, isReadOnly, useCapturingScreens, useMarkers, useStore } from "../store";
 import { measureText } from "../vision";
+import { kindName, notePrompt } from "../noteWords";
 import { annotationFromInk, focusTile } from "./Board";
 
 type Pt = [number, number];
@@ -196,11 +197,11 @@ function chipText(a: Annotation): string {
 }
 
 const KINDS = [
-  ["circle", "◯ circle"],
-  ["arrow", "→ arrow"],
-  ["remove", "✕ remove"],
-  ["handwriting", "✎ note"],
-  ["freehand", "∿ draw"],
+  ["circle", "◯ Change area"],
+  ["arrow", "→ Move"],
+  ["remove", "✕ Remove"],
+  ["handwriting", "✎ Note"],
+  ["freehand", "∿ Drawing"],
 ] as const;
 
 function KindChip({ a }: { a: Annotation }) {
@@ -374,24 +375,14 @@ function Editor({
     >
       <div className="head">
         <span>
-          <b>{num}</b> {a.kind === "rule" ? "rule for all screens" : a.kind === "sketch" ? (a.sketch?.shape === "drawing" ? "sketch" : `${a.sketch?.shape} sketch`) : a.kind}
+          <b>{num}</b> {kindName(a.kind, a.sketch?.shape)}
         </span>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{target}</span>
       </div>
       <textarea
         ref={ref}
         value={text}
-        placeholder={
-          a.kind === "sketch" && a.sketch?.shape === "text"
-            ? "Text to add here"
-            : a.kind === "sketch" && a.sketch?.shape === "drawing"
-            ? "Note for the agent: what is this sketch?"
-            : a.kind === "rule"
-            ? "e.g. Primary buttons are full width, 48pt tall"
-            : a.kind === "comment"
-              ? "What should change?"
-              : "Optional: what should change?"
-        }
+        placeholder={notePrompt(a.kind, a.sketch?.shape)}
         onChange={(e) => setText(e.target.value)}
         onBlur={() => commit()}
         onKeyDown={(e) => {
@@ -466,7 +457,7 @@ function Picker({ id, toScreen, tiles }: { id: string; toScreen: (t: TileLayout,
     <div className="popover" style={{ left: x, top: y + 30 }} onPointerDown={(e) => e.stopPropagation()}>
       <div className="head">
         <span>
-          <b>target</b> for {a.kind}
+          <b>target</b> for {kindName(a.kind, a.sketch?.shape)}
         </span>
         <span>
           <kbd>esc</kbd>

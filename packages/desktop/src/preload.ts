@@ -61,6 +61,8 @@ contextBridge.exposeInMainWorld("scribuiDesktop", {
           onStackPress: (cb: (id: string) => void) => listen("scribui:live-stack-press", (id) => cb(String(id))),
           /** The intro card over the app (words, button, theme; null removes it), and its button's presses. */
           card: (c: unknown) => ipcRenderer.send("scribui:live-card", JSON.parse(JSON.stringify(c ?? null))),
+          /** A tool rail tooltip over the app (its words, where, theme; null hides it). */
+          tip: (t: unknown) => ipcRenderer.send("scribui:live-tip", JSON.parse(JSON.stringify(t ?? null))),
           onCardClose: (cb: () => void) => listen("scribui:live-card-close", () => cb()),
         },
       }

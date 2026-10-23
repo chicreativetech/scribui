@@ -2,7 +2,7 @@
 
 **Point, don't describe.** A visual review layer between you and your coding agent.
 
-Your agent builds app screens. ScribUI captures them as tiles on a canvas. You circle, strike out, arrow and comment right on the screenshots, and every mark snaps to a real UI element. When you press **Send**, ScribUI writes precise, file-based instructions (`review.md`) that any agent can read: Claude Code, Codex, Cursor and others.
+Your agent builds app screens. ScribUI captures them as tiles on a canvas. You comment, move, remove and mark areas to change right on the screenshots, and every mark snaps to a real UI element. When you press **Send**, ScribUI writes precise, file-based instructions (`review.md`) that any agent can read: Claude Code, Codex, Cursor and others.
 
 The tool never edits your app and has no AI inside. It supplies context; your agent supplies the intelligence.
 
@@ -133,29 +133,33 @@ The desktop app does everything the terminal and the browser canvas do, in one w
 
 - **Setting up a project:** **Open app folder…** on a folder that isn't a ScribUI project yet walks you through what `scribui` asks in the terminal: the platform (the detected one is marked), where the web app runs (running dev servers are listed with their page titles) or the mobile app's id and build command, the tools that platform needs, and for mobile, the line to paste into your agent while ScribUI waits for it to list the screens.
 - **Installing tools:** the projects window lists the capture tools on your computer and installs the missing ones with **Install**: adb (downloaded from Google), AXe and Android Studio (with Homebrew, or winget on Windows), Playwright, and Xcode's selection when only the Command Line Tools are active. The output shows as it runs.
-- **Web:** the **Capture Screens** tab is your running app as a normal page, so logins, cookies and pages that refuse to be embedded all work. Size it to desktop, laptop, tablet or phone and press **Capture view** in the dock at the bottom (it's never in the screenshot). The dock also has **Select**, **Comment** and **Add screen** (their names show on hover); in Review it has **Send** instead of Capture view. Capture view is there even before a page loads, greyed out. After a capture, a note above the dock says where the screen went, with **show in Review**. The first time the tab opens, a card over the app says what to do there; **?** at the end of its bar shows it again.
-- **Mark up the app directly:** the Capture Screens and Device tabs have Review's own tool rail. Pick a Guide tool (comment, arrow, box, remove, circle) or sketch with the Sketch tools (draw, line, box, ellipse, text, fill: all one sketch until **Ready** or `⏎`, then a note), with their colour and stroke in the strip above the app. Select (`V`) or `Esc` goes back to clicking and typing in the app. Each mark becomes a note in **Review**, where you can change it, and **Send** sends them all. Rules are made in Review.
+- **Web:** the **Capture Screens** tab is your running app as a normal page, so logins, cookies and pages that refuse to be embedded all work. Size it to desktop, laptop, tablet or phone and press **Capture view** in the dock at the bottom (it's never in the screenshot). The dock also has **Select**, **Comment** and **Add screen** (their names show on hover); in Review it has **Send** instead of Capture view, and on the vision board **Select**, **Draw** and **Image**. Capture view is there even before a page loads, greyed out. After a capture, a note above the dock says where the screen went, with **show in Review**. The first time the tab opens, a card over the app says what to do there; **?** at the end of its bar shows it again.
+- **Mark up the app directly:** the Capture Screens and Device tabs have Review's own tool rail. Pick a Guide tool (Comment, Move, Add here, Remove, Change area) or sketch with the Sketch tools (draw, line, box, ellipse, text, fill: all one sketch until **Ready** or `⏎`, then a note), with their colour and stroke in the strip above the app. Select (`V`) or `Esc` goes back to clicking and typing in the app. Each mark becomes a note in **Review**, where you can change it, and **Send** sends them all. Rules are made in Review.
   - **Web:** the page keeps scrolling while a tool is on and only holds still while you draw a mark or type its note, so you can work down a whole page. The first mark on a page captures the whole page as a screen; more marks on the same page join it as long as the page hasn't changed (a changed page gets a new screen). Your marks stay on the page, on the elements you made them on, as you scroll, and come back when you return to the page; a mark whose element is gone is listed as "not found" instead.
   - **Android and iOS:** picking a tool holds the picture still. The first mark captures the screen, more marks join it, and `Esc` lets the device run again. The marks are then in Review.
-- **Android and iOS:** mobile projects get a **Device** tab with the emulator, phone or simulator live in it, and it's the only way their screens are captured. Use it with the mouse and keyboard (scrolling, typing, Back/Home, rotate) and press **Capture view**: ScribUI freezes the picture, reads the elements and checks the screen held still. iOS needs a Mac with Xcode, plus AXe.
+- **Android and iOS:** mobile projects get a **Device** tab with the emulator, phone or simulator live in it, and it's the only way their screens are captured. Use it with the mouse and keyboard (scrolling, typing, Back/Home, rotate) and press **Capture view** in the dock at the bottom, as in Capture Screens (the name and **replace "…"** stay in the bar above): ScribUI freezes the picture, reads the elements and checks the screen held still. iOS needs a Mac with Xcode, plus AXe.
 - **With the CLI:** when the app is installed, `scribui` and `scribui open` open the project in it; `--no-desktop` keeps the browser for web projects. Android and iOS projects always open in the app (without it, `scribui` says where to download it). Only one process captures a project at a time, so the CLI and MCP hand web captures to the app while it has the project open.
 - **Updates:** the app checks [Releases](https://github.com/chicreativetech/scribui/releases) when it starts and every few hours. On Windows and with the Linux AppImage it downloads updates and installs them when you quit (or **Help → Restart to Update**). Until macOS builds are signed, and for the `.deb`, it tells you a new version is out and links to it. **Help → Check for Updates…** checks now; what changed is in [CHANGELOG.md](CHANGELOG.md).
 - **Crashes:** crash reports stay on your computer. After a crash, the next launch offers to open a GitHub issue with the version and error filled in (you see everything before sending) or to show the files. **Help → Report a Problem…** and **Help → Show Logs and Crash Reports** work any time.
 
 ### Annotate
 
-Every mark snaps to a real UI element. Press a key to pick a tool:
+Every mark snaps to a real UI element. The Guide tools are named after what they tell the agent. Press a key to pick one:
 
-- **Comment** (`C`): click an element, type what should change, press `⏎`.
-- **Circle** (`O`): drag a loop around one or more elements, then optionally type.
-- **Remove** (`X`): click an element to strike it out.
-- **Arrow** (`A`): drag from an element to where it should go. End on another element ("move it next to this"), on empty space ("move it here"), or on a different screen (a flow between screens).
-- **Rectangle** (`R`): draw a box on empty space and type what to add there.
-- **Rule** (`U`): click an element and shift-click more, even on other screens. Press `⏎` and type a rule that applies everywhere, like *"Primary buttons are full width"*. Rules go to `rules.md` and apply to all future work, not just this round.
+| Tool | Key | How | What the agent is told |
+| --- | --- | --- | --- |
+| **Comment** | `C` | click an element, type, `⏎` | change this element: *your words* (on empty space: do *your words* there) |
+| **Move** | `A` | drag from an element to where it should go | move it next to the element you end on, or to the empty spot; ending on another screen says one screen leads to the other |
+| **Change area** | `O` | draw a loop around an area or a group, then type | change what's inside: *your words* |
+| **Add here** | `R` | drag a box on empty space, then type | add *your words* there, next to the elements around it (a box around an element means change it) |
+| **Remove** | `X` | click an element | remove it (your words, if any, say why) |
+| **Global rule** | `U` | click an element, shift-click more, even on other screens, `⏎`, type | a rule for every screen and every round, like *"Primary buttons are full width"*: it goes to `rules.md`, not just this round |
+
+Each note's box says what its words should be: *What should change?*, *What should go here?*, *Why move it? (optional)* and so on.
 
 **Sketch** what you want with draw (`P`), line (`I`), box (`B`), ellipse (`Q`), text (`T`) and fill (`G`). The fill tool is a paint bucket: click inside a closed area to fill it, even one drawn from several lines and strokes; small gaps in hand-drawn lines are bridged. Click a line or a shape's outline to recolour it. Everything you sketch on a screen is one sketch, whatever the tool and however often you lift the pen, until you press **Ready** (or `⏎`). Then add one note for the whole sketch. Undo and redo (`⌘Z`, `⇧⌘Z` or the buttons) step through the sketch while you draw it. The agent sees the sketch in the screenshot, with its parts, the words of its text, what it's drawn over and your note.
 
-After each mark, the element it attached to flashes, and a chip under the mark names it, e.g. `button#payButton "Pay now"`. When that's wrong, switch to select (`V`), click the chip and pick the parent, a child or "empty area". A yellow chip means ScribUI couldn't tell what you meant; press `N` to jump to the next one. Typing into a comment right next to a circle, arrow or remove merges it into that mark.
+After each mark, the element it attached to flashes, and a chip under the mark names it, e.g. `button#payButton "Pay now"`. When that's wrong, switch to select (`V`), click the chip and pick the parent, a child or "empty area". A yellow chip means ScribUI couldn't tell what you meant; press `N` to jump to the next one. Typing into a comment right next to a Change area, Move or Remove mark merges it into that mark.
 
 The **notes** tab lists every mark, and **review.md** shows exactly what the agent will receive, live as you draw. Everything autosaves; `⌘Z` undoes.
 
@@ -223,7 +227,7 @@ Click **Tablet** in the tool rail. It shows a QR code with a one-time pairing li
 
 Devices stay paired until you click **unpair all** in the same dialog or quit ScribUI. An unpaired device is locked out at once and has to scan a new code.
 
-With a stylus (Apple Pencil, S Pen, Surface Pen) you don't need to pick tools: loops become circles, hooked strokes become arrows, crossings become removals, and short strokes become a handwritten note. Tap the chip to change what a stroke became. Fingers pan and zoom.
+With a stylus (Apple Pencil, S Pen, Surface Pen) you don't need to pick tools: loops become Change area marks, hooked strokes become Move marks, crossings become removals, and short strokes become a handwritten note. Tap the chip to change what a stroke became. Fingers pan and zoom.
 
 ### Let the agent drive (MCP)
 
@@ -259,18 +263,18 @@ A developer tool with a terminal soul: a keyboard-first, monospace interface wit
 | --- | --- | --- |
 | `L` | Review / app | switch between Review and your running app |
 | `V` | select | click an element or annotation, drag to pan or move |
-| `C` | comment | click to pin, then type |
-| `O` | circle | drag a loop around something |
-| `A` | arrow | drag start → end; may end on another tile (a flow) |
-| `R` | rectangle | drag a box where something should go |
-| `X` | remove | click an element to strike it out |
+| `C` | comment | click an element and say what should change |
+| `O` | change area | loop around an area or group that should change |
+| `A` | move | drag an element to where it should go; to another screen: one leads to the other |
+| `R` | add here | drag a box where something new should go |
+| `X` | remove | click an element that should go |
 | `P` `I` `B` `Q` `T` `G` | sketch | draw, line, box, ellipse, text, fill: all one sketch until `⏎` (Ready) |
-| `U` | rule | shift-click elements on any screens, `⏎`, type a rule |
+| `U` | global rule | shift-click elements on any screens, `⏎`, type a rule for every screen and round |
 
 - **Element layer.** Hover shows the element under the cursor, `alt` walks from child to parent, and `E` shows every outline so you can check capture quality.
 - **Resolution chips.** Each mark shows what it resolved to (`button#payButton "Pay now"`). Click a chip to pick the parent, a child or "empty area" instead. Your choice is never overwritten.
 - **Inspector.** `notes`, a live `review.md` preview, the element `tree`, and `rules.md`.
-- **Pen.** A stylus (Apple Pencil, S Pen, Surface Pen) or drawing tablet turns on pen mode. Loops become circles, hooked lines become arrows, crossings become removals and short strokes become handwriting, and a chip lets you change the result with one tap. Handwriting stays ink: the agent gets a cropped PNG. With the sketch tools the pen just draws, as a mouse does.
+- **Pen.** A stylus (Apple Pencil, S Pen, Surface Pen) or drawing tablet turns on pen mode. Loops become Change area marks, hooked lines become Move marks, crossings become removals and short strokes become handwriting, and a chip lets you change the result with one tap. Handwriting stays ink: the agent gets a cropped PNG. With the sketch tools the pen just draws, as a mouse does.
 - **Live.** The canvas updates when the agent captures a new round or marks one applied.
 - **Also:** `⌘Z`/`⌘⇧Z` undo and redo, autosave, `F` fits the board, a double-click focuses a screen, `:theme light` switches theme, `?` lists all keys.
 

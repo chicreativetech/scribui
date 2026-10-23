@@ -4,6 +4,15 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
+## 0.2.6 (unreleased)
+
+- **The guide tools are named after what they tell the agent:** Comment, **Move** (was Arrow), **Change area** (was Circle), **Add here** (was Rect), Remove and **Global rule** (was Rule). Their tooltips say what each one asks for, and each note's box asks for the right words: *What should change?*, *What should go here?*, *Why move it? (optional)*.
+- **Tooltips on the tool rail show in full** in the desktop app's Capture Screens tab; they were cut off by your app.
+- The view switcher's highlight has no border in light mode, and the projects window's boxes have rounded corners.
+- **The vision board's dock has Draw** between Select and Image (it stays on the rail too).
+- **Capture view is in the dock on the Device tab too** (Android and iOS), as in Capture Screens, instead of in the bar above the device. The name and "replace …" fields stay in the bar.
+- **Zoomed out in Review, the group headings fade away** before the screens' names reach them, instead of their line running through the names.
+
 ## 0.2.5 (2026-10-23)
 
 - **Capturing a scrolled page on a small screen keeps its scroll.** When the size you picked (like Desktop) is bigger than the space for it and shown zoomed out, Capture view took the top of the page instead of what you scrolled to.

@@ -54,6 +54,8 @@ type DesktopLive = {
   onStackPress?(cb: (id: string) => void): () => void;
   /** Desktop 6+: the intro card, a view of its own over the app's (null removes it). */
   card?(card: (IntroCard & { theme: "light" | "dark" }) | null): void;
+  /** A tool rail tooltip, a view of its own over the app's (null hides it). */
+  tip?(tip: { id: number; parts: { text: string; style: "" | "b" | "kbd" | "dim" }[]; x: number; y: number; theme: "light" | "dark" } | null): void;
   onCardClose?(cb: () => void): () => void;
 };
 declare global {
@@ -301,6 +303,48 @@ function WebLive() {
     if (!native?.stack || !shown) return;
     document.documentElement.classList.add("native-toasts");
     return () => document.documentElement.classList.remove("native-toasts");
+  }, [shown]);
+
+  // the rail's tooltips open over the app, under its view: the desktop shows them instead
+  useEffect(() => {
+    const show = native?.tip;
+    if (!show || !shown) return;
+    document.documentElement.classList.add("native-tips");
+    let seq = 0;
+    let timer = 0;
+    let on: Element | null = null;
+    const hide = () => {
+      clearTimeout(timer);
+      if (on) show(null);
+      on = null;
+    };
+    const over = (e: PointerEvent) => {
+      const tool = (e.target as Element | null)?.closest?.(".rail .tool");
+      if (tool === on) return;
+      hide();
+      const tip = tool?.querySelector(":scope > .tip");
+      if (!tool || !tip || (tool as HTMLButtonElement).disabled) return;
+      on = tool;
+      timer = window.setTimeout(() => {
+        const parts = [...tip.childNodes].map((n) => {
+          const el = n.nodeType === 1 ? (n as Element) : null;
+          const style = el?.tagName === "B" ? "b" : el?.tagName === "KBD" ? "kbd" : el?.classList.contains("dim") ? "dim" : "";
+          return { text: n.textContent ?? "", style } as const;
+        }).filter((p) => p.text);
+        const rail = tool.closest(".rail")!.getBoundingClientRect();
+        show({ id: ++seq, parts, x: rail.right + 6, y: tool.getBoundingClientRect().top - 4, theme: useStore.getState().theme });
+      }, 350);
+    };
+    document.addEventListener("pointerover", over);
+    document.addEventListener("pointerdown", hide);
+    document.documentElement.addEventListener("pointerleave", hide);
+    return () => {
+      hide();
+      document.removeEventListener("pointerover", over);
+      document.removeEventListener("pointerdown", hide);
+      document.documentElement.removeEventListener("pointerleave", hide);
+      document.documentElement.classList.remove("native-tips");
+    };
   }, [shown]);
   useEffect(
     () =>

@@ -12,6 +12,7 @@ import { DeviceView } from "./deviceView.js";
 import { hintSeen, markSeen } from "./hints.js";
 import type { Rect, Size } from "./liveLayout.js";
 import { readStack } from "./floatStack.js";
+import { readTip } from "./liveTip.js";
 import { readCard } from "./liveCard.js";
 import { LiveView } from "./liveView.js";
 import { captureFromCanvas, LIVE_FRAME, saveViaServer, type SaveView } from "./webCapture.js";
@@ -414,6 +415,14 @@ export function registerCanvasApi() {
   ipcMain.on("scribui:live-place", (e, area: unknown, sz: unknown) => {
     try {
       senderProject(e).live.place(rect(area), size(sz));
+    } catch {
+      /* not the canvas */
+    }
+  });
+
+  ipcMain.on("scribui:live-tip", (e, t: unknown) => {
+    try {
+      senderProject(e).live.setTip(readTip(t));
     } catch {
       /* not the canvas */
     }

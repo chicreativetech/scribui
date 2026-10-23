@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { shell, WebContentsView, type BrowserWindow, type WebContents } from "electron";
 import type { ViewSaveResult } from "@scribui/server";
 import { FloatStack, type Stack } from "./floatStack.js";
+import { LiveTip, type Tip } from "./liveTip.js";
 import { LiveCard, type Card } from "./liveCard.js";
 import { layoutLiveView, scaleRect, type LiveLayout, type Rect, type Size } from "./liveLayout.js";
 import { captureFromView, nextPaint, type LiveCaptureRequest, type SaveView } from "./webCapture.js";
@@ -48,6 +49,7 @@ export class LiveView {
   private marks: MarkList | null = null;
   private stack: FloatStack | null = null;
   private card: LiveCard | null = null;
+  private tip: LiveTip | null = null;
 
   constructor(
     private win: BrowserWindow,
@@ -74,6 +76,14 @@ export class LiveView {
     if (stack && !this.stack) this.stack = new FloatStack(this.win, (id) => this.onStackPress(id));
     this.stack?.set(stack);
     this.apply();
+  }
+
+  /** A tool rail tooltip over the app, from the canvas; null hides it. */
+  setTip(tip: Tip | null) {
+    if (tip && !this.tip) this.tip = new LiveTip(this.win);
+    this.tip?.set(tip);
+    this.tip?.place(this.win.webContents.getZoomFactor());
+    this.restack();
   }
 
   /** The canvas's free area for the app (CSS px) and the chosen size; null area hides the view. */
@@ -185,6 +195,8 @@ export class LiveView {
     this.stack = null;
     this.card?.dispose();
     this.card = null;
+    this.tip?.dispose();
+    this.tip = null;
     if (!view) return;
     if (!this.win.isDestroyed()) this.win.contentView.removeChildView(view);
     view.webContents.close();
@@ -198,6 +210,7 @@ export class LiveView {
     const area = this.area && scaleRect(this.area, factor);
     this.card?.place(area, factor);
     this.stack?.place(area, factor);
+    this.tip?.place(factor);
     this.restack();
     if (!view) return this.report();
     if (!this.area || this.error) {
@@ -212,9 +225,9 @@ export class LiveView {
     this.report();
   }
 
-  /** The app's view, then the card, then the buttons on top; views added later go on top, so put these back. */
+  /** The app's view, then the card, the dock and its toast, then a tooltip on top; views added later go on top, so put these back. */
   private restack() {
-    const want = [this.card?.view, this.stack?.view, this.stack?.toastView].filter((v): v is WebContentsView => !!v);
+    const want = [this.card?.view, this.stack?.view, this.stack?.toastView, this.tip?.view].filter((v): v is WebContentsView => !!v);
     const kids = this.win.contentView.children;
     if (want.every((v, i) => kids.at(i - want.length) === v)) return;
     for (const v of want) this.win.contentView.addChildView(v);

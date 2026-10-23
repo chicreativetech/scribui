@@ -4,6 +4,7 @@ import { api } from "../api";
 import { compileCurrent, describeElement, elementOf, useMarkers, useStore } from "../store";
 import { focusTile, panToAnnotation } from "./Board";
 import { OPEN_NOTE } from "./Marking";
+import { kindName } from "../noteWords";
 
 export function Inspector() {
   const open = useStore((s) => s.inspectorOpen);
@@ -35,14 +36,14 @@ export function Inspector() {
 /* ───────── notes ───────── */
 
 const KIND_GLYPH: Record<string, string> = {
-  comment: "▸ comment",
-  circle: "◯ circle",
-  arrow: "→ arrow",
-  rectangle: "□ rect",
-  remove: "✕ remove",
-  freehand: "∿ draw",
-  rule: "§ rule",
-  sketch: "✎ sketch",
+  comment: "▸ Comment",
+  circle: "◯ Change area",
+  arrow: "→ Move",
+  rectangle: "□ Add here",
+  remove: "✕ Remove",
+  freehand: "∿ Drawing",
+  rule: "§ Global rule",
+  sketch: "✎ Sketch",
 };
 
 function NotesPane() {
@@ -63,7 +64,7 @@ function NotesPane() {
         </div>
         Pick a tool on the left and mark up a screen.
         <br />
-        <b>C</b> comment · <b>O</b> circle · <b>A</b> arrow · <b>X</b> remove
+        <b>C</b> comment · <b>A</b> move · <b>O</b> change area · <b>X</b> remove
         <br />
         Every mark snaps to a real UI element.
       </div>
@@ -117,7 +118,7 @@ function NotesPane() {
                   <div className={`num ${a.kind === "rule" ? "u" : unresolved ? "w" : ""}`}>{num}</div>
                   <div style={{ minWidth: 0 }}>
                     <div className="kind">
-                      <span>{a.kind === "sketch" && a.sketch ? `✎ ${a.sketch.shape === "drawing" ? "sketch" : a.sketch.shape}` : KIND_GLYPH[a.kind]}</span>
+                      <span>{a.kind === "sketch" && a.sketch ? `✎ ${kindName("sketch", a.sketch.shape)}` : KIND_GLYPH[a.kind]}</span>
                       {target && <span className="t">{describeElement(target)}</span>}
                       {!target && a.resolution?.status === "region" && <span className="t">empty area</span>}
                       {a.resolution?.elements && a.resolution.elements.length > 1 && (

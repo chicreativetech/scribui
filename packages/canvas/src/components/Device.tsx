@@ -5,6 +5,7 @@ import { Spinner } from "./Capture";
 import { addDeviceMark, liveTool, MarkPad } from "./Marking";
 import type { SurfaceMark } from "../markSurface";
 import { ToolSettings } from "./ToolSettings";
+import { captureButton, FloatStack } from "./FloatStack";
 
 /**
  * The device tab of a mobile project, in the desktop app: an emulator, phone
@@ -674,9 +675,6 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
             </option>
           ))}
         </select>
-        <button className="live-capture" onClick={() => void capture()} disabled={state.status !== "live" || busy} title="screenshot the device exactly as it is now">
-          {busy ? <Spinner /> : "●"} Capture view
-        </button>
       </div>
       <ToolSettings inline />
       {!canDecode && (
@@ -846,6 +844,8 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
           </div>
         )}
       </div>
+      {/* the dock, as in Capture Screens: the tools and Capture view */}
+      <FloatStack main={captureButton(state.status === "live", busy)} onMain={() => void capture()} />
     </section>
   );
 }

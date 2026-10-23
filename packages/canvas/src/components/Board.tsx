@@ -20,7 +20,10 @@ import {
   type SketchStyle,
   type UIElement,
 } from "@scribui/core";
-import { fitCamera, quantize, screenToWorld, type Camera, type TileLayout } from "../layout";
+import { fitCamera, GROUP_HEADER, quantize, screenToWorld, type Camera, type TileLayout } from "../layout";
+
+/** World pixels a group head takes from its top: its index, name and rule (styles.css .group-head). */
+const HEAD_USED = 87;
 import { isReadOnly, isSketchTool, textOfTyping, tileOf, useMarkers, useStore } from "../store";
 import { paintBucket } from "../paint";
 import { measureText } from "../vision";
@@ -583,6 +586,10 @@ export function Board() {
     isReadOnly() ? "readonly" : "",
   ].join(" ");
 
+  // the group heads zoom with the board, the screens' names above the tiles don't: zoomed out, the
+  // names would climb into the heads, so the heads fade out before they meet (styles.css .group-head)
+  const headOpacity = Math.min(1, Math.max(0, ((GROUP_HEADER - HEAD_USED) * camera.zoom - 28) / 12));
+
   return (
     <div
       ref={ref}
@@ -604,8 +611,8 @@ export function Board() {
         className="world"
         style={{ transform: `scale(${camera.zoom}) translate(${-camera.x}px, ${-camera.y}px)` }}
       >
-        {groups.map((g) => (
-          <div key={g.name} className="group-head" style={{ left: g.x, top: g.y, width: Math.max(g.w, 420) }}>
+        {headOpacity > 0 && groups.map((g) => (
+          <div key={g.name} className="group-head" style={{ left: g.x, top: g.y, width: Math.max(g.w, 420), opacity: headOpacity }}>
             <div className="idx">
               {String(g.index).padStart(2, "0")} — {g.count} screen{g.count === 1 ? "" : "s"}
             </div>

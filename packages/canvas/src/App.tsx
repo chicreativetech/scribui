@@ -5,7 +5,6 @@ import { fitCamera } from "./layout";
 import { TOOLS, isReadOnly, useStore } from "./store";
 import { animateCamera, Board, boardViewport, fitAll, focusTile, panToAnnotation, unfocus, zoomAt } from "./components/Board";
 import { StatusLine, ToolRail, TopBar } from "./components/Chrome";
-import { deviceApi } from "./components/Device";
 import { FloatStack, useSendButton } from "./components/FloatStack";
 import { LanDialog, LastChanges, NextStepBanner } from "./components/Capture";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
@@ -345,8 +344,8 @@ export function App() {
       </main>
       <ToolRail />
       <TopBar />
-      {/* Capture Screens has its own (Live.tsx); the device tab only the tools, its Capture view is in its bar */}
-      {(view !== "live" || deviceApi) && <FloatStack className="stage-stack" main={view === "board" ? send : undefined} onMain={onSend} />}
+      {/* Capture Screens and the Device tab have their own, with Capture view (Live.tsx, Device.tsx) */}
+      {view !== "live" && <FloatStack className="stage-stack" main={view === "board" ? send : undefined} onMain={onSend} />}
       <Inspector />
       <StatusLine onCommand={runCommand} />
       <SendDialog />

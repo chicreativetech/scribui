@@ -212,13 +212,13 @@ const KEYS: [string, [string, string][]][] = [
     "Tools",
     [
       ["V", "select · drag to pan"],
-      ["C", "comment"],
-      ["O", "circle"],
-      ["A", "arrow (can end on another tile)"],
-      ["R", "rectangle: add something here"],
-      ["X", "remove element"],
-      ["P", "freehand"],
-      ["U", "rule: shift-click elements, ⏎"],
+      ["C", "comment: what should change here"],
+      ["O", "change area: loop around what should change"],
+      ["A", "move: drag an element to where it should go (to another screen: one leads to the other)"],
+      ["R", "add here: a box where something new goes"],
+      ["X", "remove an element"],
+      ["P", "draw"],
+      ["U", "global rule, for every screen: shift-click elements, ⏎"],
     ],
   ],
   [
@@ -314,7 +314,7 @@ export function HelpDialog() {
             ))}
           </div>
           <div className="dim" style={{ marginTop: 16, fontSize: 11 }}>
-            Pen: the first stroke with a stylus (Apple Pencil, S Pen, Surface Pen) turns on pen mode. Loops become circles, hooked lines arrows, crossings removals,
+            Pen: the first stroke with a stylus (Apple Pencil, S Pen, Surface Pen) turns on pen mode. Loops become Change area marks, hooked lines Move marks, crossings removals,
             short strokes handwriting. Tap the chip to change it.
           </div>
         </div>

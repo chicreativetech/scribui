@@ -865,7 +865,7 @@ test("device tab: picking a tool holds the screen, the first mark captures it, l
   const screen = page.locator(".device-screen");
   await expect(screen).toBeVisible();
 
-  await page.getByRole("button", { name: "comment (C)" }).click();
+  await page.getByRole("button", { name: "Comment (C)" }).click();
   await expect(page.locator(".mark-pad")).toBeVisible();
   const box = (await screen.boundingBox())!;
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.25);
@@ -878,19 +878,19 @@ test("device tab: picking a tool holds the screen, the first mark captures it, l
   expect(Math.abs(first.geometry.y - 422)).toBeLessThan(8);
 
   // a second mark on the held screen joins it: no second capture
-  await page.getByRole("button", { name: "remove (X)" }).click();
+  await page.getByRole("button", { name: "Remove (X)" }).click();
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.75);
   await page.keyboard.press("Enter");
   await expect.poll(async () => (await anns()).filter((a) => a.screenId === first.screenId).length).toBe(2);
   expect(await page.evaluate(() => (window as unknown as { __captures: number }).__captures)).toBe(1);
 
   // the sketch tools on the held screen: a stroke and an ellipse, Ready, then the note
-  await page.getByRole("button", { name: "draw (P)" }).click();
+  await page.getByRole("button", { name: "Draw (P)" }).click();
   await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.5);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.55, { steps: 6 });
   await page.mouse.up();
-  await page.getByRole("button", { name: "ellipse (Q)" }).click();
+  await page.getByRole("button", { name: "Ellipse (Q)" }).click();
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.6, { steps: 6 });
@@ -915,7 +915,7 @@ test("device tab: picking a tool holds the screen, the first mark captures it, l
   // picked in the notes list, it opens on the screen too; the bin deletes it
   await page.locator(".inspector .note").nth(1).click();
   await expect(edit).toBeVisible();
-  await expect(edit.locator("header")).toContainText("remove");
+  await expect(edit.locator("header")).toContainText("Remove");
   await edit.getByRole("button", { name: "Delete note" }).click();
   await expect(edit).toBeHidden();
   await expect.poll(async () => (await anns()).filter((a) => a.screenId === first.screenId).length).toBe(2);

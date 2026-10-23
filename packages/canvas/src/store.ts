@@ -27,19 +27,20 @@ export const SKETCH_TOOLS: SketchTool[] = ["line", "box", "ellipse", "text", "fi
 export const isSketchTool = (t: Tool): t is SketchTool => (SKETCH_TOOLS as Tool[]).includes(t);
 
 export const TOOLS: { tool: Tool; key: string; label: string; hint: string }[] = [
-  { tool: "select", key: "V", label: "select", hint: "click an element or annotation" },
-  { tool: "comment", key: "C", label: "comment", hint: "click to pin, then type" },
-  { tool: "circle", key: "O", label: "circle", hint: "drag a loop around something" },
-  { tool: "arrow", key: "A", label: "arrow", hint: "drag start → end; may end on another tile" },
-  { tool: "rectangle", key: "R", label: "rect", hint: "drag a box where something should go" },
-  { tool: "remove", key: "X", label: "remove", hint: "click an element to strike it out" },
-  { tool: "freehand", key: "P", label: "draw", hint: "draw freely, in as many strokes as you like" },
-  { tool: "rule", key: "U", label: "rule", hint: "shift-click elements on any screens, then ⏎ and type" },
-  { tool: "line", key: "I", label: "line", hint: "drag a straight line" },
-  { tool: "box", key: "B", label: "box", hint: "drag a box; shift for a square" },
-  { tool: "ellipse", key: "Q", label: "ellipse", hint: "drag an ellipse; shift for a circle" },
-  { tool: "text", key: "T", label: "text", hint: "click where the text goes, then type" },
-  { tool: "fill", key: "G", label: "fill", hint: "click inside a closed area to fill it; click a line to recolour it" },
+  // the guide tools are named after what they tell the agent (core's compiler.ts; noteWords.ts)
+  { tool: "select", key: "V", label: "Select", hint: "click an element or a note to pick it" },
+  { tool: "comment", key: "C", label: "Comment", hint: "click an element and say what should change" },
+  { tool: "circle", key: "O", label: "Change area", hint: "draw a loop around an area or a group that should change, then say how" },
+  { tool: "arrow", key: "A", label: "Move", hint: "drag from an element to where it should go; to another screen, it says one leads to the other" },
+  { tool: "rectangle", key: "R", label: "Add here", hint: "drag a box where something new should go, then say what" },
+  { tool: "remove", key: "X", label: "Remove", hint: "click an element that should go" },
+  { tool: "freehand", key: "P", label: "Draw", hint: "draw freely, in as many strokes as you like" },
+  { tool: "rule", key: "U", label: "Global rule", hint: "a rule for every screen and every round: shift-click examples, ⏎, then type it" },
+  { tool: "line", key: "I", label: "Line", hint: "drag a straight line" },
+  { tool: "box", key: "B", label: "Box", hint: "drag a box; shift for a square" },
+  { tool: "ellipse", key: "Q", label: "Ellipse", hint: "drag an ellipse; shift for a circle" },
+  { tool: "text", key: "T", label: "Text", hint: "click where the text goes, then type" },
+  { tool: "fill", key: "G", label: "Fill", hint: "click inside a closed area to fill it; click a line to recolour it" },
 ];
 
 /** Hints that differ on the vision board. */

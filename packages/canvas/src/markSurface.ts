@@ -1,3 +1,4 @@
+import { kindName, notePrompt } from "./noteWords";
 import { estimateTextBox, renderAnnotationSvg, renderSketchPartsSvg, sketchPartsBounds, type Annotation, type SketchPart, type SketchStyle } from "@scribui/core";
 import { paintBucket } from "./paint";
 
@@ -89,7 +90,6 @@ const STYLE = (p: string) => `
 
 const TRASH = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.8 6.5v4.5M9.2 6.5v4.5"/></svg>`;
 const CLOSE = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7"/></svg>`;
-const KIND: Record<string, string> = { comment: "comment", circle: "circle", arrow: "arrow", rectangle: "rectangle", remove: "remove", sketch: "sketch", freehand: "drawing" };
 
 export class MarkSurface {
   readonly el: HTMLDivElement;
@@ -419,7 +419,7 @@ export class MarkSurface {
 
   private askNote(mark: Omit<Annotation, "id" | "screenId">, ref: Pt, at: Pt, required: boolean) {
     this.held = { mark, ref, at, required };
-    this.openInput(at, required ? "Type your note, then ⏎" : "Add a note (optional), then ⏎");
+    this.openInput(at, `${notePrompt(mark.kind, mark.sketch?.shape)} ⏎`);
   }
 
   private askWords(at: Pt) {
@@ -495,10 +495,10 @@ export class MarkSurface {
     const d = s.offset ?? [0, 0];
     if (!fromClick) this.host.reveal?.([b.x + d[0], b.y + d[1]]);
     this.editing = { id, was: a.text ?? "" };
-    this.editHead.textContent = `${s.label ? `${s.label} · ` : ""}${a.kind === "sketch" && a.sketch?.shape !== "drawing" ? `${a.sketch?.shape} sketch` : (KIND[a.kind] ?? a.kind)}`;
+    this.editHead.textContent = `${s.label ? `${s.label} · ` : ""}${kindName(a.kind, a.sketch?.shape)}`;
     this.editText.value = a.text ?? "";
     this.editText.setSelectionRange(this.editText.value.length, this.editText.value.length);
-    this.editText.placeholder = a.kind === "comment" ? "What should change?" : a.kind === "sketch" ? "Note for the agent: what is this sketch?" : "Optional: what should change?";
+    this.editText.placeholder = notePrompt(a.kind, a.sketch?.shape);
     this.edit.hidden = false;
     this.placeEdit();
     this.render();
