@@ -1,6 +1,8 @@
 # ScribUI
 
-**Point, don't describe.** A visual review layer between you and your coding agent.
+**Point more.<br>Prompt less.**
+
+A visual review layer between you and your coding agent.
 
 Your agent builds app screens. ScribUI captures them as tiles on a canvas. You comment, move, remove and mark areas to change right on the screenshots, and every mark snaps to a real UI element. When you press **Send**, ScribUI writes precise, file-based instructions (`review.md`) that any agent can read: Claude Code, Codex, Cursor and others.
 
