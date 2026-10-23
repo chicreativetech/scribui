@@ -144,6 +144,7 @@ export class LiveView {
     this.capturing = true;
     const wc = view.webContents;
     const scaled = this.layout.zoom < 1 && this.size;
+    let scroll: Scroll = null;
     try {
       return await captureFromView(
         wc,
@@ -151,16 +152,23 @@ export class LiveView {
         save,
         scaled
           ? {
-              // the page at its real size and the screen's pixel ratio, for the moment of the shot
+              // the page at its real size and the screen's pixel ratio, for the moment of the shot.
+              // On the way there and back the page is briefly laid out much taller than its chosen
+              // size (the full-size view at the small zoom), which pulls its scroll position back,
+              // so the scroll is put back before the shot and again after
               enter: async () => {
+                scroll = await readScroll(wc);
                 const b = this.layout!.bounds;
                 view.setBounds({ x: b.x, y: b.y, width: this.size!.width, height: this.size!.height });
                 wc.setZoomFactor(1);
                 await nextPaint(wc);
+                await restoreScroll(wc, scroll);
               },
-              leave: () => {
+              leave: async () => {
                 this.capturing = false;
                 this.apply();
+                await nextPaint(wc).catch(() => {});
+                await restoreScroll(wc, scroll);
               },
             }
           : undefined,
@@ -280,4 +288,17 @@ export class LiveView {
     });
     return view;
   }
+}
+
+type Scroll = { x: number; y: number } | null;
+
+/** The page's scroll position (CSS px); null when it can't be read. */
+const readScroll = (wc: WebContents): Promise<Scroll> =>
+  (wc.mainFrame.executeJavaScript("({ x: scrollX, y: scrollY })") as Promise<{ x: number; y: number }>).catch(() => null);
+
+/** Back to a scroll position read before, then a painted frame. */
+async function restoreScroll(wc: WebContents, at: Scroll) {
+  if (!at) return;
+  await wc.mainFrame.executeJavaScript(`scrollTo({ left: ${Number(at.x) || 0}, top: ${Number(at.y) || 0}, behavior: "instant" })`).catch(() => {});
+  await nextPaint(wc);
 }

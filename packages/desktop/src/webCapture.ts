@@ -115,7 +115,7 @@ export const nextPaint = (wc: WebContents) =>
  * view at its real size for the moment of the shot. Scrollbars are hidden
  * for the shot, as in Playwright's captures.
  */
-export async function captureFromView(wc: WebContents, req: LiveCaptureRequest, save: SaveView, full?: { enter(): Promise<void>; leave(): void }): Promise<ViewSaveResult> {
+export async function captureFromView(wc: WebContents, req: LiveCaptureRequest, save: SaveView, full?: { enter(): Promise<void>; leave(): Promise<void> }): Promise<ViewSaveResult> {
   const url = wc.getURL();
   if (!/^https?:/.test(url)) throw new Error("the app hasn't loaded yet");
   const pageTitle = wc.getTitle().trim();
@@ -137,7 +137,7 @@ export async function captureFromView(wc: WebContents, req: LiveCaptureRequest, 
   } finally {
     await wc.mainFrame.executeJavaScript(SHOW_MARKS).catch(() => {});
     await cdp(wc, "Emulation.setScrollbarsHidden", { hidden: false }).catch(() => {});
-    full?.leave();
+    await full?.leave();
   }
   return save({
     platform: "web",

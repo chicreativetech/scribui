@@ -182,10 +182,11 @@ export async function runMarkingFidelity() {
     check("a mark after scrolling is placed in page coordinates", Math.abs(g2.y / scale - 1530) < 3, g2);
     check("the second mark is drawn where it was made", await markNear(wc, f.x, f.y));
 
-    // a circle dragged around the header
+    // a circle dragged around the header (page points, in the view's pixels: the view may be zoomed out)
     await canvas(p, `window.__scribui.getState().setTool("circle")`);
     await sleep(300);
-    const loop = Array.from({ length: 24 }, (_, i) => [600 + 80 * Math.cos((i / 23) * 2 * Math.PI), 30 + 22 * Math.sin((i / 23) * 2 * Math.PI)] as const);
+    const zoom = wc.getZoomFactor();
+    const loop = Array.from({ length: 24 }, (_, i) => [(600 + 80 * Math.cos((i / 23) * 2 * Math.PI)) * zoom, (30 + 22 * Math.sin((i / 23) * 2 * Math.PI)) * zoom] as const);
     wc.sendInputEvent({ type: "mouseMove", x: loop[0]![0], y: loop[0]![1] });
     wc.sendInputEvent({ type: "mouseDown", x: loop[0]![0], y: loop[0]![1], button: "left", clickCount: 1 });
     for (const [x, y] of loop) {
@@ -228,7 +229,7 @@ export async function runMarkingFidelity() {
     await sleep(300);
     const t4 = await centerOf(wc, "#target");
     // beside the first note's pin: a click on a pin opens that note
-    await click(wc, t4.x - 30, t4.y + 10);
+    await click(wc, Math.round(t4.x - 30 * zoom), Math.round(t4.y + 10 * zoom));
     await key(wc, "Return");
     const third = await waitFor("the mark on the changed page", async () => (await annotations()).find((a) => a.kind === "remove"));
     check("a mark on a changed page gets a new screen", third.screenId !== first.screenId, { third: third.screenId });
@@ -244,7 +245,9 @@ export async function runMarkingFidelity() {
     // 6. a sketch: a box and a line with the sketch tools, Ready, a note; one sketch note with both parts
     await canvas(p, `window.__scribui.getState().setTool("box")`);
     await sleep(300);
-    const drag = async (x0: number, y0: number, x1: number, y1: number) => {
+    // page points, in the view's pixels
+    const drag = async (px0: number, py0: number, px1: number, py1: number) => {
+      const [x0, y0, x1, y1] = [px0, py0, px1, py1].map((v) => Math.round(v * zoom)) as [number, number, number, number];
       wc.sendInputEvent({ type: "mouseMove", x: x0, y: y0 });
       wc.sendInputEvent({ type: "mouseDown", x: x0, y: y0, button: "left", clickCount: 1 });
       for (let i = 1; i <= 6; i++) {
@@ -274,7 +277,7 @@ export async function runMarkingFidelity() {
     await page(wc, "window.scrollTo(0, 0)");
     await sleep(300);
     const t5 = await centerOf(wc, "#target");
-    await click(wc, t5.x + 12, t5.y - 12);
+    await click(wc, Math.round(t5.x + 12 * zoom), Math.round(t5.y - 12 * zoom));
     await sleep(300);
     check("clicking a note on the page selects it", (await selected()) === first.id, await selected());
     await type(wc, " please");
