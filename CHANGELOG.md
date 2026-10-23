@@ -4,7 +4,7 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
-## 0.2.5 (unreleased)
+## 0.2.5 (2026-10-23)
 
 - **Capturing a scrolled page on a small screen keeps its scroll.** When the size you picked (like Desktop) is bigger than the space for it and shown zoomed out, Capture view took the top of the page instead of what you scrolled to.
 
