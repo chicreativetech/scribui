@@ -4,6 +4,10 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
+## 0.2.7
+
+- A new tagline in the README: **Point more. Prompt less.**
+
 ## 0.2.6 (2026-10-23)
 
 - **The guide tools are named after what they tell the agent:** Comment, **Move** (was Arrow), **Change area** (was Circle), **Add here** (was Rect), Remove and **Global rule** (was Rule). Their tooltips say what each one asks for, and each note's box asks for the right words: *What should change?*, *What should go here?*, *Why move it? (optional)*.
