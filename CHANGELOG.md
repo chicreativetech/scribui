@@ -4,7 +4,7 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
-## 0.2.7
+## 0.2.7 (2026-10-24)
 
 - A new tagline in the README: **Point more. Prompt less.**
 
