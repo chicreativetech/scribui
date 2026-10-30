@@ -1,0 +1,59 @@
+name: Homebrew
+
+# Publishing a release writes its version and the Mac dmgs' checksums into the
+# cask in chicreativetech/homebrew-tap, so `brew install --cask
+# chicreativetech/tap/scribui` installs it. Pre-releases are skipped. The cask
+# has `auto_updates true`: installed apps update themselves, and brew leaves them.
+#
+# Pushes to the tap with a deploy key: the TAP_DEPLOY_KEY secret here holds its
+# private half, the tap's deploy keys its public half (with write access).
+# By hand, for a release that's already out: Actions → Homebrew → Run workflow.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, e.g. v0.2.8"
+        required: true
+
+concurrency:
+  group: homebrew
+  cancel-in-progress: false
+
+jobs:
+  cask:
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    steps:
+      - name: The dmgs' checksums
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          version="${TAG#v}"
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p "ScribUI-$version-mac-*.dmg" -D dmg
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "arm=$(sha256sum "dmg/ScribUI-$version-mac-arm64.dmg" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "intel=$(sha256sum "dmg/ScribUI-$version-mac-x64.dmg" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: chicreativetech/homebrew-tap
+          ssh-key: ${{ secrets.TAP_DEPLOY_KEY }}
+          path: tap
+      - name: Update the cask and push
+        working-directory: tap
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          ARM: ${{ steps.release.outputs.arm }}
+          INTEL: ${{ steps.release.outputs.intel }}
+        run: |
+          sed -i -e "s/^  version \".*\"/  version \"$VERSION\"/" \
+                 -e "s/^  sha256 arm: .*/  sha256 arm:   \"$ARM\",/" \
+                 -e "s/^         intel: .*/         intel: \"$INTEL\"/" Casks/scribui.rb
+          git diff --quiet && { echo "Already at $VERSION"; exit 0; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "scribui $VERSION"
+          git push
