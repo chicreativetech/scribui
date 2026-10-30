@@ -92,6 +92,7 @@ describe("packaging config", () => {
     expect(c.mac).toMatchObject({ hardenedRuntime: true, notarize: true, entitlements: "build/entitlements.mac.plist" });
     expect(c.mac.identity).toBeUndefined();
     expect(load({ CSC_LINK: "x" }).mac.notarize).toBe(false);
+    expect(load({ CSC_NAME: "Team (ABCDE12345)" }).mac).toMatchObject({ hardenedRuntime: true, notarize: false });
     const w = load({ AZURE_TENANT_ID: "t", AZURE_CLIENT_ID: "c", AZURE_CLIENT_SECRET: "s", SCRIBUI_AZURE_ENDPOINT: "https://e", SCRIBUI_AZURE_ACCOUNT: "a", SCRIBUI_AZURE_PROFILE: "p", SCRIBUI_AZURE_PUBLISHER: "ScribUI" });
     expect(w.win.azureSignOptions).toEqual({ endpoint: "https://e", codeSigningAccountName: "a", certificateProfileName: "p", publisherName: "ScribUI" });
   });

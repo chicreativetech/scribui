@@ -5,7 +5,8 @@
  * dependencies.
  *
  * Signing turns itself on when its secrets are present (see RELEASING.md):
- * - macOS: CSC_LINK + CSC_KEY_PASSWORD (Developer ID Application certificate)
+ * - macOS: CSC_NAME, the Developer ID Application certificate's name in a
+ *   keychain (release.yml imports it there), or CSC_LINK + CSC_KEY_PASSWORD
  *   sign with the hardened runtime; APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD +
  *   APPLE_TEAM_ID also notarise. Without them: an ad-hoc signature, enough
  *   for Apple Silicon to run a build.
@@ -18,7 +19,7 @@ const { existsSync } = require("node:fs");
 const { join } = require("node:path");
 
 const env = process.env;
-const macSigned = !!env.CSC_LINK;
+const macSigned = !!(env.CSC_NAME || env.CSC_LINK);
 const macNotarised = macSigned && !!(env.APPLE_ID && env.APPLE_APP_SPECIFIC_PASSWORD && env.APPLE_TEAM_ID);
 const winSigned = !!(env.AZURE_TENANT_ID && env.AZURE_CLIENT_ID && env.AZURE_CLIENT_SECRET && env.SCRIBUI_AZURE_ENDPOINT);
 
