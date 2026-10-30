@@ -29,7 +29,7 @@ Publishing is what makes it the update installed apps download.
 | Linux AppImage | same |
 | Linux .deb | says a new version is out, links to the release page |
 | macOS, Developer ID signed | downloads in the background, installs on quit or "Restart to Update" |
-| macOS, unsigned (today's builds) | says a new version is out, links to the release page (macOS only installs signed updates) |
+| macOS, unsigned (0.2.7 and earlier) | says a new version is out, links to the release page (macOS only installs signed updates) |
 | a development run | no checks |
 
 The app checks 10 s after launch and every 6 hours; Help → Check for Updates…
@@ -56,6 +56,11 @@ With the certificate the app is signed with the hardened runtime
 `scribui-sim` can load AXe's Homebrew frameworks); with the Apple ID secrets
 too, it's notarised. Signed builds update themselves.
 
+The release workflow imports the certificate into a keychain of its own and
+names it to electron-builder with `CSC_NAME`, instead of passing it as
+`CSC_LINK`: electron-builder 26 unlocks the keychain it makes for `CSC_LINK`
+with the .p12's password rather than the keychain's, and signing fails.
+
 ### Windows: Azure Trusted Signing (about $10/month)
 
 | Secret | What |
@@ -67,6 +72,17 @@ too, it's notarised. Signed builds update themselves.
 | `AZURE_SIGNING_PUBLISHER` | the publisher name on the certificate (as validated) |
 
 Unsigned Windows builds work and update; SmartScreen asks once per download.
+
+## Homebrew
+
+The Mac app is a cask in [chicreativetech/homebrew-tap](https://github.com/chicreativetech/homebrew-tap)
+(`Casks/scribui.rb`). Publishing a release runs the **Homebrew** workflow,
+which writes the version and the dmgs' checksums into the cask and pushes it;
+pre-releases are skipped. It pushes with a deploy key: the `TAP_DEPLOY_KEY`
+secret here is its private half, the tap's deploy keys hold the public half
+(with write access). For a release that's already out: Actions → Homebrew →
+Run workflow with its tag. Drafts can't be used: the workflow's token can't
+see them.
 
 ## Crash reports
 

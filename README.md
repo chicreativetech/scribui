@@ -19,9 +19,16 @@ The tool never edits your app and has no AI inside. It supplies context; your ag
 
 Download it from [Releases](https://github.com/chicreativetech/scribui/releases): the `.dmg` for macOS (Apple Silicon or Intel), the `.exe` installer for Windows, the `.AppImage` or `.deb` for Linux. Open it, then click **Open app folder…** and pick your app's folder; ScribUI sets the project up from there (see [The desktop app](#the-desktop-app)).
 
-Builds aren't signed yet, so each system asks once:
+On a Mac you can install it with [Homebrew](https://brew.sh) instead (Homebrew asks you to trust a cask from a tap that isn't its own, once):
 
-- **macOS:** the first launch is blocked; open **System Settings → Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/ScribUI.app`).
+```sh
+brew tap chicreativetech/tap
+brew trust --cask chicreativetech/tap/scribui
+brew install --cask chicreativetech/tap/scribui
+```
+
+The Mac app is signed and notarised. The Windows and Linux builds aren't signed yet, so they ask once:
+
 - **Windows:** SmartScreen says it protected your PC; click **More info → Run anyway**.
 - **Linux:** make the AppImage executable (`chmod +x ScribUI-*.AppImage`), or install the `.deb`.
 
@@ -141,7 +148,7 @@ The desktop app does everything the terminal and the browser canvas do, in one w
   - **Android and iOS:** picking a tool holds the picture still. The first mark captures the screen, more marks join it, and `Esc` lets the device run again. The marks are then in Review.
 - **Android and iOS:** mobile projects get a **Device** tab with the emulator, phone or simulator live in it, and it's the only way their screens are captured. Use it with the mouse and keyboard (scrolling, typing, Back/Home, rotate) and press **Capture view** in the dock at the bottom, as in Capture Screens (the name and **replace "…"** stay in the bar above): ScribUI freezes the picture, reads the elements and checks the screen held still. iOS needs a Mac with Xcode, plus AXe.
 - **With the CLI:** when the app is installed, `scribui` and `scribui open` open the project in it; `--no-desktop` keeps the browser for web projects. Android and iOS projects always open in the app (without it, `scribui` says where to download it). Only one process captures a project at a time, so the CLI and MCP hand web captures to the app while it has the project open.
-- **Updates:** the app checks [Releases](https://github.com/chicreativetech/scribui/releases) when it starts and every few hours. On Windows and with the Linux AppImage it downloads updates and installs them when you quit (or **Help → Restart to Update**). Until macOS builds are signed, and for the `.deb`, it tells you a new version is out and links to it. **Help → Check for Updates…** checks now; what changed is in [CHANGELOG.md](CHANGELOG.md).
+- **Updates:** the app checks [Releases](https://github.com/chicreativetech/scribui/releases) when it starts and every few hours. On macOS, on Windows and with the Linux AppImage it downloads updates and installs them when you quit (or **Help → Restart to Update**); installed with Homebrew too, so `brew upgrade` leaves it alone. With the `.deb`, and on a Mac before 0.2.8 (unsigned), it tells you a new version is out and links to it. **Help → Check for Updates…** checks now; what changed is in [CHANGELOG.md](CHANGELOG.md).
 - **Crashes:** crash reports stay on your computer. After a crash, the next launch offers to open a GitHub issue with the version and error filled in (you see everything before sending) or to show the files. **Help → Report a Problem…** and **Help → Show Logs and Crash Reports** work any time.
 
 ### Annotate

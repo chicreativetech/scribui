@@ -4,13 +4,12 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
-## 0.2.8-beta.2 (2026-10-30)
+## 0.2.8 (unreleased)
 
 - **The Mac app is signed and notarised** with a Developer ID, so macOS opens it without asking, and it updates itself like on Windows and Linux.
+- **Install it with Homebrew** on a Mac: `brew install --cask chicreativetech/tap/scribui` (see the README for the one-time `brew trust`).
 
-## 0.2.8-beta.1 (2026-10-30)
-
-- **The Mac app is signed and notarised** with a Developer ID, so macOS opens it without asking, and it updates itself like on Windows and Linux.
+If you're on 0.2.7 or earlier on a Mac, download this version once from the release page; from then on it updates itself.
 
 ## 0.2.7 (2026-10-24)
 

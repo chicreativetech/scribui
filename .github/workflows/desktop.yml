@@ -1,6 +1,6 @@
 name: Desktop app
 
-# Unsigned packaged builds of the desktop app for macOS, Windows and Linux,
+# Unsigned packaged builds of the desktop app (releases are signed: release.yml) for macOS, Windows and Linux,
 # kept as workflow artifacts (see "Signing and testing before paying" in the plan).
 on:
   push:
