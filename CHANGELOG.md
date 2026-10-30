@@ -4,6 +4,10 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
+## 0.2.8-beta.1 (unreleased)
+
+- **The Mac app is signed and notarised** with a Developer ID, so macOS opens it without asking, and it updates itself like on Windows and Linux.
+
 ## 0.2.7 (2026-10-24)
 
 - A new tagline in the README: **Point more. Prompt less.**
