@@ -34,16 +34,14 @@ The Mac app is signed and notarised. The Windows and Linux builds aren't signed 
 
 ### Command line
 
-The `scribui` CLI works with or without the app: it sets projects up in the terminal, captures for your agent (`scribui capture`, MCP), and opens projects in the app when it's installed. It's not published to npm yet. Build it from this repo and install it globally:
+The `scribui` CLI works with or without the app: it sets projects up in the terminal, captures for your agent (`scribui capture`, MCP), and opens projects in the app when it's installed. Install it from npm (Node 20 or newer):
 
 ```sh
-git clone <this repo> scribui && cd scribui
-pnpm install && pnpm build
-cd packages/cli && npm pack && npm install -g ./scribui-*.tgz
+npm install -g scribui
 scribui --help
 ```
 
-To use it in one project only, run `npm install -D /path/to/scribui-<version>.tgz` there and call it with `npx scribui`. Node 20 or newer is required.
+To use it in one project only, run `npm install -D scribui` there and call it with `npx scribui`.
 
 You don't need to install anything else up front: `scribui` checks for the capture tools it needs and offers to install them.
 
