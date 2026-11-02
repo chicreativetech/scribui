@@ -6,14 +6,19 @@ and press **Send to ScribUI**. **Open in ScribUI** then shows it in Review: in t
 app when that's what runs the project, otherwise in the browser.
 
 The page goes as Chrome saves a "Webpage, Single File" (MHTML): its HTML with its styles
-and images, as it is in your tab, logged in or not. ScribUI renders it offline, so notes
-snap to the page's real elements, and the agent gets the snapshot to read exact colours,
-fonts and spacing from. By default the extension first scrolls through the page, so images
-and content that appear as you scroll are in it.
+and images, as it is in your tab, logged in or not. ScribUI renders it in a headless Chromium,
+so notes snap to the page's real elements, and the agent gets the snapshot to read exact
+colours, fonts and spacing from. The page's scripts don't run; fonts, stylesheets and images
+the snapshot left out are fetched from the site. By default the extension first scrolls
+through the page, so images and content that appear as you scroll are in it.
 
 It finds ScribUI on this computer by itself (the ScribUI app, or `npx scribui`, on ports
-4382–4391; add another port in the popup if you started it with `--port`). Nothing leaves
-your computer: the page goes from Chrome to the ScribUI running next to it.
+4382–4391; add another port in the popup if you started it with `--port`). The page goes
+from Chrome to the ScribUI running next to it, never to anywhere else.
+
+Rendering needs Playwright and its Chromium. ScribUI offers to install them when it sets
+a project up (or install them yourself: `npm i -D playwright && npx playwright install chromium`);
+without them, sending a page fails.
 
 ## Install (unpacked)
 
