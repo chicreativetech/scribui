@@ -4,7 +4,7 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
-## 0.2.9 (unreleased)
+## 0.2.9 (2026-11-02)
 
 - **The `scribui` CLI is up to date on npm** (`npm i -g scribui`); npm had 0.2.1.
 - The MCP server tells your agent the CLI's real version instead of 0.1.0.
