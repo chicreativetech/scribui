@@ -10,3 +10,5 @@ playwright-report
 examples/*/.scribui/rounds
 examples/*/.scribui/latest
 .mcp.json
+# npm pack output
+*.tgz
