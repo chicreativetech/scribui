@@ -37,7 +37,7 @@ PRIVATE BY DESIGN
 The page goes from Chrome to ScribUI on your own computer (127.0.0.1) and nowhere else. No accounts, no analytics, no servers of ours. It only captures a tab when you click Send.
 
 YOU NEED
-The ScribUI desktop app (macOS, Windows, Linux) or the scribui command line tool (npm install -g scribui), with a project open. Get them at https://github.com/chicreativetech/scribui
+The ScribUI desktop app (macOS, Windows, Linux) or the scribui command line tool (npm install -g scribui), with a project open. Get them at https://scribui.chicreativetech.se
 
 Works in Chrome, Edge, Brave, Arc and other Chromium browsers.
 ```
@@ -51,8 +51,9 @@ Works in Chrome, Edge, Brave, Arc and other Chromium browsers.
   3. `3-review-md.png`: the same, with the review.md the agent gets.
 - Small promo tile, 440×280: `promo-tile-440x280.png`.
 
-**Website:** https://github.com/chicreativetech/scribui
+**Website:** https://scribui.chicreativetech.se
 **Support:** https://github.com/chicreativetech/scribui/issues
+**Contact email** (account settings; Google verifies it): info@chicreativetech.se
 
 ## Privacy practices
 
@@ -89,4 +90,4 @@ Certify all three:
 - I do not use or transfer user data for purposes that are unrelated to my item's single purpose.
 - I do not use or transfer user data to determine creditworthiness or for lending purposes.
 
-**Privacy policy URL:** `<website address>/privacy.html` (in the scribui-website repo, `dist/privacy.html`).
+**Privacy policy URL:** https://scribui.chicreativetech.se/privacy.html (in the scribui-website repo, `dist/privacy.html`).
