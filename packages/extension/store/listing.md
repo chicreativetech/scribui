@@ -42,12 +42,14 @@ The ScribUI desktop app (macOS, Windows, Linux) or the scribui command line tool
 Works in Chrome, Edge, Brave, Arc and other Chromium browsers.
 ```
 
-**Images:**
+**Images** (in this folder; real ScribUI on the Grove sample app, `examples/checkout-web`):
 
 - Store icon: `icons/icon-128.png`.
-- Screenshots (at least one, 1280×800 or 640×400): the popup open over a page with
-  *Our app* / *Reference* showing; the same page in ScribUI's Review with a few notes on it.
-- Small promo tile (440×280): the logo and "Send any page to your coding agent's review."
+- Screenshots, 1280×800, in this order:
+  1. `1-send.png`: the popup over the Grove shop, *Our app* picked.
+  2. `2-review.png`: the sent page in Review with four notes, each on its element.
+  3. `3-review-md.png`: the same, with the review.md the agent gets.
+- Small promo tile, 440×280: `promo-tile-440x280.png`.
 
 **Website:** https://github.com/chicreativetech/scribui
 **Support:** https://github.com/chicreativetech/scribui/issues
