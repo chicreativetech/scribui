@@ -8,7 +8,7 @@ import { captureProject } from "@scribui/project";
  * Minimal MCP server over stdio (JSON-RPC 2.0, newline-delimited).
  * Tools: request_review, get_feedback (non-blocking), list_rounds.
  */
-export async function runMcp(store: ReviewStore) {
+export async function runMcp(store: ReviewStore, version: string) {
   const send = (msg: object) => process.stdout.write(JSON.stringify(msg) + "\n");
   const tools = [
     {
@@ -106,7 +106,7 @@ export async function runMcp(store: ReviewStore) {
         result: {
           protocolVersion: (params?.["protocolVersion"] as string) ?? "2025-06-18",
           capabilities: { tools: {} },
-          serverInfo: { name: "scribui", version: "0.1.0" },
+          serverInfo: { name: "scribui", version },
         },
       });
     } else if (method === "tools/list") {

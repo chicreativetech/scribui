@@ -358,7 +358,7 @@ cli
 cli
   .command("mcp", "Start the MCP server over stdio")
   .option("--dir <path>", "Project directory")
-  .action((f: Flags) => runMcp(storeFor(f)));
+  .action((f: Flags) => runMcp(storeFor(f), VERSION));
 
 common(cli.command("", "Set up on first run, then open the project (Android and iOS: in the desktop app)"))
   .option("--port <port>", "Port", { default: PRODUCT.defaultPort })
