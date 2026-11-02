@@ -44,7 +44,7 @@ Works in Chrome, Edge, Brave, Arc and other Chromium browsers.
 
 **Images** (in this folder; real ScribUI on the Grove sample app, `examples/checkout-web`):
 
-- Store icon: `icons/icon-128.png`.
+- Store icon (Butiksikon), 128×128: `store-icon-128.png`, the mark at 96×96 with 16 px transparent padding as Google asks, drawn from `packages/desktop/build/icon.svg`.
 - Screenshots, 1280×800, in this order:
   1. `1-send.png`: the popup over the Grove shop, *Our app* picked.
   2. `2-review.png`: the sent page in Review with four notes, each on its element.
