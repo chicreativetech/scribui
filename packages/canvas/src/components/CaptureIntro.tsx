@@ -1,4 +1,4 @@
-import { Fragment, useEffect } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 /**
  * The Capture Screens intro: a card over the tab the first time it opens (the
@@ -17,11 +17,22 @@ const RELEASES = "https://github.com/chicreativetech/scribui/releases";
 export const DESKTOP_INTRO: IntroCard = {
   title: "Capture screens",
   paras: [
-    "Your app runs here, as in a browser. Go to a screen you want to change and get it the way you want to comment on it: logged in, a menu open, a form filled in.",
-    "Press **Capture view**, at the bottom right, to add it to Review exactly as it is. Name it in the bar above first, or pick **replace \"…\"** there to update a screen you captured before.",
-    "Or mark it up right here with the tools beside it: the first mark captures the page.",
-    "Then check your notes in **Review** and **Send** them to your coding agent.",
+    "Your app runs here, as in a browser: click through it, and use the address bar above to go back, forward or to any page.",
+    "Get a screen the way you want to comment on it (logged in, a menu open, a form filled in) and press **Capture view**, at the bottom centre. It goes to Review exactly as it is.",
+    "Name it in the bar above first, or pick **replace \"…\"** there to update a screen you captured before.",
+    "Then open **Review** to mark up your captures and **Send** your notes to your coding agent.",
     "Pages from anywhere: the [ScribUI browser extension](" + EXTENSION + ") for Chrome (and Edge, Brave, Arc) sends the page in any tab to Review, logged-in pages included.",
+  ],
+  button: "Got it",
+};
+
+export const DEVICE_INTRO: IntroCard = {
+  title: "Capture screens",
+  paras: [
+    "Your app runs here on an emulator, a simulator or your phone: pick one in the bar above. Click to tap, scroll, and type to enter text; the bar has the device's buttons too.",
+    "Get a screen the way you want to comment on it (logged in, a menu open, a form filled in) and press **Capture view**, at the bottom centre. It goes to Review exactly as it is.",
+    "Name it in the bar above first, or pick **replace \"…\"** there to update a screen you captured before.",
+    "Then open **Review** to mark up your captures and **Send** your notes to your coding agent.",
   ],
   button: "Got it",
 };
@@ -56,6 +67,29 @@ export function markHintSeen(id: string) {
   } catch {
     /* shown again next time */
   }
+}
+
+/** The bubble over Capture view, after the card, until the first capture or its ×; one for both tabs. */
+export const POINTER_HINT = "capture-pointer";
+export const POINTER = "Get the screen ready, then press here to capture it.";
+
+/**
+ * A hint shown until it's seen, once the tab has been opened: whether it
+ * shows, a way to show it again, and closing it (seen from then on).
+ */
+export function useHint(id: string, visited: boolean): [boolean, (on: boolean) => void, () => void] {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (!visited) return;
+    let gone = false;
+    void hintSeen(id).then((seen) => !gone && !seen && setOn(true));
+    return () => void (gone = true);
+  }, [id, visited]);
+  const close = useCallback(() => {
+    setOn(false);
+    markHintSeen(id);
+  }, [id]);
+  return [on, setOn, close];
 }
 
 /** **bold** and [label](https://…) as elements, the rest as text. */

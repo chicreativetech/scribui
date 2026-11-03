@@ -3,7 +3,6 @@ import { TOOLS, VISION_HINTS, noteCount, unresolvedCount, useStore, type Tool } 
 import { useVision } from "../vision";
 import { openImport } from "./Import";
 import { showLive, showsLiveTab } from "./Live";
-import { LIVE_UNSUPPORTED } from "./Marking";
 import selectIcon from "../assets/icons/select.png";
 import commentIcon from "../assets/icons/comment.png";
 import circleIcon from "../assets/icons/circle.png";
@@ -207,12 +206,8 @@ export const VISION_TOOLS: Tool[] = ["select", ...SKETCH];
 function ToolButton({ tool, ro }: { tool: Tool; ro: boolean }) {
   const active = useStore((s) => s.tool === tool);
   const vision = useStore((s) => s.view === "vision");
-  const live = useStore((s) => s.view === "live");
   const t = TOOLS.find((x) => x.tool === tool)!;
-  // in the App and Device tabs the tools mark up the app itself; select is using the app
-  const off = live && LIVE_UNSUPPORTED.has(tool);
-  const hint = off ? "rules point at elements across screens: make them in Review" : live && tool === "select" ? "use your app: click, type and scroll" : (vision && VISION_HINTS[tool]) || t.hint;
-  ro = live ? off : ro;
+  const hint = (vision && VISION_HINTS[tool]) || t.hint;
   return (
     <button
       className={`item tool ${active ? "active" : ""}`}

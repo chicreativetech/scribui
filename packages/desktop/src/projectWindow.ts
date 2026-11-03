@@ -12,7 +12,6 @@ import { DeviceView } from "./deviceView.js";
 import { hintSeen, markSeen } from "./hints.js";
 import type { Rect, Size } from "./liveLayout.js";
 import { readStack } from "./floatStack.js";
-import { readTip } from "./liveTip.js";
 import { readCard } from "./liveCard.js";
 import { LiveView } from "./liveView.js";
 import { captureFromCanvas, LIVE_FRAME, saveViaServer, type SaveView } from "./webCapture.js";
@@ -325,91 +324,13 @@ export function registerCanvasApi() {
     }
   });
 
-  ipcMain.handle("scribui:capture", async (e, req: { title?: unknown; replace?: unknown; fullPage?: unknown; signature?: unknown }) => {
+  ipcMain.handle("scribui:capture", async (e, req: { title?: unknown; replace?: unknown }) => {
     const p = senderProject(e);
-    const sig = str(req?.signature);
     const r = {
       ...(str(req?.title) ? { title: str(req?.title) } : {}),
       ...(str(req?.replace) ? { replace: str(req?.replace) } : {}),
-      ...(req?.fullPage === true ? { fullPage: true } : {}),
-      ...(sig && sig.length <= 200 ? { signature: sig } : {}),
     };
     return p.surface === "view" ? p.live.capture(r, p.save) : captureFromCanvas(e.sender, r, p.save);
-  });
-
-  /* marking up the app tab's page: the canvas sets the tool and the notes to draw, the page's mark layer (markLayer.ts) sends marks */
-  ipcMain.on("scribui:live-mark-mode", (e, m: { tool?: unknown; styles?: unknown; theme?: unknown } | null) => {
-    try {
-      // the sketch tools' looks: colours, widths and sizes only
-      const styles: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries((m?.styles ?? {}) as Record<string, Record<string, unknown>>).slice(0, 10)) {
-        if (!v || typeof v.color !== "string" || v.color.length > 40 || typeof v.width !== "number") continue;
-        styles[k] = {
-          color: v.color,
-          width: v.width,
-          ...(typeof v.fill === "string" && v.fill.length <= 40 ? { fill: v.fill } : {}),
-          ...(typeof v.size === "number" ? { size: v.size } : {}),
-        };
-      }
-      const theme = m?.theme === "dark" || m?.theme === "light" ? m.theme : undefined;
-      senderProject(e).live.setMarkMode({ tool: str(m?.tool) ?? null, ...(Object.keys(styles).length ? { styles } : {}), ...(theme ? { theme } : {}) });
-    } catch {
-      /* not the canvas */
-    }
-  });
-  ipcMain.on("scribui:live-marks", (e, list: { url?: unknown; marks?: unknown; confirmed?: unknown; selected?: unknown } | null) => {
-    try {
-      const p = senderProject(e);
-      if (typeof list?.url !== "string" || !Array.isArray(list.marks)) return;
-      const confirmed = Array.isArray(list.confirmed) ? list.confirmed.filter((c): c is string => typeof c === "string") : [];
-      const selected = typeof list.selected === "string" && list.selected.length <= 200 ? list.selected : null;
-      p.live.setMarks({ url: list.url, marks: list.marks.slice(0, 500), confirmed, selected });
-    } catch {
-      /* not the canvas */
-    }
-  });
-  /** The mark layer of a project's app view, in its top frame only. */
-  const fromMarkLayer = (e: Sender): Project | null => {
-    for (const p of byWindow.values()) {
-      const wc = p.live.webContents;
-      if (wc && wc.id === e.sender.id && e.senderFrame === wc.mainFrame) return p;
-    }
-    return null;
-  };
-  const toCanvas = (p: Project, ev: object) => {
-    if (!p.win.isDestroyed()) p.win.webContents.send("scribui:live-mark", ev);
-  };
-  ipcMain.on("scribui-mark:ready", (e, url: unknown) => {
-    const p = fromMarkLayer(e);
-    if (!p || typeof url !== "string") return;
-    p.live.markLayerReady(url);
-    toCanvas(p, { type: "ready", url });
-  });
-  ipcMain.on("scribui-mark:add", (e, draft: unknown) => {
-    const p = fromMarkLayer(e);
-    if (!p || !draft || typeof draft !== "object" || JSON.stringify(draft).length > 400_000) return;
-    toCanvas(p, { type: "add", draft });
-  });
-  ipcMain.on("scribui-mark:review", (e) => {
-    const p = fromMarkLayer(e);
-    if (p) toCanvas(p, { type: "review" });
-  });
-  ipcMain.on("scribui-mark:exit", (e) => {
-    const p = fromMarkLayer(e);
-    if (p) toCanvas(p, { type: "exit" });
-  });
-  const noteId = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 200;
-  ipcMain.on("scribui-mark:select", (e, id: unknown) => {
-    const p = fromMarkLayer(e);
-    if (p && (id === null || noteId(id))) toCanvas(p, { type: "select", id });
-  });
-  ipcMain.on("scribui-mark:edit", (e, m: { id?: unknown; text?: unknown } | null) => {
-    const p = fromMarkLayer(e);
-    if (p && noteId(m?.id) && typeof m?.text === "string" && m.text.length <= 20_000) toCanvas(p, { type: "edit", id: m.id, text: m.text });
-  });
-  ipcMain.on("scribui-mark:delete", (e, id: unknown) => {
-    const p = fromMarkLayer(e);
-    if (p && noteId(id)) toCanvas(p, { type: "delete", id });
   });
 
   ipcMain.on("scribui:live-place", (e, area: unknown, sz: unknown) => {
@@ -420,13 +341,6 @@ export function registerCanvasApi() {
     }
   });
 
-  ipcMain.on("scribui:live-tip", (e, t: unknown) => {
-    try {
-      senderProject(e).live.setTip(readTip(t));
-    } catch {
-      /* not the canvas */
-    }
-  });
 
   ipcMain.on("scribui:live-stack", (e, s: unknown) => {
     try {

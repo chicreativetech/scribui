@@ -125,10 +125,6 @@ function run() {
     }
     await loadShellPath();
     registerCanvasApi();
-    if (process.env.SCRIBUI_FIDELITY === "marking") {
-      const { runMarkingFidelity } = await import("./fidelity/marking.js");
-      return runMarkingFidelity();
-    }
     if (process.env.SCRIBUI_FIDELITY === "web") {
       const { runWebFidelity } = await import("./fidelity/web.js");
       return runWebFidelity();

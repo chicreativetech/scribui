@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, win32 } from "node:path";
 import { describe, expect, it } from "vitest";
 import { desktopNewUrl, desktopOpenUrl } from "@scribui/core";
+import { readStack, stackSize } from "../src/floatStack.js";
 import { hintSeen, markSeen, readSeen } from "../src/hints.js";
 import { findLink, findOpenUrl, parseLink, parseOpenUrl } from "../src/openUrl.js";
 import { RecentProjects } from "../src/recent.js";
@@ -133,5 +134,26 @@ describe("one-time hints", () => {
     markSeen(file, 5);
     expect(readSeen(file)).toEqual([]);
     expect(hintSeen(file, { length: 1 })).toBe(false);
+  });
+});
+
+describe("the Capture Screens dock", () => {
+  const main = { id: "capture", label: "Capture view", icon: { box: 16, paths: ["M0 0h16v16z"] }, title: "" };
+
+  it("is 215px wide with Capture view alone, and taller with the hint above it", () => {
+    const solo = readStack({ toggles: [], main, toast: null, theme: "dark" })!;
+    expect(solo.hint).toBeNull();
+    const plain = stackSize(solo);
+    // the dock, and 24px around it for its shadow
+    expect(plain.width).toBe(215 + 48);
+    const hinted = stackSize(readStack({ toggles: [], main, toast: null, hint: "press here", theme: "dark" })!);
+    expect(hinted.width).toBe(plain.width);
+    expect(hinted.height).toBeGreaterThan(plain.height);
+  });
+
+  it("caps the hint's length and drops an empty one", () => {
+    expect(readStack({ toggles: [], main, hint: "x".repeat(500) })!.hint).toHaveLength(120);
+    expect(readStack({ toggles: [], main, hint: "" })!.hint).toBeNull();
+    expect(readStack({ toggles: [], main, hint: 3 })!.hint).toBeNull();
   });
 });

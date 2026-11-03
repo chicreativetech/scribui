@@ -307,7 +307,7 @@ test("in a browser, Capture Screens only says to use the extension, and the canv
   await expect.poll(async () => (await page.locator(".view-switch .thumb").boundingBox())?.x).toBeCloseTo(tab!.x, 0);
   const card = page.getByRole("dialog", { name: "Capture screens" });
   await expect(card).toContainText("isn't available in the browser");
-  await expect(card.getByRole("link", { name: "ScribUI browser extension" })).toHaveAttribute("href", /packages\/extension/);
+  await expect(card.getByRole("link", { name: "ScribUI browser extension" })).toHaveAttribute("href", /chromewebstore\.google\.com/);
   await expect(page.locator(".live-bar")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Capture view" })).toBeDisabled();
   await page.screenshot({ path: "test-results/capture-browser.png" });
@@ -317,8 +317,13 @@ test("in a browser, Capture Screens only says to use the extension, and the canv
 
 test("in the desktop app: opens on the App tab, and Home goes back to the app", async ({ page }) => {
   // the desktop app's test harness surface, standing in: the app in the canvas's frame
-  await page.addInitScript(() => ((window as unknown as { scribuiDesktop: unknown }).scribuiDesktop = { version: 6, platform: "darwin" }));
-  await page.evaluate(() => localStorage.removeItem("scribui:hint:capture-intro"));
+  await page.addInitScript(() => {
+    const w = window as unknown as { scribuiDesktop: unknown; __scribuiCapture: unknown };
+    w.scribuiDesktop = { version: 6, platform: "darwin" };
+    // the harness's capture, standing in: it "captures" into the open round
+    w.__scribuiCapture = async () => ({ round: 1, screenId: "cart", title: "Cart" });
+  });
+  await page.evaluate(() => ["capture-intro-2", "capture-pointer"].forEach((h) => localStorage.removeItem(`scribui:hint:${h}`)));
   await page.reload();
   await expect(page.getByRole("tab", { name: "Capture Screens", exact: true })).toHaveAttribute("aria-selected", "true");
   // the first time, a card says what to do here, over the app
@@ -327,10 +332,34 @@ test("in the desktop app: opens on the App tab, and Home goes back to the app", 
   await expect(intro.getByRole("link", { name: "ScribUI browser extension" })).toBeVisible();
   // the button it talks about is there, greyed out until the card is closed
   await expect(page.getByRole("button", { name: "Capture view" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Pen mode" })).toBeVisible();
+  // only capturing here: no tool rail, no Select / Comment / Add screen in the dock
+  await expect(page.locator(".rail")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Comment" })).toHaveCount(0);
+  await expect(page.locator(".dock button")).toHaveCount(1);
+  expect((await page.locator(".dock").boundingBox())!.width).toBeCloseTo(215, 0);
   await page.screenshot({ path: "test-results/capture-intro.png" });
+  // no bubble under the card…
+  const hint = page.locator(".dock-hint");
+  await expect(hint).toHaveCount(0);
   await intro.getByRole("button", { name: "Got it" }).click();
   await expect(intro).toHaveCount(0);
+  // …then it points at Capture view, until the first capture
+  await expect(hint).toContainText("press here to capture");
+  await expect(page.locator(".dock.pulse")).toHaveCount(1);
+  await expect(hint).toHaveCSS("opacity", "1");
+  await page.screenshot({ path: "test-results/capture-pointer.png" });
+  await page.getByRole("button", { name: "Capture view" }).click();
+  await expect(hint).toHaveCount(0);
+  await expect(page.locator(".dock.pulse")).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".live-bar")).toBeVisible();
+  await expect(hint).toHaveCount(0);
+  // or until its × closes it
+  await page.evaluate(() => localStorage.removeItem("scribui:hint:capture-pointer"));
+  await page.reload();
+  await expect(hint).toBeVisible();
+  await hint.getByRole("button", { name: "close the hint" }).click();
+  await expect(hint).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole("tab", { name: "Capture Screens", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".live-bar")).toBeVisible();
@@ -815,7 +844,7 @@ test("send writes the review and locks the round", async ({ page }) => {
   expect(put.status()).toBe(409);
 });
 
-test("device tab: picking a tool holds the screen, the first mark captures it, later ones join it", async ({ page }) => {
+test("device tab: only captures, with the card the first time and a bubble at Capture view until the first capture", async ({ page }) => {
   // the desktop app's device connection, standing in: a live device whose capture saves a real view
   const { readFileSync } = await import("node:fs");
   const png = readFileSync(new URL("../../../fixtures/project/.scribui/rounds/001/screens/cart.png", import.meta.url)).toString("base64");
@@ -865,65 +894,35 @@ test("device tab: picking a tool holds the screen, the first mark captures it, l
   const screen = page.locator(".device-screen");
   await expect(screen).toBeVisible();
 
-  await page.getByRole("button", { name: "Comment (C)" }).click();
-  await expect(page.locator(".mark-pad")).toBeVisible();
-  const box = (await screen.boundingBox())!;
-  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.25);
-  await page.locator(".ms-note input").fill("bigger title");
-  await page.keyboard.press("Enter");
-  const anns = () => page.evaluate(() => (window as unknown as { __scribui: { getState(): { annotations: { screenId: string; kind: string; text?: string; geometry: { x: number; y: number } }[] } } }).__scribui.getState().annotations);
-  await expect.poll(async () => (await anns()).find((a) => a.text === "bigger title")?.geometry.y ?? 0).toBeGreaterThan(0);
-  const first = (await anns()).find((a) => a.text === "bigger title")!;
-  expect(Math.abs(first.geometry.x - 390)).toBeLessThan(8);
-  expect(Math.abs(first.geometry.y - 422)).toBeLessThan(8);
+  // the first time, a card says what to do; the device and Capture view wait for it
+  const intro = page.getByRole("dialog", { name: "Capture screens" });
+  await expect(intro).toContainText("emulator, a simulator or your phone");
+  await expect(page.getByRole("button", { name: "Capture view" })).toBeDisabled();
+  // only capturing here: no tool rail, no notes panel, no tool strip, Capture view alone in a 215px dock
+  await expect(page.locator(".rail")).toHaveCount(0);
+  await expect(page.locator(".inspector")).toHaveCount(0);
+  await expect(page.locator(".tool-strip")).toHaveCount(0);
+  await expect(page.locator(".dock button")).toHaveCount(1);
+  expect((await page.locator(".dock").boundingBox())!.width).toBeCloseTo(215, 0);
+  await intro.getByRole("button", { name: "Got it" }).click();
+  await expect(intro).toHaveCount(0);
 
-  // a second mark on the held screen joins it: no second capture
-  await page.getByRole("button", { name: "Remove (X)" }).click();
-  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.75);
-  await page.keyboard.press("Enter");
-  await expect.poll(async () => (await anns()).filter((a) => a.screenId === first.screenId).length).toBe(2);
-  expect(await page.evaluate(() => (window as unknown as { __captures: number }).__captures)).toBe(1);
-
-  // the sketch tools on the held screen: a stroke and an ellipse, Ready, then the note
-  await page.getByRole("button", { name: "Draw (P)" }).click();
-  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.5);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.55, { steps: 6 });
-  await page.mouse.up();
-  await page.getByRole("button", { name: "Ellipse (Q)" }).click();
-  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.6, { steps: 6 });
-  await page.mouse.up();
-  await page.getByRole("button", { name: "Ready ⏎" }).click();
-  await page.locator(".ms-note input").fill("a new section");
-  await page.keyboard.press("Enter");
-  const sketched = () => page.evaluate(() => (window as unknown as { __scribui: { getState(): { annotations: { kind: string; text?: string; sketch?: { parts?: { type: string }[] } }[] } } }).__scribui.getState().annotations.find((a) => a.kind === "sketch")?.sketch?.parts?.map((p) => p.type).join());
-  await expect.poll(sketched).toBe("stroke,ellipse");
-  expect(await page.evaluate(() => (window as unknown as { __captures: number }).__captures)).toBe(1);
-
-  // a note opens when it's clicked (its pin, with a tool on): new words go to the note
-  await page.mouse.click(box.x + box.width * 0.5 + 12, box.y + box.height * 0.25 - 12);
-  const edit = page.locator(".ms-edit");
-  await expect(edit).toBeVisible();
-  await expect(edit.locator("textarea")).toHaveValue("bigger title");
-  await edit.locator("textarea").fill("bigger heading");
-  await page.keyboard.press("Enter");
-  await expect(edit).toBeHidden();
-  await expect.poll(async () => (await anns()).some((a) => a.text === "bigger heading")).toBe(true);
-
-  // picked in the notes list, it opens on the screen too; the bin deletes it
-  await page.locator(".inspector .note").nth(1).click();
-  await expect(edit).toBeVisible();
-  await expect(edit.locator("header")).toContainText("Remove");
-  await edit.getByRole("button", { name: "Delete note" }).click();
-  await expect(edit).toBeHidden();
-  await expect.poll(async () => (await anns()).filter((a) => a.screenId === first.screenId).length).toBe(2);
-  expect((await anns()).some((a) => a.kind === "remove")).toBe(false);
-
-  // Escape stops marking; the screen is live again
-  await page.keyboard.press("Escape");
+  // then a bubble points at Capture view, until the first capture
+  const hint = page.locator(".dock-hint");
+  await expect(hint).toContainText("press here to capture");
+  await expect(hint).toHaveCSS("opacity", "1");
+  await page.screenshot({ path: "test-results/device-pointer.png" });
+  // C (comment) does nothing here: no mark pad over the screen
+  await page.keyboard.press("c");
   await expect(page.locator(".mark-pad")).toHaveCount(0);
+  await page.getByRole("button", { name: "Capture view" }).click();
+  await expect(page.locator(".toast", { hasText: 'captured "Phone screen"' })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __captures: number }).__captures)).toBe(1);
+  await expect(hint).toHaveCount(0);
+
+  // the bar's ? shows the card again
+  await page.getByRole("button", { name: "how capturing works" }).click();
+  await expect(intro).toBeVisible();
 });
 
 test("the agent applying the round starts the next one, empty, naming what it changed; the applied round stays as it was", async ({ page }) => {

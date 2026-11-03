@@ -11,7 +11,6 @@ import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs
 import { ImportDialog, openImport, useBoardImports, useImport } from "./components/Import";
 import { Inspector } from "./components/Inspector";
 import { hasLiveTab, LiveView, showLive, showsLiveTab, toggleView } from "./components/Live";
-import { liveKey } from "./components/Marking";
 import { ToolSettings } from "./components/ToolSettings";
 import { ImageImportDialog, VisionBoard, visionKey, zoomVision, fitVisionCamera } from "./components/Vision";
 import { useVision } from "./vision";
@@ -139,11 +138,8 @@ export function App() {
       if (st.helpOpen || st.sendOpen || st.sentPrompt || useImport.getState().open) return;
       const mod = e.metaKey || e.ctrlKey;
       if (!mod && !e.altKey && e.key.toLowerCase() === "l" && liveTab()) return toggleView();
-      // the board's keys don't apply while the live app is shown; the mark tools' do
-      if (st.view === "live") {
-        if (liveKey(e)) e.preventDefault();
-        return;
-      }
+      // the board's keys don't apply while the live app is shown: it only captures
+      if (st.view === "live") return;
       if (st.view === "vision") {
         if (visionKey(e)) return;
         if (mod && e.key === "Enter") {
@@ -271,9 +267,11 @@ export function App() {
 
   const onSend = () => useStore.getState().set({ sendOpen: true });
   const send = useSendButton();
+  // Capture Screens and the device tab only capture: no tools, no notes, nothing to mark up
+  const captureOnly = view === "live";
 
   return (
-    <div className={`app ${inspectorOpen ? "with-panel" : ""} ${view === "live" ? "live-view" : ""}`}>
+    <div className={`app ${inspectorOpen && !captureOnly ? "with-panel" : ""} ${view === "live" ? "live-view" : ""} ${captureOnly ? "capture-only" : ""}`}>
       <main className="stage">
         <Board />
         <VisionBoard />
@@ -297,7 +295,7 @@ export function App() {
                   {project && "app" in project.manifest && project.manifest.app.platform === "web" && hasLiveTab("web") ? (
                     <p>
                       Open <button className="link" onClick={showLive}>Capture Screens</button> (<kbd>L</kbd>), browse to a view in your app and
-                      mark it up with the tools beside it, or press <b>Capture view</b>.
+                      press <b>Capture view</b>.
                     </p>
                   ) : project && "app" in project.manifest && project.manifest.app.platform === "web" ? (
                     <p>
@@ -307,7 +305,7 @@ export function App() {
                   ) : project && "app" in project.manifest && hasLiveTab(project.manifest.app.platform) ? (
                     <p>
                       Open the <button className="link" onClick={showLive}>device tab</button> (<kbd>L</kbd>), go to a screen in your app
-                      and mark it up with the tools above it, or press <b>Capture view</b>, or ask your agent to list screens in <code>.scribui/screens.json</code> and run{" "}
+                      and press <b>Capture view</b>, or ask your agent to list screens in <code>.scribui/screens.json</code> and run{" "}
                       <code>npx scribui capture</code>.
                     </p>
                   ) : (
@@ -342,11 +340,11 @@ export function App() {
         )}
         <Toasts />
       </main>
-      <ToolRail />
+      {!captureOnly && <ToolRail />}
       <TopBar />
       {/* Capture Screens and the Device tab have their own, with Capture view (Live.tsx, Device.tsx) */}
       {view !== "live" && <FloatStack className="stage-stack" main={view === "board" ? send : undefined} onMain={onSend} />}
-      <Inspector />
+      {!captureOnly && <Inspector />}
       <StatusLine onCommand={runCommand} />
       <SendDialog />
       <SentDialog />

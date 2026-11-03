@@ -202,8 +202,6 @@ kbd {
 }
 .tool .tip b { font-weight: 600; }
 .tool:hover .tip { opacity: 1; transition-delay: 0.35s; }
-/* in the desktop's Capture Screens tab they'd open under the app's view: the desktop shows them (liveTip.ts) */
-.native-tips .rail .tool .tip { display: none; }
 .tool-group { margin-top: 33px; flex: none; }
 .history + .tool-group { margin-top: 33px; }
 .tool-group h4 { margin: 0; font: 600 12px/normal var(--sans); }
@@ -524,6 +522,10 @@ kbd {
 .view-switch { gap: 2px; }
 .live-pane { position: absolute; top: calc(var(--gap) + var(--top-h) + 8px); left: var(--left-space); right: var(--right-space); bottom: 39px; z-index: 20; border: 1px solid var(--panel-line); box-shadow: var(--panel-shadow); display: flex; flex-direction: column; background: var(--bg); }
 .live-pane.off { visibility: hidden; pointer-events: none; }
+/* Capture Screens has no tool rail: the app takes its room */
+.app.capture-only .live-pane, .app.capture-only .bar, .app.capture-only .status { left: var(--gap); }
+/* …the board/app switch stays where it is on the other tabs: the bar grew by the rail's room, half of it to the switch's left */
+.app.capture-only .bar .view-switch { transform: translateX(calc((var(--rail-w) + 8px) / 2)); }
 .live-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface); min-width: 0; }
 .live-address { flex: 1; display: flex; align-items: center; gap: 4px; min-width: 120px; }
 .live-address input, .live-name {
@@ -757,18 +759,8 @@ kbd {
 .import-err { margin-top: 10px; white-space: pre-wrap; max-height: 120px; overflow: auto; }
 @media (max-width: 480px) { .role-switch { grid-template-columns: 1fr; } }
 
-/* ───────── marking up the App and Device tabs ───────── */
-/* the board stays mounted under the app tab: keep it out of sight in the gaps around the app */
+/* the board stays mounted under the App and Device tabs: keep it out of sight in the gaps around the app */
 .app.live-view .board { visibility: hidden; }
-/* the tool's settings above the app (a box beside the rail would be under the app's own view) */
-.tool-strip { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 5px 12px; border-bottom: 1px solid var(--line); background: var(--surface); min-width: 0; overflow: hidden; }
-.tool-strip b { font: 600 12.5px/1 var(--sans); text-transform: capitalize; }
-.tool-strip .ts-hint { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tool-strip .ts-controls { display: flex; align-items: center; gap: 16px; margin: 0 0 0 auto; flex: none; }
-.tool-strip .ts-row { display: flex; align-items: center; gap: 8px; margin: 0; }
-.tool-strip .ts-label { margin: 0; gap: 6px; }
-.tool-strip .ts-row input[type="range"] { width: 90px; }
-.mark-pad { position: absolute; inset: 0; z-index: 2; }
 
 /* ───────── Capture Screens intro card (CaptureIntro.tsx; the desktop app draws its own, liveCard.ts) ───────── */
 .intro-scrim { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: rgba(0, 0, 0, 0.4); overflow: auto; }
@@ -815,9 +807,24 @@ kbd {
   filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3)); transition: transform 80ms, filter 80ms;
 }
 .dock-main svg { flex: none; }
+/* Capture Screens: Capture view alone, filling the dock (215px wide) */
+.dock.solo .dock-main { width: 205px; }
 .dock-toggle:hover:not(.on) { background: var(--surface-2); }
 .dock-main:hover:not(:disabled) { filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3)) brightness(1.06); }
 .dock-main:active:not(:disabled), .dock-toggle:active { transform: scale(0.96); }
 .dock-main:disabled { background: var(--surface-3); color: var(--fg-faint); cursor: default; }
 .dock-toggle:focus-visible, .dock-main:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .dock-toggle, .dock-toggle svg, .dock-label { transition: none; } }
+/* the bubble pointing at the main button (in the desktop, floatStack.ts draws its own) */
+.dock-hint {
+  position: absolute; left: 0; right: 0; bottom: calc(100% + 12px); min-height: 52px; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 14px;
+  background: var(--fg); color: var(--surface); border-radius: 10px; box-shadow: var(--panel-shadow); font: 500 12px/1.35 var(--sans);
+  animation: dock-hint-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.dock-hint::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; margin-left: -5px; background: var(--fg); transform: rotate(45deg); }
+.dock-hint span { flex: 1; }
+.dock-hint button { flex: none; width: 22px; height: 22px; padding: 0; background: none; border: 0; border-radius: 50%; color: inherit; opacity: 0.6; font-size: 14px; cursor: pointer; }
+.dock-hint button:hover { opacity: 1; }
+.dock.pulse .dock-main:not(:disabled) { animation: dock-pulse 1.6s ease-out infinite; }
+@keyframes dock-pulse { from { box-shadow: 0 0 0 0 rgba(252, 152, 3, 0.65); } to { box-shadow: 0 0 0 12px rgba(252, 152, 3, 0); } }
+@keyframes dock-hint-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .dock-toggle, .dock-toggle svg, .dock-label { transition: none; } .dock-hint, .dock.pulse .dock-main { animation: none; } }

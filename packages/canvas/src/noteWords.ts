@@ -1,8 +1,7 @@
 /**
  * What each kind of note is called and asks for, named after what it tells
  * the agent (core's compiler.ts): the rail's tool names (store.ts TOOLS), and
- * the note boxes' heads and placeholders in Review (Overlay.tsx) and on the
- * app (markSurface.ts, which the desktop's mark layer loads, so no imports).
+ * the note boxes' heads and placeholders in Review (Overlay.tsx).
  */
 
 export const KIND_NAME: Record<string, string> = {

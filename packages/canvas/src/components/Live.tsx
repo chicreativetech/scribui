@@ -1,31 +1,22 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { focusTile } from "./Board";
-import { BROWSER_INTRO, DESKTOP_INTRO, hintSeen, IntroCardView, markHintSeen, type IntroCard } from "./CaptureIntro";
-import { captureButton, FloatStack, pressDockTool, useDockTools, type StackButton, type StackToast } from "./FloatStack";
+import { BROWSER_INTRO, DESKTOP_INTRO, IntroCardView, POINTER, POINTER_HINT, useHint, type IntroCard } from "./CaptureIntro";
+import { captureButton, FloatStack, type StackButton, type StackToast } from "./FloatStack";
 import { deviceApi, DeviceTab, ICON, Tip } from "./Device";
-import { addWebMark, deleteNote, editNote, layerMarks, liveTool, notePage, OPEN_NOTE, pagePath, surfaceStyles } from "./Marking";
-import { ToolSettings } from "./ToolSettings";
 
 /**
  * The Capture Screens tab: the running web app, for capturing views by hand.
  * Only in the desktop app: in a browser the app is a tab away, its pages come
  * to Review through the ScribUI extension or by pasting, and the tab only says
- * so (CaptureIntro.tsx). The app has its own view
+ * so (CaptureIntro.tsx). It only captures: no tool rail, no marking up, the
+ * dock just Capture view. The app has its own view
  * (`scribuiDesktop.live`): this tab reports where it should sit and drives it.
  * The desktop's test harnesses embed it in an iframe instead, capturing through
  * `window.__scribuiCapture`. Mobile projects get the device tab (Device.tsx).
  */
 
-type CaptureFn = (req: { title?: string; replace?: string; fullPage?: boolean; signature?: string }) => Promise<{ round: number; screenId: string; title: string }>;
-type MarkEvent =
-  | { type: "add"; draft: unknown }
-  | { type: "ready"; url: string }
-  | { type: "review" }
-  | { type: "exit" }
-  | { type: "select"; id: string | null }
-  | { type: "edit"; id: string; text: string }
-  | { type: "delete"; id: string };
+type CaptureFn = (req: { title?: string; replace?: string }) => Promise<{ round: number; screenId: string; title: string }>;
 type Box = { x: number; y: number; width: number; height: number };
 type LiveState = {
   url: string;
@@ -45,17 +36,11 @@ type DesktopLive = {
   forward(): Promise<void>;
   devtools(): Promise<void>;
   onState(cb: (s: LiveState) => void): () => void;
-  /** Desktop 6+: marking up the page (Marking.tsx). */
-  markMode?(tool: string | null, styles?: unknown, theme?: string): void;
-  setMarks?(list: { url: string; marks: unknown[]; confirmed: string[]; selected?: string | null }): void;
-  onMark?(cb: (ev: MarkEvent) => void): () => void;
   /** Desktop 6+: the floating Capture view button, a view of its own over the app's. */
-  stack?(stack: { toggles: StackButton[]; main: StackButton | null; toast: StackToast | null; theme: "light" | "dark" } | null): void;
+  stack?(stack: { toggles: StackButton[]; main: StackButton | null; toast: StackToast | null; hint: string | null; theme: "light" | "dark" } | null): void;
   onStackPress?(cb: (id: string) => void): () => void;
   /** Desktop 6+: the intro card, a view of its own over the app's (null removes it). */
   card?(card: (IntroCard & { theme: "light" | "dark" }) | null): void;
-  /** A tool rail tooltip, a view of its own over the app's (null hides it). */
-  tip?(tip: { id: number; parts: { text: string; style: "" | "b" | "kbd" | "dim" }[]; x: number; y: number; theme: "light" | "dark" } | null): void;
   onCardClose?(cb: () => void): () => void;
 };
 declare global {
@@ -120,13 +105,14 @@ function BrowserLive() {
       <div className="live-viewport">
         <IntroCardView card={BROWSER_INTRO} onClose={() => useStore.getState().set({ view: "board" })} />
         {/* there, but not for pressing: the card says what to use instead */}
-        <FloatStack main={captureButton(false, false)} />
+        <FloatStack solo main={captureButton(false, false)} />
       </div>
     </section>
   );
 }
 
-const INTRO_HINT = "capture-intro";
+// -2: the card changed when the tab stopped marking up; shown once more to everyone
+const INTRO_HINT = "capture-intro-2";
 
 function WebLive() {
   const view = useStore((s) => s.view);
@@ -155,19 +141,12 @@ function WebLive() {
   const theme = useStore((s) => s.theme);
 
   // the intro card, the first time the tab opens (and from the bar's ? button)
-  const [intro, setIntro] = useState(false);
-  useEffect(() => {
-    if (!visited) return;
-    let gone = false;
-    void hintSeen(INTRO_HINT).then((seen) => !gone && !seen && setIntro(true));
-    return () => void (gone = true);
-  }, [visited]);
-  const closeIntro = () => {
-    setIntro(false);
-    markHintSeen(INTRO_HINT);
-  };
+  const [intro, setIntro, closeIntro] = useHint(INTRO_HINT, visited);
   useEffect(() => native?.card?.(intro && shown ? { ...DESKTOP_INTRO, theme } : null), [intro, shown, theme]);
-  useEffect(() => native?.onCardClose?.(() => closeIntro()), []);
+  useEffect(() => native?.onCardClose?.(() => closeIntro()), [closeIntro]);
+
+  // then the bubble pointing at Capture view
+  const [pointer, , closePointer] = useHint(POINTER_HINT, visited);
 
   // desktop: follow the app's view (address, loading, errors)
   useEffect(() => {
@@ -208,70 +187,6 @@ function WebLive() {
     };
   }, [shown, preset.w, preset.h, visited]);
 
-  /* ───────── marking up the page ───────── */
-
-  const markTool = useStore((s) => liveTool(s.tool));
-  const toolStyles = useStore((s) => s.toolStyles);
-  const canMark = !!native?.markMode && !!state?.url && !state.error;
-  const pageUrl = state?.url ?? "";
-  const confirmed = useRef<string[]>([]);
-  const pushMarks = useRef<() => void>(() => {});
-  pushMarks.current = () => {
-    if (!native?.setMarks || !pageUrl) return;
-    const marks = layerMarks(pageUrl);
-    // the note picked (here or in the notes list) opens on the page
-    const sel = useStore.getState().selectedId;
-    const selected = sel && marks.some((m) => m.annotation.id === sel) ? sel : null;
-    native.setMarks({ url: pageUrl.split("#")[0]!, marks, confirmed: confirmed.current.splice(0), selected });
-  };
-
-  // the tool goes to the page while this tab shows; elsewhere the app is just used
-  useEffect(() => {
-    native?.markMode?.(shown && canMark ? markTool : null, surfaceStyles(), theme);
-  }, [shown, canMark, markTool, toolStyles, theme]);
-
-  // what the page's mark layer sends
-  useEffect(
-    () =>
-      native?.onMark?.((ev) => {
-        if (ev.type === "add")
-          addWebMark(ev.draft, (id) => {
-            confirmed.current.push(id);
-            pushMarks.current();
-          });
-        else if (ev.type === "ready") pushMarks.current();
-        else if (ev.type === "review") {
-          useStore.getState().setTool("select");
-          useStore.getState().set({ view: "board" });
-        } else if (ev.type === "exit") useStore.getState().setTool("select");
-        else if (ev.type === "select") useStore.getState().select(ev.id);
-        else if (ev.type === "edit") editNote(ev.id, ev.text);
-        else if (ev.type === "delete") deleteNote(ev.id);
-      }),
-    [],
-  );
-
-  // the notes on the shown page, again whenever they or the page change
-  const annotations = useStore((s) => s.annotations);
-  const shownRound = useStore((s) => s.round);
-  const selectedId = useStore((s) => s.selectedId);
-  useEffect(() => pushMarks.current(), [pageUrl, annotations, shownRound, project, selectedId]);
-
-  // a note picked in the notes list: its page opens, then the note on it
-  const goRef = useRef<(url: string) => void>(() => {});
-  useEffect(() => {
-    const open = (e: Event) => {
-      const id = (e as CustomEvent<string>).detail;
-      if (!shown || !native?.setMarks) return;
-      const url = notePage(id);
-      const st = useStore.getState();
-      if (!url) return st.toast({ text: "That note is on a screen captured another way: open Review to change it", tone: "info" });
-      if (pagePath(url, base) !== pagePath(pageUrl, base)) goRef.current(url);
-    };
-    window.addEventListener(OPEN_NOTE, open);
-    return () => window.removeEventListener(OPEN_NOTE, open);
-  }, [shown, pageUrl, base]);
-
   // the project loads after the first render
   useEffect(() => {
     if (base && !src) {
@@ -287,17 +202,17 @@ function WebLive() {
     return () => window.removeEventListener("scribui:live-url", onUrl);
   }, []);
 
-  // desktop: the floating Capture view button over the app's view presses here
-  // desktop: the dock over the app's view (floatStack.ts); always there, Capture view greyed out without a page or under the card
+  // desktop: the dock over the app's view (floatStack.ts), Capture view alone; always there, greyed out without a page or under the card
   const captureRef = useRef<() => void>(() => {});
   const hasApp = !!state?.bounds && !!state.url && !state.error;
-  const toggles = useDockTools();
+  const toggles: StackButton[] = [];
   const main = captureButton(canCapture && hasApp && !intro, busy);
   // the latest toast shows beside the buttons: the canvas's own would sit under the app
   const last = useStore((s) => s.toasts.at(-1));
   const toast = last ? { id: last.id, text: last.text, tone: last.tone ?? "info", action: last.action?.label ?? null } : null;
   // as JSON: the buttons are new objects on every render, the effect only runs when they change
-  const stack = JSON.stringify({ toggles, main, toast, theme });
+  const hint = pointer && !intro && !main.disabled ? POINTER : null;
+  const stack = JSON.stringify({ toggles, main, toast, hint, theme });
   useEffect(() => native?.stack?.(shown ? JSON.parse(stack) : null), [shown, stack]);
   useEffect(() => {
     if (!native?.stack || !shown) return;
@@ -305,47 +220,6 @@ function WebLive() {
     return () => document.documentElement.classList.remove("native-toasts");
   }, [shown]);
 
-  // the rail's tooltips open over the app, under its view: the desktop shows them instead
-  useEffect(() => {
-    const show = native?.tip;
-    if (!show || !shown) return;
-    document.documentElement.classList.add("native-tips");
-    let seq = 0;
-    let timer = 0;
-    let on: Element | null = null;
-    const hide = () => {
-      clearTimeout(timer);
-      if (on) show(null);
-      on = null;
-    };
-    const over = (e: PointerEvent) => {
-      const tool = (e.target as Element | null)?.closest?.(".rail .tool");
-      if (tool === on) return;
-      hide();
-      const tip = tool?.querySelector(":scope > .tip");
-      if (!tool || !tip || (tool as HTMLButtonElement).disabled) return;
-      on = tool;
-      timer = window.setTimeout(() => {
-        const parts = [...tip.childNodes].map((n) => {
-          const el = n.nodeType === 1 ? (n as Element) : null;
-          const style = el?.tagName === "B" ? "b" : el?.tagName === "KBD" ? "kbd" : el?.classList.contains("dim") ? "dim" : "";
-          return { text: n.textContent ?? "", style } as const;
-        }).filter((p) => p.text);
-        const rail = tool.closest(".rail")!.getBoundingClientRect();
-        show({ id: ++seq, parts, x: rail.right + 6, y: tool.getBoundingClientRect().top - 4, theme: useStore.getState().theme });
-      }, 350);
-    };
-    document.addEventListener("pointerover", over);
-    document.addEventListener("pointerdown", hide);
-    document.documentElement.addEventListener("pointerleave", hide);
-    return () => {
-      hide();
-      document.removeEventListener("pointerover", over);
-      document.removeEventListener("pointerdown", hide);
-      document.documentElement.removeEventListener("pointerleave", hide);
-      document.documentElement.classList.remove("native-tips");
-    };
-  }, [shown]);
   useEffect(
     () =>
       native?.onStackPress?.((id) => {
@@ -356,9 +230,9 @@ function WebLive() {
           t.action?.run();
           st.dismissToast(t.id);
         } else if (id === "toast-close" && t) st.dismissToast(t.id);
-        else pressDockTool(id);
+        else if (id === "hint-close") closePointer();
       }),
-    []
+    [closePointer]
   );
 
   if (!visited) return null;
@@ -379,7 +253,6 @@ function WebLive() {
     if (url === src) setReloadKey((k) => k + 1);
     else setSrc(url);
   };
-  goRef.current = go;
   const reload = () => (native ? void native.reload() : setReloadKey((k) => k + 1));
 
   const pickSize = (id: string) => {
@@ -399,6 +272,7 @@ function WebLive() {
       const r = await window.__scribuiCapture({ ...(name.trim() ? { title: name.trim() } : {}), ...(replace ? { replace } : {}) });
       setName("");
       setReplace("");
+      if (pointer) closePointer();
       await st.refreshRounds();
       await st.load(r.round);
       st.toast({
@@ -494,7 +368,6 @@ function WebLive() {
           <Tip name="How it works" does="shows what to do in this tab again" />
         </button>
       </div>
-      {native?.markMode && <ToolSettings inline />}
       <div className="live-viewport">
         {native ? (
           <div ref={areaRef} className="live-native">
@@ -527,7 +400,13 @@ function WebLive() {
         {/* the desktop's own view gets the card from a view of its own (liveCard.ts) */}
         {!native && intro && <IntroCardView card={DESKTOP_INTRO} onClose={closeIntro} />}
         {/* in a harness's iframe the canvas can draw over the app; the desktop's own view gets native buttons (floatStack.ts) */}
-        {!native && <FloatStack main={captureButton(canCapture && !!src && !intro, busy)} onMain={() => void capture()} />}
+        {!native && <FloatStack
+            solo
+            main={captureButton(canCapture && !!src && !intro, busy)}
+            onMain={() => void capture()}
+            hint={pointer && !intro && canCapture && !!src ? POINTER : undefined}
+            onHintClose={closePointer}
+          />}
       </div>
     </section>
   );

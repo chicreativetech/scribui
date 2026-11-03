@@ -2,14 +2,18 @@ import { WebContentsView, type BrowserWindow } from "electron";
 import type { Rect } from "./liveLayout.js";
 
 /**
- * The dock at the bottom centre of the Capture Screens tab (Select, Comment
- * and Add screen, then Capture view; the canvas's FloatStack.tsx). The app's own
+ * The dock at the bottom centre of the Capture Screens tab (Capture view alone,
+ * filling it; the canvas's FloatStack.tsx, which can also send tools). The app's own
  * view covers the canvas there, so it's a small transparent view
  * of their own, stacked above the app's and the intro card's. The canvas sends
  * them as data (labels, icon paths, states), which the page puts in as text
  * and SVG paths; it has no preload, and a press shows up as a title change,
  * which LiveView passes to the canvas. Captures read the app's view only, so
  * the buttons are never in a screenshot.
+ *
+ * Until the first capture, a bubble above the dock points at Capture view
+ * (the stack's `hint`, closed by its × as "hint-close"), and the button pulses;
+ * the view is taller while it shows.
  *
  * The canvas's latest toast ("captured … into R001 · show in Review") comes
  * with the stack and shows in a second small view, just above the dock: the canvas's own toasts would sit under the app's view. Its page
@@ -20,23 +24,28 @@ import type { Rect } from "./liveLayout.js";
 export type StackIcon = { box: number; paths: string[] };
 export type StackButton = { id: string; label: string; icon: StackIcon; title: string; on: boolean; disabled: boolean; busy: boolean };
 export type StackToast = { id: number; text: string; tone: "ok" | "warn" | "err" | "info"; action: string | null };
-export type Stack = { toggles: StackButton[]; main: StackButton | null; toast: StackToast | null; theme: "light" | "dark" };
+export type Stack = { toggles: StackButton[]; main: StackButton | null; toast: StackToast | null; hint: string | null; theme: "light" | "dark" };
 
 /** The sizes, in canvas CSS pixels (styles.css's .dock): a tool, the main button, the dock's height and its frame, the gap between them. */
 const TOGGLE_W = 74;
 const MAIN_W = 159;
+/** The main button with no tools beside it: the dock 215px wide. */
+const SOLO_W = 205;
 const DOCK_H = 55;
 const FRAME = 5;
 const DOCK_GAP = 22;
 /** The dock's bottom edge above the tab's, and the room around it in its view for its shadow. */
 export const INSET = 30;
 const PAD = 24;
+/** The hint bubble's room above the dock: the bubble (two lines at most), its arrow and the gap. */
+const HINT_H = 64;
 
 /** The view's size for a stack (CSS px): the dock and room for its shadow. */
 export function stackSize(s: Stack): { width: number; height: number } {
   // their borders overlap
   const toggles = s.toggles.length ? s.toggles.length * (TOGGLE_W - 1) + 1 : 0;
-  return { width: 2 * PAD + 2 * FRAME + toggles + (s.main ? DOCK_GAP + MAIN_W : 0), height: 2 * PAD + DOCK_H };
+  const main = !s.main ? 0 : toggles ? DOCK_GAP + MAIN_W : SOLO_W;
+  return { width: 2 * PAD + 2 * FRAME + toggles + main, height: 2 * PAD + DOCK_H + (s.hint ? HINT_H : 0) };
 }
 
 const ID = /^[a-z][a-z0-9-]{0,30}$/;
@@ -78,14 +87,27 @@ export function readStack(v: unknown): Stack | null {
   if (toggles.some((t) => !t)) return null;
   const main = s.main == null ? null : readButton(s.main);
   if (s.main != null && !main) return null;
-  return { toggles: toggles as StackButton[], main, toast: readToast(s.toast), theme: s.theme === "light" ? "light" : "dark" };
+  const hint = typeof s.hint === "string" && s.hint ? s.hint.slice(0, 120) : null;
+  return { toggles: toggles as StackButton[], main, toast: readToast(s.toast), hint, theme: s.theme === "light" ? "light" : "dark" };
 }
 
 const PAGE = `<!doctype html><html><head><meta charset="utf-8"><style>
 :root { --surface: #232327; --surface-2: #2a2a2f; --surface-3: #323238; --panel-line: #313136; --line: #34343a; --fg: #f3f3f3; --faint: #6d6d76; --ink: #000; --shadow: rgba(0, 0, 0, 0.45); }
 :root.light { --surface: #ffffff; --surface-2: #f6f6f6; --surface-3: #ededed; --panel-line: #e7e7e7; --line: #e7e7e7; --fg: #262626; --faint: #9a9a9a; --ink: #262626; --shadow: rgba(0, 0, 0, 0.14); }
 html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; }
-body { padding: ${PAD}px; box-sizing: border-box; font: 600 10.5px/1 "Inter", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+body { padding: ${PAD}px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; font: 600 10.5px/1 "Inter", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+.hint {
+  position: relative; box-sizing: border-box; width: 100%; height: ${HINT_H - 12}px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px;
+  background: var(--fg); color: var(--surface); border-radius: 10px; box-shadow: 0 3px 10px var(--shadow); font: 500 12px/1.35 "Inter", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  animation: up 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hint::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; margin-left: -5px; background: var(--fg); transform: rotate(45deg); }
+.hint span { flex: 1; }
+.hint button { flex: none; width: 22px; height: 22px; padding: 0; background: none; border: 0; border-radius: 50%; color: inherit; opacity: 0.6; font-size: 14px; }
+.hint button:hover { opacity: 1; }
+.dock.pulse .main:not(:disabled) { animation: pulse 1.6s ease-out infinite; }
+@keyframes pulse { from { box-shadow: 0 0 0 0 rgba(252, 152, 3, 0.65); } to { box-shadow: 0 0 0 12px rgba(252, 152, 3, 0); } }
+@keyframes up { from { opacity: 0; transform: translateY(6px); } }
 .dock {
   height: ${DOCK_H}px; box-sizing: border-box; display: flex; align-items: center; gap: ${DOCK_GAP}px; padding: ${FRAME - 1}px; width: max-content;
   background: var(--surface); border: 1px solid var(--panel-line); border-radius: 33px; box-shadow: 2px 4px 16px 3px var(--shadow);
@@ -107,6 +129,7 @@ button { cursor: pointer; font: inherit; display: flex; align-items: center; jus
   width: ${MAIN_W}px; height: 45px; box-sizing: border-box; padding: 0 12px; gap: 11px; white-space: nowrap; background: #fc9803; color: var(--ink);
   border: 1px solid var(--line); border-radius: 31px; font-size: 12px; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3)); transition: transform 80ms;
 }
+.solo .main { width: ${SOLO_W}px; }
 .main svg { flex: none; }
 .main:hover:not(:disabled) { filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3)) brightness(1.06); }
 .main:active:not(:disabled), .toggle:active { transform: scale(0.96); }
@@ -114,7 +137,7 @@ button { cursor: pointer; font: inherit; display: flex; align-items: center; jus
 button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 .spin { width: 14px; height: 14px; box-sizing: border-box; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s 0.8s linear infinite; }
 @keyframes s { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .toggle, .toggle svg, .label { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .toggle, .toggle svg, .label { transition: none; } .hint, .dock.pulse .main { animation: none; } }
 </style></head><body>
 <script>
 const NS = "http://www.w3.org/2000/svg";
@@ -153,20 +176,37 @@ const button = (b, main) => {
 };
 const ids = (s) => s.toggles.map((b) => b.id).concat(s.main ? [s.main.id] : []).join(" ");
 let shown = "";
+let hinted = null;
+/** The bubble above the dock, as text; its × presses "hint-close". */
+const setHint = (text) => {
+  if (text === hinted) return;
+  hinted = text;
+  document.querySelector(".hint")?.remove();
+  document.querySelector(".dock")?.classList.toggle("pulse", !!text);
+  if (!text) return;
+  const el = Object.assign(document.createElement("div"), { className: "hint" });
+  const x = Object.assign(document.createElement("button"), { textContent: "\u2715", title: "got it" });
+  x.setAttribute("aria-label", "close the hint");
+  x.addEventListener("click", () => { document.title = "press hint-close " + ++presses; });
+  el.append(Object.assign(document.createElement("span"), { textContent: text }), x);
+  document.body.prepend(el);
+};
 window.setStack = (s) => {
   document.documentElement.classList.toggle("light", s.theme === "light");
   if (ids(s) === shown) {
     s.toggles.forEach((b) => fill(document.querySelector('[data-id="' + b.id + '"]'), b, false));
     if (s.main) fill(document.querySelector('[data-id="' + s.main.id + '"]'), s.main, true);
-    return;
+    return setHint(s.hint);
   }
   shown = ids(s);
+  hinted = null;
   const toggles = Object.assign(document.createElement("div"), { className: "toggles" });
   toggles.append(...s.toggles.map((b) => button(b, false)));
-  const dock = Object.assign(document.createElement("div"), { className: "dock" });
+  const dock = Object.assign(document.createElement("div"), { className: s.toggles.length ? "dock" : "dock solo" });
   toggles.style.width = s.toggles.length * ${TOGGLE_W - 1} + 1 + "px";
   dock.append(...(s.toggles.length ? [toggles] : []), ...(s.main ? [button(s.main, true)] : []));
   document.body.replaceChildren(dock);
+  setHint(s.hint);
 };
 </script></body></html>`;
 

@@ -1,8 +1,6 @@
-import { join } from "node:path";
 import { shell, WebContentsView, type BrowserWindow, type WebContents } from "electron";
 import type { ViewSaveResult } from "@scribui/server";
 import { FloatStack, type Stack } from "./floatStack.js";
-import { LiveTip, type Tip } from "./liveTip.js";
 import { LiveCard, type Card } from "./liveCard.js";
 import { layoutLiveView, scaleRect, type LiveLayout, type Rect, type Size } from "./liveLayout.js";
 import { captureFromView, nextPaint, type LiveCaptureRequest, type SaveView } from "./webCapture.js";
@@ -11,16 +9,10 @@ import { captureFromView, nextPaint, type LiveCaptureRequest, type SaveView } fr
  * The reviewed web app, in its own view on top of the canvas's app tab. It is
  * a top-level page (pages that refuse embedding work, cookies behave as in a
  * tab) with no Node, in the project's own session. The canvas tells it where
- * to sit; ScribUI's UI never overlaps it. Its one preload, markLayer.ts, draws
- * the marks over the page in an isolated world the app can't reach; this class
- * relays between it and the canvas. The tab's intro card sits over it in a
+ * to sit; ScribUI's UI never overlaps it, and it has no preload. The tab's intro card sits over it in a
  * view of its own (liveCard.ts), and the round buttons over both, Capture
  * view among them (floatStack.ts).
  */
-
-/** Mark mode and the notes on the shown page, from the canvas, kept for the next page load. */
-export type MarkMode = { tool: string | null; styles?: Record<string, unknown>; theme?: "light" | "dark" };
-export type MarkList = { url: string; marks: unknown[]; confirmed: string[]; selected?: string | null };
 
 export type LiveState = {
   url: string;
@@ -45,17 +37,14 @@ export class LiveView {
   private layout: LiveLayout | null = null;
   private error: string | null = null;
   private capturing = false;
-  private mode: MarkMode = { tool: null };
-  private marks: MarkList | null = null;
   private stack: FloatStack | null = null;
   private card: LiveCard | null = null;
-  private tip: LiveTip | null = null;
 
   constructor(
     private win: BrowserWindow,
     private partition: string,
     private tell: (s: LiveState) => void,
-    /** A dock button was pressed (select, comment, add, capture, or the toast's): the canvas acts on it (it holds the name and what to replace). */
+    /** A dock button was pressed (capture, the hint's ×, or the toast's): the canvas acts on it (it holds the name and what to replace). */
     private onStackPress: (id: string) => void = () => {},
     /** The intro card's button (or Escape) was pressed. */
     private onCardClose: () => void = () => {},
@@ -76,14 +65,6 @@ export class LiveView {
     if (stack && !this.stack) this.stack = new FloatStack(this.win, (id) => this.onStackPress(id));
     this.stack?.set(stack);
     this.apply();
-  }
-
-  /** A tool rail tooltip over the app, from the canvas; null hides it. */
-  setTip(tip: Tip | null) {
-    if (tip && !this.tip) this.tip = new LiveTip(this.win);
-    this.tip?.set(tip);
-    this.tip?.place(this.win.webContents.getZoomFactor());
-    this.restack();
   }
 
   /** The canvas's free area for the app (CSS px) and the chosen size; null area hides the view. */
@@ -119,28 +100,6 @@ export class LiveView {
 
   openDevTools() {
     this.view?.webContents.openDevTools({ mode: "detach" });
-  }
-
-  /** The canvas's mark tool (null: browse the app). */
-  setMarkMode(m: MarkMode) {
-    this.mode = m;
-    this.view?.webContents.send("scribui-mark:mode", m);
-  }
-
-  /** The notes on the page the app shows, for the mark layer to draw. */
-  setMarks(list: MarkList) {
-    // a note picked in the canvas opens on the page: the keys go there to type in it
-    if (list.selected && list.selected !== this.marks?.selected) this.view?.webContents.focus();
-    this.marks = list;
-    this.view?.webContents.send("scribui-mark:marks", list);
-  }
-
-  /** A page (re)started its mark layer: give it the mode, and the notes when they're for that page. */
-  markLayerReady(url: string) {
-    const wc = this.view?.webContents;
-    if (!wc) return;
-    wc.send("scribui-mark:mode", this.mode);
-    if (this.marks && this.marks.url === url.split("#")[0]) wc.send("scribui-mark:marks", this.marks);
   }
 
   get webContents(): WebContents | null {
@@ -195,8 +154,6 @@ export class LiveView {
     this.stack = null;
     this.card?.dispose();
     this.card = null;
-    this.tip?.dispose();
-    this.tip = null;
     if (!view) return;
     if (!this.win.isDestroyed()) this.win.contentView.removeChildView(view);
     view.webContents.close();
@@ -210,7 +167,6 @@ export class LiveView {
     const area = this.area && scaleRect(this.area, factor);
     this.card?.place(area, factor);
     this.stack?.place(area, factor);
-    this.tip?.place(factor);
     this.restack();
     if (!view) return this.report();
     if (!this.area || this.error) {
@@ -225,9 +181,9 @@ export class LiveView {
     this.report();
   }
 
-  /** The app's view, then the card, the dock and its toast, then a tooltip on top; views added later go on top, so put these back. */
+  /** The app's view, then the card, then the dock and its toast on top; views added later go on top, so put these back. */
   private restack() {
-    const want = [this.card?.view, this.stack?.view, this.stack?.toastView, this.tip?.view].filter((v): v is WebContentsView => !!v);
+    const want = [this.card?.view, this.stack?.view, this.stack?.toastView].filter((v): v is WebContentsView => !!v);
     const kids = this.win.contentView.children;
     if (want.every((v, i) => kids.at(i - want.length) === v)) return;
     for (const v of want) this.win.contentView.addChildView(v);
@@ -253,7 +209,6 @@ export class LiveView {
     const view = new WebContentsView({
       webPreferences: {
         partition: this.partition,
-        preload: join(__dirname, "markLayer.cjs"),
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,

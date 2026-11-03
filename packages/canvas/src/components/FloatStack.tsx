@@ -6,7 +6,8 @@ import { Spinner } from "./Capture";
 /**
  * The dock at the bottom centre: Select, Comment and Add screen (icons; their
  * names show on hover), then the tab's main button (Capture view in Capture
- * Screens, Send in Review; none on the vision board). In the desktop app's Capture Screens
+ * Screens, Send in Review; none on the vision board). Capture Screens has
+ * Capture view alone, filling the dock (`solo`). In the desktop app's Capture Screens
  * tab the app's own view covers the canvas, so the desktop draws the stack in
  * a view of its own (floatStack.ts) from these same buttons, as data: labels,
  * icon paths and states, never markup.
@@ -102,11 +103,36 @@ const Icon = ({ icon, size }: { icon: StackIcon; size: number }) => (
 );
 
 /** The dock, in the canvas: a pill at the bottom centre of its parent. */
-export function FloatStack({ main, onMain, className = "" }: { main?: StackButton; onMain?: () => void; className?: string }) {
-  const toggles = useDockTools();
+export function FloatStack({
+  main,
+  onMain,
+  solo = false,
+  hint,
+  onHintClose,
+  className = "",
+}: {
+  main?: StackButton;
+  onMain?: () => void;
+  solo?: boolean;
+  /** A bubble above the dock pointing at the main button, which pulses meanwhile. */
+  hint?: string;
+  onHintClose?: () => void;
+  className?: string;
+}) {
+  const tools = useDockTools();
+  const toggles = solo ? [] : tools;
   return (
-    <div className={`dock ${className}`}>
+    <div className={`dock ${solo ? "solo" : ""} ${hint ? "pulse" : ""} ${className}`}>
+      {hint && (
+        <div className="dock-hint" role="status">
+          <span>{hint}</span>
+          <button onClick={onHintClose} aria-label="close the hint" title="got it">
+            ✕
+          </button>
+        </div>
+      )}
       {/* 74px a tool, their borders overlapping */}
+      {toggles.length > 0 && (
       <div className="dock-toggles" style={{ width: toggles.length * 73 + 1 }}>
         {toggles.map((t) => (
           <button
@@ -123,6 +149,7 @@ export function FloatStack({ main, onMain, className = "" }: { main?: StackButto
           </button>
         ))}
       </div>
+      )}
       {main && (
         <button className="dock-main" onClick={onMain} disabled={main.disabled} title={main.title || undefined}>
           {main.busy ? <Spinner /> : <Icon icon={main.icon} size={14} />}

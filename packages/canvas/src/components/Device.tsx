@@ -2,17 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useStore } from "../store";
 import { focusTile } from "./Board";
 import { Spinner } from "./Capture";
-import { addDeviceMark, liveTool, MarkPad } from "./Marking";
-import type { SurfaceMark } from "../markSurface";
-import { ToolSettings } from "./ToolSettings";
 import { captureButton, FloatStack } from "./FloatStack";
+import { DEVICE_INTRO, IntroCardView, POINTER, POINTER_HINT, useHint } from "./CaptureIntro";
 
 /**
  * The device tab of a mobile project, in the desktop app: an emulator, phone
  * or iOS Simulator live (H.264 from the main process, decoded here with WebCodecs), used
  * with the mouse and keyboard, and captured exactly as it is. Which buttons
- * show comes from the session's capabilities. Capturing freezes the picture,
- * shows the steps, and when the screen kept changing asks whether to try
+ * show comes from the session's capabilities. Like Capture Screens it only
+ * captures: no tool rail, no marking up, the dock just Capture view.
+ * Capturing freezes the picture, shows the steps, and when the screen kept changing asks whether to try
  * again or keep the frame from when Capture was pressed.
  */
 
@@ -286,64 +285,9 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
   const turn = useRef<Rotation>(0);
   const { painted, error: decodeError } = useDecoder(api, canvasRef, frozen, turn);
 
-  /* ───────── marking up the screen: the picture holds still, the first mark captures it ───────── */
-
-  const markTool = useStore((s) => liveTool(s.tool));
-  const marking = !!markTool && shown && state.status === "live";
-  // marks: made, not on the captured screen yet
-  const [session, setSession] = useState<{ screenId: string | null; marks: SurfaceMark[] } | null>(null);
-  const sessionRef = useRef(session);
-  sessionRef.current = session;
-  const markQueue = useRef<Promise<void>>(Promise.resolve());
-  useEffect(() => {
-    if (marking && !sessionRef.current) {
-      frozen.current = true;
-      setSession({ screenId: null, marks: [] });
-    } else if (!marking && sessionRef.current) {
-      setSession(null);
-      // the next frame shows the device as it is again
-      if (!busyRef.current) {
-        frozen.current = false;
-        api.resetVideo();
-      }
-    }
-  }, [marking, api]);
-  const onMark = (m: SurfaceMark, shownSize: { w: number; h: number }) => {
-    setSession((s) => (s ? { ...s, marks: [...s.marks, m] } : s));
-    markQueue.current = markQueue.current
-      .then(async () => {
-        let screenId = sessionRef.current?.screenId ?? null;
-        if (!screenId) {
-          busyRef.current = true;
-          setBusy(true);
-          try {
-            const out = await api.capture({});
-            const saved = out.kind === "saved" ? out.result : await api.keep();
-            if (out.kind !== "saved") useStore.getState().toast({ text: "the screen was still changing: kept the picture you marked up", tone: "warn" });
-            const st = useStore.getState();
-            await st.refreshRounds();
-            await st.load(saved.round);
-            screenId = saved.screenId;
-            const id = screenId;
-            if (sessionRef.current) sessionRef.current = { ...sessionRef.current, screenId: id };
-            setSession((s) => (s ? { ...s, screenId: id } : s));
-          } finally {
-            busyRef.current = false;
-            setBusy(false);
-            setProgress(null);
-            if (!sessionRef.current) frozen.current = false;
-          }
-        }
-        addDeviceMark(m, screenId, shownSize);
-        // on the screen now: shown (and opened) as its note
-        setSession((s) => (s ? { ...s, marks: s.marks.filter((x) => x !== m) } : s));
-      })
-      .catch((e: Error) => {
-        setSession((s) => (s ? { ...s, marks: s.marks.filter((x) => x !== m) } : s));
-        const msg = e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
-        if (!/cancelled/.test(msg)) useStore.getState().toast({ text: msg, tone: "err" });
-      });
-  };
+  // the intro card the first time the tab opens (and from the bar's ? button), then the bubble pointing at Capture view
+  const [intro, setIntro, closeIntro] = useHint("device-intro", visited);
+  const [pointer, , closePointer] = useHint(POINTER_HINT, visited);
 
   useEffect(() => api.onState(setState), [api]);
   useEffect(() => api.onProgress(setProgress), [api]);
@@ -438,7 +382,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
     const r = canvasRef.current!.getBoundingClientRect();
     return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
   };
-  const interactive = live && state.status === "live" && !busy && !unsettled && !marking;
+  const interactive = live && state.status === "live" && !busy && !unsettled && !intro;
   const send = (ev: Input) => {
     if (interactive) api.input(ev);
   };
@@ -511,6 +455,7 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
     });
     setName("");
     setReplace("");
+    if (pointer) closePointer();
   };
 
   const endCapture = () => {
@@ -675,8 +620,11 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
             </option>
           ))}
         </select>
+        <button type="button" className="toggle live-help" aria-label="how capturing works" onClick={() => setIntro(true)}>
+          ?
+          <Tip name="How it works" does="shows what to do in this tab again" />
+        </button>
       </div>
-      <ToolSettings inline />
       {!canDecode && (
         <div className="live-note">
           The device view needs WebCodecs, which this page can't use (it isn't a secure context). Open the project from the ScribUI app.
@@ -706,7 +654,6 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
                   send({ type: "scroll", ...point(e), dx: -e.deltaX * k, dy: -e.deltaY * k });
                 }}
               />
-              {session && markTool && <MarkPad tool={markTool} screenId={session.screenId} pending={session.marks} onMark={onMark} />}
               {!painted && <div className="device-wait">waiting for the picture…</div>}
               {state.status === "reconnecting" && (
                 <div className="device-wait">
@@ -844,8 +791,15 @@ export function DeviceTab({ api }: { api: DesktopDevice }) {
           </div>
         )}
       </div>
-      {/* the dock, as in Capture Screens: the tools and Capture view */}
-      <FloatStack main={captureButton(state.status === "live", busy)} onMain={() => void capture()} />
+      {intro && <IntroCardView card={DEVICE_INTRO} onClose={closeIntro} />}
+      {/* the dock, as in Capture Screens: Capture view alone */}
+      <FloatStack
+        solo
+        main={captureButton(state.status === "live" && !intro, busy)}
+        onMain={() => void capture()}
+        hint={pointer && !intro && state.status === "live" ? POINTER : undefined}
+        onHintClose={closePointer}
+      />
     </section>
   );
 }
