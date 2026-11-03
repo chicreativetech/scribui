@@ -1,0 +1,63 @@
+name: npm
+
+# Publishing a release publishes the `scribui` CLI of its tag to npm, so
+# `npm install -g scribui` gets the same version as the app. Pre-releases are
+# skipped; a version already on npm is left alone.
+#
+# Publishes with the NPM_TOKEN secret: an npm granular access token with
+# read and write access to the scribui package. pnpm publish turns the
+# `workspace:*` dev dependencies into versions; --provenance links the package
+# to this workflow run on npmjs.com.
+# By hand, for a release that's already out: Actions → npm → Run workflow.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, e.g. v0.2.10"
+        required: true
+
+concurrency:
+  group: npm
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: The tag matches the CLI's version
+        id: v
+        run: |
+          version=$(node -p "require('./packages/cli/package.json').version")
+          [ "v$version" = "$TAG" ] || { echo "::error::$TAG, but packages/cli is $version"; exit 1; }
+          if npm view "scribui@$version" version >/dev/null 2>&1; then
+            echo "scribui $version is already on npm"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.v.outputs.published != 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.v.outputs.published != 'true'
+        run: pnpm build
+      - name: Publish
+        if: steps.v.outputs.published != 'true'
+        working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm publish --access public --provenance --no-git-checks

@@ -18,6 +18,7 @@ Publishing is what makes it the update installed apps download.
    Windows, AppImage and .deb for Linux) with the update files
    (`latest-mac.yml`, `latest.yml`, `latest-linux.yml`).
 4. Try the installers from the draft, then **Publish release** on GitHub.
+   That also updates the Homebrew cask and publishes the CLI to npm.
    A version with a suffix (`0.2.0-beta.1`) becomes a pre-release, which the
    app's updater doesn't offer.
 
@@ -83,6 +84,15 @@ secret here is its private half, the tap's deploy keys hold the public half
 (with write access). For a release that's already out: Actions → Homebrew →
 Run workflow with its tag. Drafts can't be used: the workflow's token can't
 see them.
+
+## npm
+
+Publishing a release also runs the **npm** workflow, which builds the CLI at
+the release's tag and publishes it as `scribui` on npm; pre-releases are
+skipped, and a version already on npm is left alone. It needs the `NPM_TOKEN`
+secret: an npm granular access token with read and write access to the
+`scribui` package. For a release that's already out: Actions → npm → Run
+workflow with its tag.
 
 ## Crash reports
 
