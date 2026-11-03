@@ -11,6 +11,7 @@ import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs
 import { ImportDialog, openImport, useBoardImports, useImport } from "./components/Import";
 import { Inspector } from "./components/Inspector";
 import { hasLiveTab, LiveView, showLive, showsLiveTab, toggleView } from "./components/Live";
+import { EXTENSION } from "./components/CaptureIntro";
 import { ToolSettings } from "./components/ToolSettings";
 import { ImageImportDialog, VisionBoard, visionKey, zoomVision, fitVisionCamera } from "./components/Vision";
 import { useVision } from "./vision";
@@ -295,11 +296,19 @@ export function App() {
                   {project && "app" in project.manifest && project.manifest.app.platform === "web" && hasLiveTab("web") ? (
                     <p>
                       Open <button className="link" onClick={showLive}>Capture Screens</button> (<kbd>L</kbd>), browse to a view in your app and
-                      press <b>Capture view</b>.
+                      press <b>Capture view</b>. Or send any page open in Chrome (and Edge, Brave, Arc) with the{" "}
+                      <a href={EXTENSION} target="_blank" rel="noreferrer">
+                        ScribUI browser extension
+                      </a>
+                      , logged-in pages included.
                     </p>
                   ) : project && "app" in project.manifest && project.manifest.app.platform === "web" ? (
                     <p>
-                      Open your app in another tab and send its pages here with the ScribUI browser extension, or paste a screenshot or HTML
+                      Open your app in another tab and send its pages here with the{" "}
+                      <a href={EXTENSION} target="_blank" rel="noreferrer">
+                        ScribUI browser extension
+                      </a>
+                      , or paste a screenshot or HTML
                       (<kbd>⌘V</kbd>), drop a file, or press <kbd>M</kbd>.
                     </p>
                   ) : project && "app" in project.manifest && hasLiveTab(project.manifest.app.platform) ? (

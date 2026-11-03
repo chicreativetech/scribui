@@ -11,7 +11,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 
 export type IntroCard = { title: string; paras: string[]; button: string };
 
-const EXTENSION = "https://chromewebstore.google.com/detail/scribui/pchhohneimhmgcfbfkjphfgmfljcopoe";
+export const EXTENSION = "https://chromewebstore.google.com/detail/scribui/pchhohneimhmgcfbfkjphfgmfljcopoe";
 const RELEASES = "https://github.com/chicreativetech/scribui/releases";
 
 export const DESKTOP_INTRO: IntroCard = {
