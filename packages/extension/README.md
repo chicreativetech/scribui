@@ -22,20 +22,16 @@ without them, sending a page fails.
 
 ## Install
 
-It's on its way to the Chrome Web Store. Until then, install it by hand:
+[Add ScribUI from the Chrome Web Store](https://chromewebstore.google.com/detail/scribui/pchhohneimhmgcfbfkjphfgmfljcopoe), then pin it from the extensions menu.
 
-1. Download [scribui-extension-0.2.1.zip](https://github.com/chicreativetech/scribui/releases/download/v0.2.9/scribui-extension-0.2.1.zip) and unzip it.
-2. Open `chrome://extensions` and turn on **Developer mode** (top right).
-3. **Load unpacked** and pick the unzipped folder. Keep the folder: Chrome runs the extension from it.
-4. Pin ScribUI from the extensions menu.
-
-Once it's in the store, remove this copy and install it from there: the two count as
-different extensions. You only lose the remembered project and ports.
+If you loaded the zip from the v0.2.9 release before it was in the store, remove that copy
+in `chrome://extensions`: the two count as different extensions. You only lose the
+remembered project and ports.
 
 Works in Chrome, Edge, Brave, Arc and other Chromium browsers (116 or later).
 
 To work on the extension, load this folder (`packages/extension`) unpacked instead.
-`pnpm --filter @scribui/extension zip` makes the zip, for the Chrome Web Store and the release.
+`pnpm --filter @scribui/extension zip` makes the zip to upload to the Chrome Web Store.
 
 ## Permissions
 

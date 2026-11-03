@@ -90,4 +90,6 @@ Certify all three:
 - I do not use or transfer user data for purposes that are unrelated to my item's single purpose.
 - I do not use or transfer user data to determine creditworthiness or for lending purposes.
 
+**Listing:** https://chromewebstore.google.com/detail/scribui/pchhohneimhmgcfbfkjphfgmfljcopoe
+
 **Privacy policy URL:** https://scribui.chicreativetech.se/privacy.html (in the scribui-website repo, `dist/privacy.html`).

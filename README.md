@@ -87,7 +87,7 @@ ScribUI looks at the project to decide what it is. A folder without Android or i
 
    There's no list of screens to write first: you pick the views yourself.
 3. **The canvas opens in your browser,** in a tab next to your app, on **Review**. Use your app the way you normally would, in its own tab: log in, click through, open a menu, fill in a form.
-4. **Add the views you want to comment on.** With the [ScribUI browser extension](packages/extension/README.md), click it on your app's page and press **Send to ScribUI**: the page arrives in Review with its elements, exactly as it is in your tab, logged in or not. Or paste a screenshot or HTML into Review (`⌘V`), drop a file on it, or press `M`.
+4. **Add the views you want to comment on.** With the [ScribUI browser extension](https://chromewebstore.google.com/detail/scribui/pchhohneimhmgcfbfkjphfgmfljcopoe), click it on your app's page and press **Send to ScribUI**: the page arrives in Review with its elements, exactly as it is in your tab, logged in or not. Or paste a screenshot or HTML into Review (`⌘V`), drop a file on it, or press `M`.
 5. **Annotate** (see below) and press **Send** in the dock at the bottom of Review. Paste the prompt it shows into your agent:
 
    ```
@@ -179,7 +179,7 @@ Paste (`⌘V`) or drop onto Review, or press `M`, to add a screen that ScribUI d
 - **A link** to any page: opened and taken whole.
 - **A page snapshot**: what Figma's Chrome extension copies (Capture code), or a page saved as **Webpage, Single File** (`.mhtml`). Rendered offline, as it was in the browser.
 
-**The ScribUI browser extension** sends the page you're on straight to Review, logged-in pages included: click it, pick Our app or Reference, press **Send to ScribUI**. **Open in ScribUI** then shows it, in the desktop app or the browser, whichever runs the project. It finds ScribUI on this computer by itself. Until it's in the Chrome Web Store, [download it](https://github.com/chicreativetech/scribui/releases/download/v0.2.9/scribui-extension-0.2.1.zip), unzip it and load it in `chrome://extensions` (Developer mode → Load unpacked); see [its README](packages/extension/README.md).
+**The ScribUI browser extension** sends the page you're on straight to Review, logged-in pages included: click it, pick Our app or Reference, press **Send to ScribUI**. **Open in ScribUI** then shows it, in the desktop app or the browser, whichever runs the project. It finds ScribUI on this computer by itself. [Add it from the Chrome Web Store](https://chromewebstore.google.com/detail/scribui/pchhohneimhmgcfbfkjphfgmfljcopoe); see [its README](packages/extension/README.md).
 
 Added screens are kept as they are from round to round. The agent gets the HTML or snapshot too, in `.scribui/imports/`, to read exact styles from. HTML, links and snapshots need Playwright, like web capture.
 
