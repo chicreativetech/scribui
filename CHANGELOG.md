@@ -4,7 +4,7 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
-## 0.2.10 (unreleased)
+## 0.2.10 (2026-11-03)
 
 - **Capture Screens and the Device tab only capture now.** Marking up your app there confused people, so the tool rail, the notes panel and the marking tools are gone from both tabs. Mark up your captures in **Review**, as before. The floating bar has just **Capture view**, wider, and your app gets the room the rail took.
 - **The first time you open either tab, a card shows you how it works.** Then a bubble points at **Capture view** until your first capture. The **?** in the bar shows the card again.
