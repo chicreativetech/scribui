@@ -6,7 +6,7 @@ update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
 ## 0.2.12 (unreleased)
 
-- **Set the vision of a new app before it's built.** After you describe a new project, **Next: Set the vision** opens the vision board in its own window, with the same tools as in a project. Sketch layouts, key screens, colours and words, add reference images, then press **Done**. **Make prompt with vision** points your agent to the canvases, so it builds from your sketches. Skip it if you'd rather start from the description alone.
+- **Set the vision of a new app before it's built.** After you describe a new project, **Next: Set the vision** opens the vision board in its own window, with the same tools as in a project. A card at the top explains what it's for: drop in reference images, write notes on colours, mood and content, or sketch key screens. Press **Done** in the dock at the bottom when you're ready. **Make prompt with vision** points your agent to the canvases, so it builds from your sketches. Skip it if you'd rather start from the description alone.
 - **In the terminal too.** Running `scribui` in an empty folder (or `scribui new`) without the desktop app asks **Set the vision first?** after your description. The vision board opens in your browser; press **Done** there (or Enter in the terminal) and the prompt points your agent to your sketches.
 - **The sketches stay with the project.** Once the app exists and you set ScribUI up for it, its Vision tab opens with the board as you left it, and every review you send includes it as before.
 

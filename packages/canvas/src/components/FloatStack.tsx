@@ -6,7 +6,7 @@ import { Spinner } from "./Capture";
 /**
  * The dock at the bottom centre: Select, Comment and Add screen (icons; their
  * names show on hover), then the tab's main button (Capture view in Capture
- * Screens, Send in Review; none on the vision board). Capture Screens has
+ * Screens, Send in Review; on the vision board only a new project's Done). Capture Screens has
  * Capture view alone, filling the dock (`solo`). In the desktop app's Capture Screens
  * tab the app's own view covers the canvas, so the desktop draws the stack in
  * a view of its own (floatStack.ts) from these same buttons, as data: labels,
@@ -38,6 +38,10 @@ export const STACK_ICON = {
   // the rail's pen (assets/icons/pen.svg), 12×12
   pen: { box: 12, paths: [
     "M9.10955 0.109277C9.14438 0.0743541 9.18576 0.046647 9.23132 0.0277422C9.27688 0.00883732 9.32572 -0.000893784 9.37505 -0.000893784C9.42437 -0.000893784 9.47321 0.00883732 9.51877 0.0277422C9.56433 0.046647 9.60571 0.0743541 9.64055 0.109277L11.8905 2.35928C11.9255 2.39411 11.9532 2.43549 11.9721 2.48105C11.991 2.52661 12.0007 2.57545 12.0007 2.62478C12.0007 2.6741 11.991 2.72294 11.9721 2.7685C11.9532 2.81406 11.9255 2.85544 11.8905 2.89028L4.39055 10.3903C4.35456 10.426 4.3117 10.4541 4.26455 10.4728L0.514548 11.9728C0.446401 12.0001 0.371745 12.0067 0.299838 11.992C0.227931 11.9772 0.161934 11.9417 0.110029 11.8898C0.0581242 11.8379 0.022594 11.7719 0.00784344 11.7C-0.00690715 11.6281 -0.000229523 11.5534 0.0270485 11.4853L1.52705 7.73528C1.54574 7.68813 1.57381 7.64527 1.60955 7.60928L9.10955 0.109277ZM8.4053 1.87478L10.125 3.59453L11.0948 2.62478L9.37505 0.905027L8.4053 1.87478ZM9.5948 4.12478L7.87505 2.40503L3.00005 7.28003V7.49978H3.37505C3.4745 7.49978 3.56989 7.53928 3.64021 7.60961C3.71054 7.67994 3.75005 7.77532 3.75005 7.87478V8.24978H4.12505C4.2245 8.24978 4.31989 8.28928 4.39021 8.35961C4.46054 8.42994 4.50005 8.52532 4.50005 8.62478V8.99978H4.7198L9.5948 4.12478ZM2.27405 8.00603L2.19455 8.08553L1.04855 10.9513L3.9143 9.80528L3.9938 9.72578C3.92226 9.69905 3.86059 9.65112 3.81703 9.58839C3.77348 9.52567 3.75011 9.45114 3.75005 9.37478V8.99978H3.37505C3.27559 8.99978 3.18021 8.96027 3.10988 8.88994C3.03956 8.81962 3.00005 8.72423 3.00005 8.62478V8.24978H2.62505C2.54868 8.24972 2.47416 8.22635 2.41143 8.18279C2.34871 8.13923 2.30078 8.07756 2.27405 8.00603Z",
+  ] },
+  // Bootstrap Icons' check-lg
+  check: { box: 16, paths: [
+    "M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z",
   ] },
   // Bootstrap Icons' image
   image: { box: 16, paths: [
@@ -88,6 +92,12 @@ export function useSendButton(): StackButton {
     disabled: !round || ro || status === "capturing" || capturing || !notes,
     title: ro ? "" : notes ? "send this round's notes to your agent (⌘⏎)" : "add notes to the screens, then send them to your agent",
   };
+}
+
+/** A new project's vision board: Done saves it and goes back to the new-project dialog (or the terminal). */
+export function visionDoneButton(): StackButton {
+  // always pressable: Done saves what autosave hasn't yet
+  return { id: "done", label: "Done", icon: STACK_ICON.check, title: "save the board and go back to making the prompt" };
 }
 
 export function captureButton(enabled: boolean, busy: boolean): StackButton {

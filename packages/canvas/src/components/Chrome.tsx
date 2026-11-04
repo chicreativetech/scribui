@@ -1,7 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { NEW_PROJECT_VISION, TOOLS, VISION_HINTS, noteCount, unresolvedCount, useStore, type Tool } from "../store";
-import { api } from "../api";
-import { flushVision, useVision } from "../vision";
+import { useVision } from "../vision";
 import { openImport } from "./Import";
 import { showLive, showsLiveTab } from "./Live";
 import selectIcon from "../assets/icons/select.png";
@@ -120,30 +119,22 @@ export function TopBar() {
   );
 }
 
-/** A new project's vision board: its name and Done, which saves and closes the window (back to the new-project dialog). */
+/** A new project's vision board: its name, and what the board is for (Done is the dock's main button). */
 function NewProjectBar({ name }: { name: string }) {
-  const saveState = useVision((s) => s.saveState);
-  const done = async () => {
-    if (!(await flushVision())) return;
-    // the terminal (`scribui new`) waits for this; the desktop app watches its window close instead
-    const terminal = await api.visionDone();
-    window.close();
-    // a browser tab the page didn't open stays open
-    setTimeout(() => useStore.getState().toast({ text: terminal ? "saved · back to your terminal" : "saved · you can close this window", tone: "ok" }), 300);
-  };
   return (
-    <header className="bar">
+    <header className="bar new-vision-bar">
       <div className="pills">
         <div className="float pill-box" title={name}>
           <span className="app-name">{name || "New project"}</span>
           <span className="badge">Vision</span>
         </div>
       </div>
-      <div className="float pill-box new-vision">
-        <span className="hide-sm">Sketch how your new app should look</span>
-        <button className="btn primary" onClick={() => void done()} disabled={saveState === "saving"} title="save the board and go back to the new-project dialog">
-          Done
-        </button>
+      <div className="float new-vision-card" role="note">
+        <strong>Set the vision for your new app</strong>
+        <span>
+          Show your agent the look you're after: drop in reference images, write notes on colours, mood and content, or sketch key screens. Press{" "}
+          <b>Done</b> when you're ready.
+        </span>
       </div>
     </header>
   );

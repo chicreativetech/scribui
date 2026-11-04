@@ -5,7 +5,7 @@ import { fitCamera } from "./layout";
 import { NEW_PROJECT_VISION, TOOLS, isReadOnly, useStore } from "./store";
 import { animateCamera, Board, boardViewport, fitAll, focusTile, panToAnnotation, unfocus, zoomAt } from "./components/Board";
 import { StatusLine, ToolRail, TopBar } from "./components/Chrome";
-import { FloatStack, useSendButton } from "./components/FloatStack";
+import { FloatStack, useSendButton, visionDoneButton } from "./components/FloatStack";
 import { LanDialog, LastChanges, NextStepBanner } from "./components/Capture";
 import { HelpDialog, SendDialog, SentDialog, Toasts } from "./components/Dialogs";
 import { ImportDialog, openImport, useBoardImports, useImport } from "./components/Import";
@@ -14,7 +14,7 @@ import { hasLiveTab, LiveView, showLive, showsLiveTab, toggleView } from "./comp
 import { EXTENSION } from "./components/CaptureIntro";
 import { ToolSettings } from "./components/ToolSettings";
 import { ImageImportDialog, VisionBoard, visionKey, zoomVision, fitVisionCamera } from "./components/Vision";
-import { flushVision, useVision } from "./vision";
+import { finishNewProjectVision, flushVision, useVision } from "./vision";
 
 const liveTab = () => {
   const p = useStore.getState().project;
@@ -358,7 +358,13 @@ export function App() {
       {!captureOnly && <ToolRail />}
       <TopBar />
       {/* Capture Screens and the Device tab have their own, with Capture view (Live.tsx, Device.tsx) */}
-      {view !== "live" && <FloatStack className="stage-stack" main={view === "board" ? send : undefined} onMain={onSend} />}
+      {view !== "live" && (
+        <FloatStack
+          className="stage-stack"
+          main={view === "board" ? send : NEW_PROJECT_VISION ? visionDoneButton() : undefined}
+          onMain={NEW_PROJECT_VISION ? () => void finishNewProjectVision() : onSend}
+        />
+      )}
       {/* a new project's vision board has no rounds, notes or review to show */}
       {!captureOnly && !NEW_PROJECT_VISION && <Inspector />}
       <StatusLine onCommand={runCommand} />

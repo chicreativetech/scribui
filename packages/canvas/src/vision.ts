@@ -333,3 +333,15 @@ function loadImage(blob: Blob): Promise<HTMLImageElement> {
     img.src = url;
   });
 }
+
+/**
+ * Done on a new project's vision board: save it, tell the terminal that
+ * waits for it (`scribui new`), close the window. The desktop app watches the
+ * window close instead; a browser tab the page didn't open stays open.
+ */
+export async function finishNewProjectVision() {
+  if (!(await flushVision())) return;
+  const terminal = await api.visionDone();
+  window.close();
+  setTimeout(() => useStore.getState().toast({ text: terminal ? "saved · back to your terminal" : "saved · you can close this window", tone: "ok" }), 300);
+}
