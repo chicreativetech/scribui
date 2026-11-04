@@ -119,6 +119,8 @@ export const api = {
     fetch("/api/imports", { method: "POST", headers: { "content-type": "application/json", "x-client-id": CLIENT_ID }, body: JSON.stringify(body) }).then((r) =>
       json<{ round: number; screenId: string; title: string }>(r),
     ),
+  /** A new project's vision board is done (`scribui new` in a terminal waits for it; elsewhere a 404). */
+  visionDone: () => fetch("/api/vision/done", { method: "POST" }).then((r) => r.ok).catch(() => false),
   uploadVisionImage: (blob: Blob) =>
     fetch("/api/vision/images", { method: "POST", headers: { "content-type": blob.type }, body: blob }).then((r) => json<{ src: string }>(r)),
 };

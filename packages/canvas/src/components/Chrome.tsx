@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { NEW_PROJECT_VISION, TOOLS, VISION_HINTS, noteCount, unresolvedCount, useStore, type Tool } from "../store";
+import { api } from "../api";
 import { flushVision, useVision } from "../vision";
 import { openImport } from "./Import";
 import { showLive, showsLiveTab } from "./Live";
@@ -124,9 +125,11 @@ function NewProjectBar({ name }: { name: string }) {
   const saveState = useVision((s) => s.saveState);
   const done = async () => {
     if (!(await flushVision())) return;
+    // the terminal (`scribui new`) waits for this; the desktop app watches its window close instead
+    const terminal = await api.visionDone();
     window.close();
     // a browser tab the page didn't open stays open
-    setTimeout(() => useStore.getState().toast({ text: "saved · you can close this window", tone: "ok" }), 300);
+    setTimeout(() => useStore.getState().toast({ text: terminal ? "saved · back to your terminal" : "saved · you can close this window", tone: "ok" }), 300);
   };
   return (
     <header className="bar">

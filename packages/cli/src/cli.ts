@@ -8,6 +8,7 @@ import { BY_HAND, capturedByHand, Platform, PRODUCT, ReviewJson } from "@scribui
 import { lanAddress, ReviewStore, type CaptureState } from "@scribui/server";
 import { captureProject, describePlan, detectProject, hostProject, makeRunner, portRange, saveCapturedView, pageRenderer, type CaptureEvent, type Owner } from "@scribui/project";
 import { runMcp } from "./mcp.js";
+import { canvasDir } from "./canvasDir.js";
 import { cmdNew } from "./newProject.js";
 import { migrateHome, migrateProject } from "./migrate.js";
 import { handToDesktop, openBrowser, start } from "./start.js";
@@ -43,10 +44,6 @@ function platformFlag(f: Flags): Platform | undefined {
   return p.data;
 }
 
-function canvasDir(): string | undefined {
-  const candidates = [join(here, "canvas"), join(here, "../../canvas/dist"), join(here, "../canvas")];
-  return candidates.find((p) => existsSync(join(p, "index.html")));
-}
 
 
 /* ─────────────────────────── commands ─────────────────────────── */
