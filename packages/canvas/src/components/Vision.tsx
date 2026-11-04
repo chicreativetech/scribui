@@ -3,7 +3,7 @@ import { canvasOf, itemBounds, renderVisionItemSvg, TEXT_LINE, VISION_FONT, type
 import { visionImageUrl } from "../api";
 import { screenToWorld, type Camera } from "../layout";
 import { isSketchTool, TOOLS, useStore, type Tool } from "../store";
-import { fitVision, importImage, measureText, newId, translateItem, useVision, type TextItem } from "../vision";
+import { fitVision, handBackToTerminal, importImage, measureText, newId, translateItem, useVision, type TextItem } from "../vision";
 import { paintBucket } from "../paint";
 import { boardViewport, clampZoom, zoomAt } from "./Board";
 import { VISION_TOOLS } from "./Chrome";
@@ -851,4 +851,78 @@ export function visionKey(e: KeyboardEvent): boolean {
 export function zoomVision(zoom: number) {
   const vp = boardViewport();
   useVision.getState().setCamera((c) => zoomAt(c, vp.x + vp.w / 2, vp.y + vp.h / 2, zoom));
+}
+
+/**
+ * Done on a new project's board from `scribui new`: the board is saved; Close
+ * & continue hands back to the terminal and closes the tab, Keep editing
+ * goes back to the board. Once handed back, the page says so (a browser may
+ * keep a tab it didn't open).
+ */
+export function NewProjectDoneDialog() {
+  const finishing = useVision((s) => s.finishing);
+  const [busy, setBusy] = useState(false);
+  const cancel = () => useVision.getState().set({ finishing: null });
+  const go = async () => {
+    setBusy(true);
+    await handBackToTerminal();
+    setBusy(false);
+  };
+  useEffect(() => {
+    if (finishing !== "ask") return;
+    const onKey = (e: KeyboardEvent) => {
+      e.stopPropagation();
+      if (e.key === "Escape") cancel();
+      else if (e.key === "Enter") {
+        e.preventDefault();
+        void go();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [finishing]);
+  if (finishing === "closed")
+    return (
+      <div className="scrim new-vision-closed">
+        <div className="modal">
+          <div className="mb">
+            <h2>
+              Back to your terminal<span className="accent">.</span>
+            </h2>
+            <p className="dim">Your vision is saved and ScribUI is making the prompt there. You can close this tab.</p>
+          </div>
+        </div>
+      </div>
+    );
+  if (finishing !== "ask") return null;
+  return (
+    <div className="scrim" onClick={cancel}>
+      <div className="modal new-vision-done" role="dialog" aria-labelledby="new-vision-done-title" onClick={(e) => e.stopPropagation()}>
+        <div className="mh">
+          <span className="ok">✓ saved</span>
+          <span>
+            <kbd>esc</kbd>
+          </span>
+        </div>
+        <div className="mb">
+          <h2 id="new-vision-done-title">
+            Vision saved<span className="accent">.</span>
+          </h2>
+          <p className="dim">
+            Your board is saved with the project. This tab closes and the setup continues in your terminal, where ScribUI makes the prompt for your
+            agent with your vision in it.
+          </p>
+          <p className="dim">You can come back to the board any time: it's on the project's Vision tab once ScribUI is set up.</p>
+          <div className="actions">
+            <button className="btn" onClick={cancel}>
+              Keep editing
+            </button>
+            <button className="btn primary" onClick={() => void go()} disabled={busy} autoFocus>
+              Close &amp; continue
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

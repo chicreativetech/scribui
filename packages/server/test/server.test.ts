@@ -280,17 +280,20 @@ describe("http api", () => {
     expect(existsSync(empty.path("brief"))).toBe(false);
   });
 
-  it("tells `scribui new` when its vision board is done, and only then has the route", async () => {
+  it("tells `scribui new` its vision board is done, through a marker any server writes", async () => {
     const dir = mkdtempSync(join(tmpdir(), "scribui-draft-"));
     const local = { incoming: { socket: { remoteAddress: "127.0.0.1" } } };
-    expect((await createApp({ projectDir: dir }).app.request("/api/vision/done", { method: "POST" }, local)).status).toBe(404);
+    const store = new ReviewStore(dir);
+    // a server that isn't the CLI's own (another process owns the folder): the marker still appears
+    expect((await createApp({ projectDir: dir }).app.request("/api/vision/done", { method: "POST" }, local)).status).toBe(200);
+    expect(existsSync(store.visionDonePath())).toBe(true);
     let done = 0;
     const { app } = createApp({ projectDir: dir, onVisionDone: () => done++ });
     expect((await app.request("/api/vision/done", { method: "POST" }, local)).status).toBe(200);
     expect(done).toBe(1);
   });
 
-    it("pairing tokens expire", () => {
+  it("pairing tokens expire", () => {
     const lan = new LanAuth();
     const t = lan.issueToken(-1);
     expect(lan.redeem(t)).toBeNull();

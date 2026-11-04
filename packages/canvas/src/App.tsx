@@ -13,7 +13,7 @@ import { Inspector } from "./components/Inspector";
 import { hasLiveTab, LiveView, showLive, showsLiveTab, toggleView } from "./components/Live";
 import { EXTENSION } from "./components/CaptureIntro";
 import { ToolSettings } from "./components/ToolSettings";
-import { ImageImportDialog, VisionBoard, visionKey, zoomVision, fitVisionCamera } from "./components/Vision";
+import { ImageImportDialog, NewProjectDoneDialog, VisionBoard, visionKey, zoomVision, fitVisionCamera } from "./components/Vision";
 import { finishNewProjectVision, flushVision, useVision } from "./vision";
 
 const liveTab = () => {
@@ -139,7 +139,7 @@ export function App() {
       const t = e.target as HTMLElement;
       if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
       const st = useStore.getState();
-      if (st.helpOpen || st.sendOpen || st.sentPrompt || useImport.getState().open) return;
+      if (st.helpOpen || st.sendOpen || st.sentPrompt || useImport.getState().open || useVision.getState().finishing) return;
       const mod = e.metaKey || e.ctrlKey;
       if (!mod && !e.altKey && e.key.toLowerCase() === "l" && liveTab()) return toggleView();
       // the board's keys don't apply while the live app is shown: it only captures
@@ -374,6 +374,7 @@ export function App() {
       <LanDialog />
       <ToolSettings />
       <ImageImportDialog />
+      {NEW_PROJECT_VISION && <NewProjectDoneDialog />}
       <ImportDialog />
     </div>
   );

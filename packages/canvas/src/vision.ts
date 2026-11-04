@@ -14,7 +14,7 @@ import {
 } from "@scribui/core";
 import { api } from "./api";
 import { fitCamera, type Camera } from "./layout";
-import { useStore } from "./store";
+import { NEW_PROJECT_FROM_CLI, useStore } from "./store";
 
 /**
  * The vision board: the project's visual direction, drawn on white canvases.
@@ -37,6 +37,8 @@ type VisionState = {
   fitted: boolean;
   saveState: "saved" | "saving" | "error";
   importOpen: boolean;
+  /** A new project's board from the terminal: Done asks before handing back ("ask"), then the page is finished ("closed"). */
+  finishing: "ask" | "closed" | null;
 };
 
 type VisionActions = {
@@ -70,6 +72,7 @@ export const useVision = create<VisionState & VisionActions>((set, get) => ({
   fitted: false,
   saveState: "saved",
   importOpen: false,
+  finishing: null,
 
   async load() {
     try {
@@ -335,13 +338,23 @@ function loadImage(blob: Blob): Promise<HTMLImageElement> {
 }
 
 /**
- * Done on a new project's vision board: save it, tell the terminal that
- * waits for it (`scribui new`), close the window. The desktop app watches the
- * window close instead; a browser tab the page didn't open stays open.
+ * Done on a new project's vision board: save it. In the desktop app, close
+ * the window (the new-project dialog takes over). From the terminal, ask
+ * first: the tab closes and the setup goes on in the terminal.
  */
 export async function finishNewProjectVision() {
   if (!(await flushVision())) return;
-  const terminal = await api.visionDone();
+  if (NEW_PROJECT_FROM_CLI) return useVision.getState().set({ finishing: "ask" });
   window.close();
-  setTimeout(() => useStore.getState().toast({ text: terminal ? "saved · back to your terminal" : "saved · you can close this window", tone: "ok" }), 300);
+}
+
+/** "Close & continue": tell the terminal, then close the tab (or say it can be closed, when the browser keeps it). */
+export async function handBackToTerminal() {
+  if (!(await flushVision())) return;
+  if (!(await api.visionDone())) {
+    useStore.getState().toast({ text: "couldn't reach the terminal: press Enter there to continue", tone: "err" });
+    return;
+  }
+  useVision.getState().set({ finishing: "closed" });
+  window.close();
 }

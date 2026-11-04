@@ -193,6 +193,8 @@ let toastSeq = 0;
  * rounds, no send. What's drawn stays the project's board.
  */
 export const NEW_PROJECT_VISION = new URLSearchParams(location.search).get("mode") === "new";
+/** That board, opened by `scribui new` in a terminal (`&from=cli`): Done hands back to the terminal. */
+export const NEW_PROJECT_FROM_CLI = NEW_PROJECT_VISION && new URLSearchParams(location.search).get("from") === "cli";
 
 let startViewChosen = NEW_PROJECT_VISION;
 /** The App or Device tab exists for this platform (as `hasLiveTab` in Live.tsx, without importing the components here). */

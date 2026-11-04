@@ -133,7 +133,7 @@ export type ServerOptions = {
   showWindow?: () => boolean;
   /** Start the next round, empty, when the agent marks a round applied (default true). */
   nextRoundOnApply?: boolean;
-  /** `scribui new`: the new project's vision board (`?mode=new`) pressed Done. Enables `POST /api/vision/done`. */
+  /** `scribui new`: the new project's vision board (`?mode=new`) pressed Done (it also writes `vision/.done`). */
   onVisionDone?: () => void;
 };
 
@@ -564,9 +564,10 @@ export function createApp(opts: ServerOptions) {
     broadcast({ type: "vision-changed", by: c.req.header("x-client-id") ?? "" });
     return c.json({ ok: true, items: v.items.length });
   });
-  app.post("/api/vision/done", (c) => {
-    if (!opts.onVisionDone) return c.json({ error: "not a new project's vision board" }, 404);
-    opts.onVisionDone();
+  // `scribui new` waits for this marker, whichever process serves the board
+  app.post("/api/vision/done", async (c) => {
+    await store.markVisionDone();
+    opts.onVisionDone?.();
     return c.json({ ok: true });
   });
   app.post("/api/vision/images", async (c) => {

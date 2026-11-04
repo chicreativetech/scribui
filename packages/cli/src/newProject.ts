@@ -64,8 +64,12 @@ export async function cmdNew(dir: string, flags: { desktop?: boolean; banner?: b
   for (const l of newProjectPrompt(root, description, { vision }).trimEnd().split("\n")) out(`    ${l}`);
   out();
   out(c.dim(`  When the app runs, run ${c.bold("scribui")} in ${root} to set ScribUI up for it.${vision ? " Your sketches are on its Vision tab." : ""}`));
-  out();
+  out();  // the vision board's server didn't stop in time (a browser holding a connection): don't hang on it
+  if (serverClosed && !(await serverClosed)) process.exit(0);
 }
+
+/** The vision board's server stopping: true once stopped, false if it took too long. */
+let serverClosed: Promise<boolean> | null = null;
 
 /**
  * The vision step: the folder's vision board, in the browser, until Done
@@ -82,9 +86,18 @@ async function sketchVision(root: string): Promise<string | undefined> {
 
   const store = new ReviewStore(root);
   await mkdir(store.dir, { recursive: true });
-  let done: () => void = () => {};
-  const pressedDone = new Promise<void>((r) => (done = r));
-  const hosted = await hostProject(store, { app: "cli", server: { canvasDir: canvas, onVisionDone: () => done() } });
+  // Done in the browser writes this marker, whichever ScribUI process serves the board; it's never
+  // removed (another `scribui new` on this folder may be waiting for it too): only a newer one counts
+  const marker = store.visionDonePath();
+  const since = Date.now() - 1000;
+  const pressed = () => {
+    try {
+      return statSync(marker).mtimeMs >= since;
+    } catch {
+      return false;
+    }
+  };
+  const hosted = await hostProject(store, { app: "cli", server: { canvasDir: canvas } });
   if (hosted.kind === "no-port") {
     warnLine("No free port for the vision board; making the prompt without it.");
     return undefined;
@@ -94,21 +107,34 @@ async function sketchVision(root: string): Promise<string | undefined> {
     warnLine("Another ScribUI process owns this folder; making the prompt without the vision board.");
     return undefined;
   }
-  const url = `${base}?mode=new`;
+  const url = `${base}?mode=new&from=cli`;
   openBrowser(url);
   out(`  ${c.accent("◆")} The vision board is open in your browser: ${c.accent(url)}`);
-  out(c.dim(`    Sketch layouts, key screens, colours, words; add reference images. Press ${c.bold("Done")} there, or ${c.bold("Enter")} here.`));
-  try {
-    await Promise.race([pressedDone, enterPressed()]);
-  } finally {
-    stopKeys();
-    // the board autosaves a moment after the last stroke; Enter here can come first
-    await new Promise((r) => setTimeout(r, 700));
-    if (hosted.kind === "owner") await hosted.server.close();
-  }
+  out(c.dim(`    Add images, notes or sketches. Press ${c.bold("Done")} there when you're ready, or ${c.bold("Enter")} here.`));
+  let poll: ReturnType<typeof setInterval> | undefined;
+  const how = await Promise.race([
+    new Promise<"browser">((r) => {
+      poll = setInterval(() => pressed() && r("browser"), 250);
+    }),
+    enterPressed().then(() => "terminal" as const),
+  ]);
+  clearInterval(poll);
+  stopKeys();
+  okLine(how === "browser" ? "Done in the browser." : "Done.");
+  const spin = spinner("Saving the vision for your agent…");
+  // Enter here can come before the board's autosave (a moment after the last stroke)
+  if (how === "terminal") await new Promise((r) => setTimeout(r, 700));
+  // the server stops in the background: a browser that holds a connection open mustn't keep the prompt waiting
+  if (hosted.kind === "owner")
+    serverClosed = Promise.race([hosted.server.close().then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 3000))]);
+  let canvases = 0;
   const brief = store.path(NEW_PROJECT_BRIEF_DIR);
-  await rm(brief, { recursive: true, force: true });
-  const canvases = await exportVision(store, brief, renderNewAppVisionMarkdown);
+  try {
+    await rm(brief, { recursive: true, force: true });
+    canvases = await exportVision(store, brief, renderNewAppVisionMarkdown);
+  } finally {
+    spin.stop();
+  }
   if (!canvases) {
     out(`  ${c.dim("Nothing sketched; the prompt is made from the description alone.")}`);
     return undefined;

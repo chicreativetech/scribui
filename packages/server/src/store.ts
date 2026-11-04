@@ -358,6 +358,16 @@ export class ReviewStore {
     await writeJson(join(this.visionDir(), "vision.json"), v);
   }
 
+  /** Done on a new project's vision board: a marker `scribui new` waits for (in this process or another). */
+  visionDonePath(): string {
+    return join(this.visionDir(), ".done");
+  }
+
+  async markVisionDone() {
+    await mkdir(this.visionDir(), { recursive: true });
+    await writeFile(this.visionDonePath(), new Date().toISOString() + "\n");
+  }
+
   /** Store an image placed on the vision board; returns its `src` (relative to the vision folder). */
   async saveVisionImage(bytes: Uint8Array, ext: string): Promise<string> {
     const dir = join(this.visionDir(), "images");
