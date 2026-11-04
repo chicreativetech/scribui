@@ -4,7 +4,7 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
-## 0.2.12 (unreleased)
+## 0.2.12 (2026-11-04)
 
 - **Set the vision of a new app before it's built.** After you describe a new project, **Next: Set the vision** opens the vision board in its own window, with the same tools as in a project. A card at the top explains what it's for: drop in reference images, write notes on colours, mood and content, or sketch key screens. Press **Done** in the dock at the bottom when you're ready. **Make prompt with vision** points your agent to the canvases, so it builds from your sketches. Skip it if you'd rather start from the description alone.
 - **In the terminal too.** Running `scribui` in an empty folder (or `scribui new`) without the desktop app asks **Set the vision first?** after your description. The vision board opens in your browser. **Done** says the board is saved and asks before handing back: **Close & continue** closes the tab and the terminal carries on with the prompt, pointing your agent to your sketches; **Keep editing** goes back to the board. Enter in the terminal works too.
