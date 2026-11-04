@@ -13,6 +13,14 @@ describe("templates", () => {
     expect(p.endsWith("Description:\n\nA shop with a cart.\nAnd checkout.\n")).toBe(true);
   });
 
+  it("points the new-project prompt to the sketched vision only when there is one", () => {
+    expect(newProjectPrompt("/a", "x")).not.toContain("Visual direction");
+    const p = newProjectPrompt("/a", "x", { vision: ".scribui/brief/vision.md" });
+    expect(p).toContain("read .scribui/brief/vision.md and the canvases it links");
+    expect(p).toContain("Leave the .scribui folder as it is");
+    expect(p.endsWith("Description:\n\nx\n")).toBe(true);
+  });
+
   it("replaces the agent section written under the old name in place", () => {
     const old = "# Mine\n\n<!-- intentcue:start -->\nDesign feedback lives in `.intentcue/`.\n<!-- intentcue:end -->\n\nAfter.\n";
     const next = upsertAgentSection(old);

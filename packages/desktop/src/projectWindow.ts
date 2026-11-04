@@ -53,7 +53,7 @@ const byDir = new Map<string, Project>();
 const opening = new Map<string, Promise<OpenResult>>();
 
 /** The built canvas: next to the app when packaged, packages/canvas/dist from the repo. */
-const CANVAS_DIR = app.isPackaged ? join(process.resourcesPath, "canvas") : resolve(__dirname, "../../canvas/dist");
+export const CANVAS_DIR = app.isPackaged ? join(process.resourcesPath, "canvas") : resolve(__dirname, "../../canvas/dist");
 
 export const openProjects = () => [...byDir.values()];
 

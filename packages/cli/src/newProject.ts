@@ -34,7 +34,7 @@ export async function cmdNew(dir: string, flags: { desktop?: boolean; banner?: b
   const root = resolve(dir);
   if (root === resolve(homedir()) || root === parse(root).root) fail(`${root} is ${root === parse(root).root ? "a drive's root" : "your home folder"}.`, "Run scribui new in (or with --dir pointing to) a folder for the new app.");
   if (existsSync(root) && !statSync(root).isDirectory()) fail(`${root} is a file, not a folder.`);
-  if (existsSync(resolve(root, PRODUCT.folder))) warnLine(`${root} is a ScribUI project already; your agent will add to the app that's there.`);
+  if (existsSync(resolve(root, PRODUCT.folder, "screens.json"))) warnLine(`${root} is a ScribUI project already; your agent will add to the app that's there.`);
   else if (!emptyFolder(root)) warnLine(`${root} isn't empty; your agent may change or replace what's there.`);
 
   if (flags.desktop !== false && interactive() && (await desktopInstalled())) {

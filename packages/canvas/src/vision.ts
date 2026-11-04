@@ -169,17 +169,38 @@ export const useVision = create<VisionState & VisionActions>((set, get) => ({
 function scheduleSave() {
   useVision.setState({ saveState: "saving" });
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    const { doc } = useVision.getState();
-    const file: VisionFile = { version: 1, canvases: doc.canvases, items: doc.items };
+  saveTimer = setTimeout(() => void saveNow(), 300);
+}
+
+let saving: Promise<boolean> = Promise.resolve(true);
+
+async function saveNow(): Promise<boolean> {
+  saveTimer = null;
+  const { doc } = useVision.getState();
+  const file: VisionFile = { version: 1, canvases: doc.canvases, items: doc.items };
+  saving = (async () => {
     try {
       await api.saveVision(file);
       useVision.setState({ saveState: "saved" });
+      return true;
     } catch (e) {
       useVision.setState({ saveState: "error" });
       useStore.getState().toast({ text: `vision autosave failed: ${(e as Error).message}`, tone: "err" });
+      return false;
     }
-  }, 300);
+  })();
+  return saving;
+}
+
+/** Save now what autosave would save in a moment (and wait for a save under way); false when it failed. */
+export async function flushVision(): Promise<boolean> {
+  // a text being typed: blurring its editor commits it (and schedules its save)
+  if (useVision.getState().textEdit && document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    return saveNow();
+  }
+  return saving;
 }
 
 /* ─────────────────────────── helpers ─────────────────────────── */

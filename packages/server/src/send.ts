@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import {
   compile,
@@ -15,6 +15,7 @@ import {
   type CompileOutput,
   type ScreenCapture,
   type UIElement,
+  type VisionItem,
 } from "@scribui/core";
 import { ReviewStore, RoundLockedError, writeJson } from "./store.js";
 
@@ -96,7 +97,7 @@ export async function sendRound(store: ReviewStore, n: number): Promise<SendResu
   const pages = visionPages(await store.readVision());
   const out = compileRound(n, inputs, annotations, date, pages.length);
   const dir = store.roundDir(n);
-  if (pages.length) await writeVision(store, dir, n, pages);
+  if (pages.length) await writeVision(store, dir, pages, (files) => renderVisionMarkdown(files, n));
 
   await writeFile(join(dir, "review.md"), out.markdown);
   await writeJson(join(dir, "review.json"), out.review);
@@ -133,8 +134,20 @@ export async function sendRound(store: ReviewStore, n: number): Promise<SendResu
 
 const IMAGE_MIME: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp" };
 
-/** vision.md plus one PNG per canvas, in the round folder: the board as it was when sent. */
-async function writeVision(store: ReviewStore, dir: string, n: number, pages: ReturnType<typeof visionPages>) {
+/**
+ * The vision board for the agent: `vision.md` plus `vision/canvas-N.png`
+ * in `dir`, the board as it is now. Returns the number of canvases written
+ * (0: nothing is drawn, nothing is written).
+ */
+export async function exportVision(store: ReviewStore, dir: string, markdown: (files: { file: string; items: VisionItem[] }[]) => string): Promise<number> {
+  const pages = visionPages(await store.readVision());
+  if (pages.length) await writeVision(store, dir, pages, markdown);
+  return pages.length;
+}
+
+async function writeVision(store: ReviewStore, dir: string, pages: ReturnType<typeof visionPages>, markdown: (files: { file: string; items: VisionItem[] }[]) => string) {
+  // a fresh export: no canvases left over from a longer board
+  await rm(join(dir, "vision"), { recursive: true, force: true });
   await mkdir(join(dir, "vision"), { recursive: true });
   const uris = new Map<string, string>();
   for (const src of new Set(pages.flatMap((p) => p.items.flatMap((i) => (i.type === "image" ? [i.src] : []))))) {
@@ -142,14 +155,14 @@ async function writeVision(store: ReviewStore, dir: string, n: number, pages: Re
     if (!p || !existsSync(p)) continue;
     uris.set(src, `data:${IMAGE_MIME[extname(p).toLowerCase()] ?? "image/png"};base64,${(await readFile(p)).toString("base64")}`);
   }
-  const files: { file: string; items: (typeof pages)[number]["items"] }[] = [];
+  const files: { file: string; items: VisionItem[] }[] = [];
   for (const [i, page] of pages.entries()) {
     const file = `vision/canvas-${i + 1}.png`;
     const svg = renderVisionCanvasSvg(page.canvas, page.items, (src) => uris.get(src) ?? "");
     await writeFile(join(dir, file), await renderSvgToPng(svg));
     files.push({ file, items: page.items });
   }
-  await writeFile(join(dir, "vision.md"), renderVisionMarkdown(files, n));
+  await writeFile(join(dir, "vision.md"), markdown(files));
 }
 
 export async function renderAnnotated(

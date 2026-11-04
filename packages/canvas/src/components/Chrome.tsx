@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
-import { TOOLS, VISION_HINTS, noteCount, unresolvedCount, useStore, type Tool } from "../store";
-import { useVision } from "../vision";
+import { NEW_PROJECT_VISION, TOOLS, VISION_HINTS, noteCount, unresolvedCount, useStore, type Tool } from "../store";
+import { flushVision, useVision } from "../vision";
 import { openImport } from "./Import";
 import { showLive, showsLiveTab } from "./Live";
 import selectIcon from "../assets/icons/select.png";
@@ -39,6 +39,8 @@ export function TopBar() {
   const count = useMemo(() => noteCount(annotations), [annotations]);
   const switchRef = useRef<HTMLDivElement>(null);
   useSwitchThumb(switchRef, view);
+
+  if (NEW_PROJECT_VISION) return <NewProjectBar name={project ? project.root.split(/[\\/]/).filter(Boolean).pop() ?? "" : ""} />;
 
   return (
     <header className="bar">
@@ -111,6 +113,33 @@ export function TopBar() {
         >
           {VIEW_ICON.review}
           Review
+        </button>
+      </div>
+    </header>
+  );
+}
+
+/** A new project's vision board: its name and Done, which saves and closes the window (back to the new-project dialog). */
+function NewProjectBar({ name }: { name: string }) {
+  const saveState = useVision((s) => s.saveState);
+  const done = async () => {
+    if (!(await flushVision())) return;
+    window.close();
+    // a browser tab the page didn't open stays open
+    setTimeout(() => useStore.getState().toast({ text: "saved · you can close this window", tone: "ok" }), 300);
+  };
+  return (
+    <header className="bar">
+      <div className="pills">
+        <div className="float pill-box" title={name}>
+          <span className="app-name">{name || "New project"}</span>
+          <span className="badge">Vision</span>
+        </div>
+      </div>
+      <div className="float pill-box new-vision">
+        <span className="hide-sm">Sketch how your new app should look</span>
+        <button className="btn primary" onClick={() => void done()} disabled={saveState === "saving"} title="save the board and go back to the new-project dialog">
+          Done
         </button>
       </div>
     </header>
@@ -371,13 +400,15 @@ export function ToolRail() {
           onClick={() => set({ lanOpen: true })}
           title="review on a tablet: show a pairing QR code"
         />
-        <Toggle
-          on={inspectorOpen}
-          icon={<img className="icon" src={panelIcon} width={12} height={12} alt="" />}
-          label="Panel"
-          onClick={() => set({ inspectorOpen: !inspectorOpen })}
-          title="the notes and files panel (tab)"
-        />
+        {!NEW_PROJECT_VISION && (
+          <Toggle
+            on={inspectorOpen}
+            icon={<img className="icon" src={panelIcon} width={12} height={12} alt="" />}
+            label="Panel"
+            onClick={() => set({ inspectorOpen: !inspectorOpen })}
+            title="the notes and files panel (tab)"
+          />
+        )}
         {view === "board" && (
           <Toggle
             on={showOutlines}

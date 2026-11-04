@@ -187,7 +187,14 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let lastCoalesce = { key: "", at: 0 };
 let toastSeq = 0;
 
-let startViewChosen = false;
+/**
+ * The vision board of a new project, before its app exists (`?mode=new`,
+ * from the desktop app's new-project dialog): only the vision board, no
+ * rounds, no send. What's drawn stays the project's board.
+ */
+export const NEW_PROJECT_VISION = new URLSearchParams(location.search).get("mode") === "new";
+
+let startViewChosen = NEW_PROJECT_VISION;
 /** The App or Device tab exists for this platform (as `hasLiveTab` in Live.tsx, without importing the components here). */
 function liveTabFor(platform: string | undefined): boolean {
   const desktop = (window as unknown as { scribuiDesktop?: { device?: { platform: string } } }).scribuiDesktop;
@@ -249,9 +256,8 @@ export const useStore = create<Store>((set, get) => ({
   lan: { enabled: false, paired: 0 },
   lanOpen: false,
   appliedDismissed: null,
-  // the vision board is where a review starts
-  // the first load picks the starting view (see load)
-  view: "board",
+  // the first load picks the starting view (see load); a new project's vision board only has the one
+  view: NEW_PROJECT_VISION ? "vision" : "board",
   toolStyles: loadStyles(),
   liveVisited: false,
   removeAsk: null,

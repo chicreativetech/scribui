@@ -1,18 +1,19 @@
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, isAbsolute, join, parse, resolve } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainEvent, type IpcMainInvokeEvent } from "electron";
 import { detectTools, installEnv, playwrightStatus, type ToolStatus } from "@scribui/capture";
-import { HANDOFF_DIR, NEW_PROJECT_MAX, newProjectPrompt, PRODUCT, validAck, type Platform } from "@scribui/core";
+import { HANDOFF_DIR, NEW_PROJECT_BRIEF_DIR, NEW_PROJECT_MAX, newProjectPrompt, PRODUCT, renderNewAppVisionMarkdown, validAck, type Platform } from "@scribui/core";
 import { reachable } from "@scribui/project";
-import { ReviewStore } from "@scribui/server";
+import { exportVision, ReviewStore } from "@scribui/server";
 import { cancelInstall, installTool, isInstallable } from "./installs.js";
 import { openProject, openProjects, type OpenResult } from "./projectWindow.js";
 import { refreshMenu } from "./menu.js";
 import { RecentProjects } from "./recent.js";
 import { checkNow, installNow, onUpdateState, updateState } from "./updates.js";
 import { checkAnswers, createProject, devServers, normalizeUrl, setupInfo } from "./setup.js";
+import { closeVisionDraft, openVisionDraft, visionCanvasCount } from "./visionDraft.js";
 
 /**
  * The projects window: recent projects, "Open app folder…", the capture tools
@@ -165,7 +166,8 @@ function newDirInfo(dir: string) {
     info.exists = true;
     // dotfiles (.git, .DS_Store) don't make a folder taken
     info.files = readdirSync(dir).filter((f) => !f.startsWith(".")).length;
-    info.project = existsSync(join(dir, PRODUCT.folder));
+    // a .scribui folder with only a vision board (sketched here before) isn't a project yet
+    info.project = new ReviewStore(dir).exists();
   } catch {
     /* doesn't exist yet: created on send */
   }
@@ -297,7 +299,24 @@ export function registerLauncherApi() {
     return newDirInfo(dir);
   });
   handle("newInfo", (dir) => newDirInfo(newDir(dir)));
-  handle("newSend", async (dir, description) => {
+  // the vision board, sketched before the app exists: in the folder's .scribui/vision, kept when it's set up
+  handle("newVision", async (dir) => {
+    const d = newDir(dir);
+    const info = newDirInfo(d);
+    if (info.blocked) return { ok: false, error: info.warning };
+    try {
+      return await openVisionDraft(d, info.name, () => {
+        if (!win || win.isDestroyed()) return;
+        win.webContents.send("scribui:launcher:vision-closed", d);
+        // back to the dialog, for the next step
+        if (newDirs.has(d)) win.focus();
+      });
+    } catch (e) {
+      return { ok: false, error: `Can't open the vision board: ${(e as Error).message}` };
+    }
+  });
+  handle("newVisionCount", (dir) => visionCanvasCount(newDir(dir)));
+  handle("newSend", async (dir, description, withVision) => {
     const d = newDir(dir);
     const text = typeof description === "string" ? description.trim() : "";
     if (!text) return { ok: false, error: "Describe your project first." };
@@ -310,16 +329,30 @@ export function registerLauncherApi() {
     } catch (e) {
       return { ok: false, error: `Can't create ${info.display}: ${(e as Error).message}` };
     }
+    // the board as it is now, for the agent (an open board saves and closes first)
+    let vision: string | undefined;
+    const store = new ReviewStore(d);
+    const brief = store.path(NEW_PROJECT_BRIEF_DIR);
+    try {
+      await closeVisionDraft(d);
+      await rm(brief, { recursive: true, force: true });
+      if (withVision === true && (await exportVision(store, brief, renderNewAppVisionMarkdown)) > 0) vision = `${PRODUCT.folder}/${NEW_PROJECT_BRIEF_DIR}/vision.md`;
+    } catch (e) {
+      return { ok: false, error: `Can't export the vision board: ${(e as Error).message}` };
+    }
     if (!info.project) {
       recent.add({ dir: d, name: info.name, platform: null });
       refreshMenu();
     }
-    const prompt = newProjectPrompt(d, text);
+    const prompt = newProjectPrompt(d, text, { vision });
     clipboard.writeText(prompt);
-    return { ok: true, prompt };
+    return { ok: true, prompt, vision: !!vision };
   });
-  handle("newClose", (dir) => {
-    if (typeof dir === "string") newDirs.delete(dir);
+  handle("newClose", async (dir) => {
+    if (typeof dir !== "string" || !newDirs.has(dir)) return;
+    newDirs.delete(dir);
+    // the board stays in the folder; its window goes with the dialog
+    await closeVisionDraft(dir);
   });
   handle("cancelSetup", (dir) => {
     if (typeof dir === "string") setupDirs.delete(dir);

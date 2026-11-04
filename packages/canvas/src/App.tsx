@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { newAnnotationId, type Annotation } from "@scribui/core";
 import { connectEvents } from "./api";
 import { fitCamera } from "./layout";
-import { TOOLS, isReadOnly, useStore } from "./store";
+import { NEW_PROJECT_VISION, TOOLS, isReadOnly, useStore } from "./store";
 import { animateCamera, Board, boardViewport, fitAll, focusTile, panToAnnotation, unfocus, zoomAt } from "./components/Board";
 import { StatusLine, ToolRail, TopBar } from "./components/Chrome";
 import { FloatStack, useSendButton } from "./components/FloatStack";
@@ -14,12 +14,15 @@ import { hasLiveTab, LiveView, showLive, showsLiveTab, toggleView } from "./comp
 import { EXTENSION } from "./components/CaptureIntro";
 import { ToolSettings } from "./components/ToolSettings";
 import { ImageImportDialog, VisionBoard, visionKey, zoomVision, fitVisionCamera } from "./components/Vision";
-import { useVision } from "./vision";
+import { flushVision, useVision } from "./vision";
 
 const liveTab = () => {
   const p = useStore.getState().project;
   return !!p && "app" in p.manifest && showsLiveTab(p.manifest.app.platform);
 };
+
+// a new project's vision board: the desktop app saves it before it closes the window or makes the prompt
+if (NEW_PROJECT_VISION) (window as unknown as { __scribuiFlushVision?: () => Promise<boolean> }).__scribuiFlushVision = flushVision;
 
 export function App() {
   const round = useStore((s) => s.round);
@@ -145,7 +148,7 @@ export function App() {
         if (visionKey(e)) return;
         if (mod && e.key === "Enter") {
           e.preventDefault();
-          if (!isReadOnly()) st.set({ sendOpen: true });
+          if (!isReadOnly() && !NEW_PROJECT_VISION) st.set({ sendOpen: true });
         } else if (!mod && e.key === "Tab") {
           e.preventDefault();
           st.set({ inspectorOpen: !st.inspectorOpen });
@@ -275,7 +278,7 @@ export function App() {
   const captureOnly = view === "live";
 
   return (
-    <div className={`app ${inspectorOpen && !captureOnly ? "with-panel" : ""} ${view === "live" ? "live-view" : ""} ${captureOnly ? "capture-only" : ""}`}>
+    <div className={`app ${inspectorOpen && !captureOnly && !NEW_PROJECT_VISION ? "with-panel" : ""} ${view === "live" ? "live-view" : ""} ${captureOnly ? "capture-only" : ""}`}>
       <main className="stage">
         <Board />
         <VisionBoard />
@@ -356,7 +359,8 @@ export function App() {
       <TopBar />
       {/* Capture Screens and the Device tab have their own, with Capture view (Live.tsx, Device.tsx) */}
       {view !== "live" && <FloatStack className="stage-stack" main={view === "board" ? send : undefined} onMain={onSend} />}
-      {!captureOnly && <Inspector />}
+      {/* a new project's vision board has no rounds, notes or review to show */}
+      {!captureOnly && !NEW_PROJECT_VISION && <Inspector />}
       <StatusLine onCommand={runCommand} />
       <SendDialog />
       <SentDialog />
@@ -413,7 +417,7 @@ function runCommand(raw: string) {
   switch (cmd) {
     case "send":
     case "w":
-      if (!isReadOnly()) st.set({ sendOpen: true });
+      if (!isReadOnly() && !NEW_PROJECT_VISION) st.set({ sendOpen: true });
       return;
     case "fit":
     case "f":

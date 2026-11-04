@@ -65,7 +65,10 @@ declare global {
       newProject: {
         pick(current?: string): Promise<NewDirInfo | null>;
         info(dir: string): Promise<NewDirInfo>;
-        send(dir: string, description: string): Promise<{ ok: true; prompt: string } | { ok: false; error: string }>;
+        vision(dir: string): Promise<{ ok: true } | { ok: false; error: string }>;
+        visionCount(dir: string): Promise<number>;
+        onVisionClosed(cb: (dir: string) => void): void;
+        send(dir: string, description: string, withVision: boolean): Promise<{ ok: true; prompt: string; vision: boolean } | { ok: false; error: string }>;
         close(dir: string): Promise<void>;
         onStart(cb: (dir: string) => void): void;
       };
@@ -576,10 +579,26 @@ async function create(s: Setup) {
 
 /**
  * The new-project dialog: a folder (chosen here, or filled in by `scribui
- * new`) and what to build. Send turns them into a prompt for the user's own
- * agent, which makes the app there; ScribUI is set up once it exists.
+ * new`) and what to build, then, optionally, the vision: the project's
+ * vision board, sketched in its own window before the app exists. Make
+ * prompt turns them into a prompt for the user's own agent, which makes the
+ * app there; ScribUI is set up once it exists, and opens with the board as
+ * it was sketched.
  */
-type NewProject = { folder: NewDirInfo | null; description: string; prompt: string | null; error: string | null; busy: boolean };
+type NewProject = {
+  step: "describe" | "vision";
+  folder: NewDirInfo | null;
+  description: string;
+  /** The vision board's window is open. */
+  boardOpen: boolean;
+  /** Canvases with something drawn on them (as last saved). */
+  canvases: number;
+  prompt: string | null;
+  /** The prompt points to the vision board. */
+  withVision: boolean;
+  error: string | null;
+  busy: boolean;
+};
 
 let newProject: NewProject | null = null;
 const dlg = () => $("newproject") as HTMLDialogElement;
@@ -589,14 +608,20 @@ async function openNewProject(dir?: string) {
   // a second `scribui new` while the dialog is open changes its folder, keeping the description
   if (newProject && !newProject.prompt) {
     if (folder) setNewFolder(newProject, folder);
-  } else newProject = { folder, description: "", prompt: null, error: null, busy: false };
+  } else newProject = { step: "describe", folder, description: "", boardOpen: false, canvases: 0, prompt: null, withVision: false, error: null, busy: false };
   renderNewProject();
   if (!dlg().open) dlg().showModal();
   dlg().querySelector<HTMLElement>(newProject.folder ? "textarea" : "#newpick")?.focus();
 }
 
 function setNewFolder(n: NewProject, folder: NewDirInfo) {
-  if (n.folder && n.folder.dir !== folder.dir) void api.newProject.close(n.folder.dir);
+  if (n.folder && n.folder.dir !== folder.dir) {
+    // the board drawn so far stays in the old folder; its window closes with it
+    void api.newProject.close(n.folder.dir);
+    n.boardOpen = false;
+    n.canvases = 0;
+    n.step = "describe";
+  }
   n.folder = folder;
   n.error = null;
 }
@@ -608,7 +633,8 @@ function renderNewProject() {
   close.addEventListener("click", () => dlg().close());
   const body = el("div", { className: "body" });
   const foot = el("div", { className: "foot" });
-  dlg().replaceChildren(el("div", { className: "head" }, el("h2", { id: "newproject-title", textContent: n.prompt ? "Paste this into your agent" : "New project" })), body, foot);
+  const title = n.prompt ? "Paste this into your agent" : n.step === "vision" ? "New project · Vision" : "New project";
+  dlg().replaceChildren(el("div", { className: "head" }, el("h2", { id: "newproject-title", textContent: title })), body, foot);
 
   if (n.prompt) {
     const where = n.folder!.display;
@@ -619,14 +645,21 @@ function renderNewProject() {
         "ol",
         { className: "howto" },
         el("li", {}, "Open your coding agent (Claude Code, Codex, Cursor, …) in ", el("code", { textContent: where }), "."),
-        el("li", {}, "Paste the prompt and let it build the app."),
-        el("li", {}, "Start the app the way your agent says, then click ", el("strong", { textContent: n.folder!.name }), " in Projects to set ScribUI up for it."),
+        el("li", {}, n.withVision ? "Paste the prompt and let it build the app. It points your agent to the canvases you sketched." : "Paste the prompt and let it build the app."),
+        el(
+          "li",
+          {},
+          "Start the app the way your agent says, then click ",
+          el("strong", { textContent: n.folder!.name }),
+          n.withVision ? " in Projects to set ScribUI up for it. Your sketches are on its Vision tab." : " in Projects to set ScribUI up for it.",
+        ),
       ),
     );
     foot.append(copyButton(n.prompt, "Copy again"), el("span", { className: "spacer" }), close);
     close.classList.add("primary");
     return;
   }
+  if (n.step === "vision") return renderNewVision(n, body, foot);
 
   // folder
   const f = n.folder;
@@ -637,7 +670,11 @@ function renderNewProject() {
     setNewFolder(n, picked);
     renderNewProject();
   });
-  const note = !f ? null : f.warning ? el("span", { className: f.blocked ? "hint error" : "hint warn", textContent: f.warning }) : el("span", { className: "hint", textContent: f.exists ? "An empty folder." : "A new folder: it's created when you make the prompt." });
+  const note = !f
+    ? null
+    : f.warning
+      ? el("span", { className: f.blocked ? "hint error" : "hint warn", textContent: f.warning })
+      : el("span", { className: "hint", textContent: f.exists ? "An empty folder." : "A new folder: it's created when you set the vision or make the prompt." });
   const dirbox = el("div", { className: `dirbox ${f ? "" : "none"}`, textContent: f ? `‎${f.display}` : "No folder chosen", title: f?.dir ?? "" });
   body.append(
     el("div", { className: "field" }, el("span", { className: "flabel", textContent: "Folder" }), el("div", { className: "dirrow" }, dirbox, pick), note),
@@ -646,35 +683,110 @@ function renderNewProject() {
   // description
   const text = el("textarea", { value: n.description, placeholder: "What should the app do, who is it for, which screens should it have? Name a stack if you have one in mind.", spellcheck: true });
   text.id = "newdesc";
-  const send = el("button", { className: "btn primary", textContent: "Make prompt" });
+  const next = el("button", { className: "btn primary", textContent: "Next: Set the vision" });
+  const skip = el("button", { className: "btn", textContent: "Skip vision, make prompt", title: "Make the prompt from the description alone" });
   const ready = () => !!n.folder && !n.folder.blocked && !!n.description.trim() && !n.busy;
-  send.disabled = !ready();
+  const enable = () => {
+    next.disabled = !ready();
+    skip.disabled = !ready();
+  };
+  enable();
   text.addEventListener("input", () => {
     n.description = text.value;
-    send.disabled = !ready();
+    enable();
   });
   text.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && ready()) void sendNewProject(n);
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && ready()) void toVision(n);
   });
-  send.addEventListener("click", () => void sendNewProject(n));
+  next.addEventListener("click", () => void toVision(n));
+  skip.addEventListener("click", () => void sendNewProject(n, false));
   body.append(el("label", { className: "field" }, el("span", { className: "flabel", textContent: "Describe your project" }), text));
   if (n.error) body.append(el("div", { className: "hint error", textContent: n.error }));
-  foot.append(close, el("span", { className: "spacer" }), send);
+  foot.append(close, el("span", { className: "spacer" }), skip, next);
 }
 
-async function sendNewProject(n: NewProject) {
+/** Step two: the vision board, in its own window; this step waits for it. */
+function renderNewVision(n: NewProject, body: HTMLElement, foot: HTMLElement) {
+  const status = n.boardOpen
+    ? "The vision board is open in its own window. Press Done there (or close it) when you're finished."
+    : n.canvases
+      ? `${n.canvases} canvas${n.canvases === 1 ? "" : "es"} sketched.`
+      : "Nothing sketched yet.";
+  const board = el("button", { className: "btn", textContent: n.boardOpen ? "Show vision board" : n.canvases ? "Edit vision board" : "Open vision board" });
+  board.addEventListener("click", () => void openBoard(n));
+  body.append(
+    el(
+      "p",
+      { className: "hint" },
+      "Sketch how the app should look: layouts, key screens, colours, words, reference images. It's the same vision board as in a project, and it stays with the project once it's set up. You can skip this.",
+    ),
+    el("div", { className: "field" }, el("span", { className: "flabel", textContent: "Vision board" }), el("div", { className: "dirrow" }, el("span", { className: "hint vision-status", textContent: status }), board)),
+  );
+  if (n.error) body.append(el("div", { className: "hint error", textContent: n.error }));
+
+  const back = el("button", { className: "btn", textContent: "Back" });
+  back.addEventListener("click", () => {
+    n.step = "describe";
+    n.error = null;
+    renderNewProject();
+  });
+  const skip = el("button", { className: "btn", textContent: "Skip, make prompt", title: "Make the prompt from the description alone" });
+  skip.addEventListener("click", () => void sendNewProject(n, false));
+  const send = el("button", { className: "btn primary", textContent: "Make prompt with vision" });
+  send.disabled = n.busy || (!n.boardOpen && !n.canvases);
+  skip.disabled = n.busy;
+  send.addEventListener("click", () => void sendNewProject(n, true));
+  foot.append(back, el("span", { className: "spacer" }), skip, send);
+}
+
+async function toVision(n: NewProject) {
+  if (!n.folder) return;
+  n.step = "vision";
+  n.error = null;
+  n.canvases = await api.newProject.visionCount(n.folder.dir).catch(() => 0);
+  if (newProject !== n) return;
+  renderNewProject();
+  void openBoard(n);
+}
+
+async function openBoard(n: NewProject) {
+  if (!n.folder) return;
+  n.boardOpen = true;
+  n.error = null;
+  renderNewProject();
+  const r = await api.newProject.vision(n.folder.dir);
+  if (newProject !== n) return;
+  if (!r.ok) {
+    n.boardOpen = false;
+    n.error = r.error;
+  }
+  renderNewProject();
+}
+
+async function sendNewProject(n: NewProject, withVision: boolean) {
   if (!n.folder) return;
   n.busy = true;
   n.error = null;
   renderNewProject();
-  const r = await api.newProject.send(n.folder.dir, n.description);
+  const r = await api.newProject.send(n.folder.dir, n.description, withVision);
   n.busy = false;
   if (newProject !== n) return;
-  if (r.ok) n.prompt = r.prompt;
-  else n.error = r.error;
+  if (r.ok) {
+    n.prompt = r.prompt;
+    n.withVision = r.vision;
+    n.boardOpen = false;
+  } else n.error = r.error;
   renderNewProject();
   if (r.ok) void renderProjects();
 }
+
+api.newProject.onVisionClosed(async (dir) => {
+  const n = newProject;
+  if (!n || n.folder?.dir !== dir || !n.boardOpen) return;
+  n.boardOpen = false;
+  n.canvases = await api.newProject.visionCount(dir).catch(() => 0);
+  if (newProject === n && !n.prompt) renderNewProject();
+});
 
 dlg().addEventListener("close", () => {
   if (newProject?.folder) void api.newProject.close(newProject.folder.dir);

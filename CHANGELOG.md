@@ -4,6 +4,11 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
+## 0.2.12 (unreleased)
+
+- **Set the vision of a new app before it's built.** After you describe a new project, **Next: Set the vision** opens the vision board in its own window, with the same tools as in a project. Sketch layouts, key screens, colours and words, add reference images, then press **Done**. **Make prompt with vision** points your agent to the canvases, so it builds from your sketches. Skip it if you'd rather start from the description alone.
+- **The sketches stay with the project.** Once the app exists and you set ScribUI up for it, its Vision tab opens with the board as you left it, and every review you send includes it as before.
+
 ## 0.2.11 (2026-11-04)
 
 - **Try a layout before asking for it: lift an element and move or resize it.** Move (`A`) now lifts what you drag: drag a button, a card or anything else: its pixels follow, and a hatched placeholder shows where it was. Drag its corners to make it larger or smaller (`shift` for any shape). **Show original** compares before and after. Your agent is told where it should go and how much larger or smaller it should be, and the annotated screenshot shows the mock-up. The arrow is one `A` away: press `A` again (or pick **Arrow** in the Move box) to drag from an element to where it should go, or to another screen.

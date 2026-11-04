@@ -13,16 +13,26 @@ export function screensPrompt(platform: Platform, baseUrl?: string): string {
 /** The longest project description a new project takes (it goes into a pasted prompt). */
 export const NEW_PROJECT_MAX = 20_000;
 
+/** Where the new-project dialog writes the vision board for the agent, inside `.scribui/`. */
+export const NEW_PROJECT_BRIEF_DIR = "brief";
+
 /**
  * What the user pastes into their agent to have a new app made in `dir`
  * from their description. ScribUI is set up there afterwards, once the app
- * exists and its platform and dev server can be detected.
+ * exists and its platform and dev server can be detected. `vision`: the
+ * project-relative path of the sketched visual direction (vision.md), when
+ * the user drew one.
  */
-export function newProjectPrompt(dir: string, description: string): string {
+export function newProjectPrompt(dir: string, description: string, opts: { vision?: string } = {}): string {
+  const vision = opts.vision
+    ? `
+- Visual direction: before you start, read ${opts.vision} and the canvases it links. They're the user's sketches of how the app should look; follow them for layout, hierarchy, content and mood.
+- Leave the .scribui folder as it is: it's ScribUI's, not part of the app. If a scaffolding tool wants an empty folder, scaffold around it (or in a temporary folder and move the files in).`
+    : "";
   return `Create a new app in ${dir} from the description below.
 
 - Work only inside ${dir}. It's the project's root: put the app's files there, not in a subfolder.
-- Choose a stack that fits the description, unless it names one.
+- Choose a stack that fits the description, unless it names one.${vision}
 - Make it runnable locally with one command (a dev server for a web app), and use stable ids on the UI elements (data-testid, accessibility identifiers, testIDs).
 - When you're done, tell me how to start it and where it runs: the localhost URL for a web app, or the application id / bundle id and build command for a mobile app.
 

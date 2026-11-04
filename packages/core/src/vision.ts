@@ -289,14 +289,30 @@ export function visionPages(file: { canvases: VisionCanvas[]; items: VisionItem[
 
 /* ─────────────────────────── markdown ─────────────────────────── */
 
-/** vision.md: the canvases as images, plus the words written on them. */
+/** vision.md for a round: the canvases as images, plus the words written on them. */
 export function renderVisionMarkdown(pages: { file: string; items: VisionItem[] }[], round: number): string {
-  const L: string[] = [];
-  L.push(`# Visual direction, round ${round}`, "");
-  L.push(
+  return [
+    `# Visual direction, round ${round}`,
+    "",
     "The user sketched how the app should look and feel. Use these canvases as a design reference for layout, hierarchy, content and mood, both for the changes in review.md and for any UI you add. They are rough sketches, not pixel specs: keep the app's existing components and design tokens where they fit. When a canvas and an instruction in review.md disagree, follow review.md.",
     "",
-  );
+    ...canvasSections(pages),
+  ].join("\n");
+}
+
+/** vision.md for a new app: the canvases sketched before the app exists, sent with the new-project prompt. */
+export function renderNewAppVisionMarkdown(pages: { file: string; items: VisionItem[] }[]): string {
+  return [
+    "# Visual direction",
+    "",
+    "The user sketched how the new app should look and feel before it was built. Use these canvases as the design reference for its layout, hierarchy, content and mood. They are rough sketches, not pixel specs: build real, consistent components and design tokens from them. When a canvas and the written description disagree, follow the description.",
+    "",
+    ...canvasSections(pages),
+  ].join("\n");
+}
+
+function canvasSections(pages: { file: string; items: VisionItem[] }[]): string[] {
+  const L: string[] = [];
   pages.forEach((p, i) => {
     L.push(`## Canvas ${i + 1}`, "", `![Canvas ${i + 1}](${p.file})`, "");
     const texts = p.items.filter((x): x is Extract<VisionItem, { type: "text" }> => x.type === "text").map((x) => x.text.trim()).filter(Boolean);
@@ -308,5 +324,5 @@ export function renderVisionMarkdown(pages: { file: string; items: VisionItem[] 
     const images = p.items.filter((x) => x.type === "image").length;
     if (images) L.push(`${images} reference image${images === 1 ? "" : "s"} placed on it (shown in the canvas).`, "");
   });
-  return L.join("\n");
+  return L;
 }

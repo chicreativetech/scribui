@@ -27,8 +27,13 @@ contextBridge.exposeInMainWorld("scribuiLauncher", {
   newProject: {
     pick: (current?: string) => call("newPick", current ? String(current) : undefined),
     info: (dir: string) => call("newInfo", String(dir)),
-    /** Create the folder, add it to the list and copy the prompt; resolves with the prompt. */
-    send: (dir: string, description: string) => call("newSend", String(dir), String(description)),
+    /** Open the folder's vision board in its own window (the folder is created); onVisionClosed when it closes. */
+    vision: (dir: string) => call("newVision", String(dir)),
+    /** Canvases with something drawn on them. */
+    visionCount: (dir: string) => call("newVisionCount", String(dir)),
+    onVisionClosed: (cb: (dir: string) => void) => void ipcRenderer.on("scribui:launcher:vision-closed", (_e, dir) => cb(String(dir))),
+    /** Create the folder, add it to the list and copy the prompt (pointing to the vision board when `withVision` and something is drawn); resolves with the prompt. */
+    send: (dir: string, description: string, withVision: boolean) => call("newSend", String(dir), String(description), withVision === true),
     close: (dir: string) => call("newClose", String(dir)),
     onStart: (cb: (dir: string) => void) => void ipcRenderer.on("scribui:launcher:new", (_e, dir) => cb(String(dir))),
   },

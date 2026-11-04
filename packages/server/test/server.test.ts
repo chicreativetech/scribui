@@ -2,7 +2,8 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp, LanAuth, ReviewStore, sendRound, startServer } from "../src/index.js";
+import { renderNewAppVisionMarkdown } from "@scribui/core";
+import { createApp, exportVision, LanAuth, ReviewStore, sendRound, startServer } from "../src/index.js";
 import { connect } from "node:net";
 
 const F = join(import.meta.dirname, "../../../fixtures");
@@ -253,6 +254,30 @@ describe("http api", () => {
     expect(readFileSync(join(out, "review.md"), "utf8")).toContain("read vision.md first. It holds 1 canvas ");
     // the board itself stays editable after the round is sent
     expect((await req("/api/vision", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...vision, items: [] }) })).status).toBe(200);
+  });
+
+  it("a vision board sketched before setup: not a project yet, exported for the new app, kept by setup", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "scribui-draft-"));
+    const store = new ReviewStore(dir);
+    const style = { color: "#262626", width: 3 };
+    await store.writeVision({ version: 1, canvases: [{ id: "c1", x: 0, y: 0, w: 640, h: 400 }], items: [{ id: "t", type: "text", x: 40, y: 40, w: 300, h: 40, text: "Big hero", style: { ...style, size: 32 } }] });
+    expect(store.exists()).toBe(false);
+
+    const brief = store.path("brief");
+    expect(await exportVision(store, brief, renderNewAppVisionMarkdown)).toBe(1);
+    expect(readFileSync(join(brief, "vision/canvas-1.png")).subarray(1, 4).toString()).toBe("PNG");
+    const md = readFileSync(join(brief, "vision.md"), "utf8");
+    expect(md).toMatch(/^# Visual direction\n/);
+    expect(md).toContain('- "Big hero"');
+
+    await store.init({ platform: "web", name: "Draft" });
+    expect(store.exists()).toBe(true);
+    expect((await store.readVision()).items.map((i) => i.id)).toEqual(["t"]);
+
+    // nothing drawn: nothing written
+    const empty = new ReviewStore(mkdtempSync(join(tmpdir(), "scribui-draft-")));
+    expect(await exportVision(empty, empty.path("brief"), renderNewAppVisionMarkdown)).toBe(0);
+    expect(existsSync(empty.path("brief"))).toBe(false);
   });
 
   it("pairing tokens expire", () => {

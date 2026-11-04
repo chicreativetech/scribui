@@ -38,8 +38,13 @@ export class ReviewStore {
     this.dir = join(this.root, PRODUCT.folder);
   }
 
+  /**
+   * Set up: screens.json exists. A `.scribui/` folder without it holds only
+   * a vision board sketched before the app existed (the new-project dialog);
+   * setup keeps that board.
+   */
   exists() {
-    return existsSync(this.dir);
+    return existsSync(this.path("screens.json"));
   }
 
   path(...p: string[]) {
