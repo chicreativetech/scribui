@@ -4,6 +4,10 @@ What changed in each release of ScribUI (the desktop app and the `scribui` CLI).
 The section for a version becomes its GitHub release notes and what the app's
 update dialog shows (see `RELEASING.md`). Write for the people using ScribUI.
 
+## Unreleased
+
+- **Try a layout before asking for it: lift an element and move or resize it.** Move (`A`) now lifts what you drag: drag a button, a card or anything else: its pixels follow, and a hatched placeholder shows where it was. Drag its corners to make it larger or smaller (`shift` for any shape). **Show original** compares before and after. Your agent is told where it should go and how much larger or smaller it should be, and the annotated screenshot shows the mock-up. The arrow is one `A` away: press `A` again (or pick **Arrow** in the Move box) to drag from an element to where it should go, or to another screen.
+
 ## 0.2.10 (2026-11-03)
 
 - **Capture Screens and the Device tab only capture now.** Marking up your app there confused people, so the tool rail, the notes panel and the marking tools are gone from both tabs. Mark up your captures in **Review**, as before. The floating bar has just **Capture view**, wider, and your app gets the room the rail took.

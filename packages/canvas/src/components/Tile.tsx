@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { bboxOf, indexFor, renderAnnotationSvg, type Annotation, type Rect, type UIElement } from "@scribui/core";
 import { quantize, type TileLayout } from "../layout";
-import { screenInfo, useCapturingScreens, useMarkers, useStore } from "../store";
+import { isReadOnly, screenInfo, useCapturingScreens, useMarkers, useStore } from "../store";
 
 /** One screen: screenshot + SVG layer in screenshot pixels. */
 export const Tile = memo(function Tile({ tile }: { tile: TileLayout }) {
@@ -15,6 +15,8 @@ export const Tile = memo(function Tile({ tile }: { tile: TileLayout }) {
   const hover = useStore((s) => (s.hover?.screenId === tile.id ? s.hover : null));
   const selectedElement = useStore((s) => (s.selectedElement?.screenId === tile.id ? s.selectedElement.elementId : null));
   const ruleTargets = useStore((s) => s.ruleTargets);
+  const showOriginal = useStore((s) => s.showOriginal);
+  const pendingLift = useStore((s) => (s.pendingLift?.screenId === tile.id ? s.pendingLift : null));
   const flash = useStore((s) => (s.flash?.screenId === tile.id ? s.flash : null));
   const titles = useStore((s) => s.round?.screens);
   const { markers, rules } = useMarkers();
@@ -42,10 +44,12 @@ export const Tile = memo(function Tile({ tile }: { tile: TileLayout }) {
               screen: { width: W, height: H },
               toScreenTitle: titles?.find((s) => a.geometry.type === "arrow" && s.id === a.geometry.toScreenId)?.title,
               warn: a.resolution?.status === "unresolved" && a.kind !== "rule",
+              screenshot: info?.screenshot,
+              mockup: !showOriginal,
             }),
           };
         }),
-    [mine, unit, markers, rules, idx, W, H, titles],
+    [mine, unit, markers, rules, idx, W, H, titles, info?.screenshot, showOriginal],
   );
 
   // clear the flash highlight after it plays
@@ -111,6 +115,13 @@ export const Tile = memo(function Tile({ tile }: { tile: TileLayout }) {
           <g key={a.id} className="ann" data-ann-id={a.id} dangerouslySetInnerHTML={{ __html: html }} />
         ))}
         {selectedAnn && <SelBox a={selectedAnn} pad={6 * unit} />}
+        {selectedAnn?.lift && !isReadOnly() && <LiftHandles id={selectedAnn.id} r={selectedAnn.lift.to} size={(10 * tile.scale) / zoom} />}
+        {pendingLift && (
+          <>
+            <ElRect r={pendingLift.el.bounds} cls="lift-pending" />
+            <LiftHandles id="pending" r={pendingLift.el.bounds} size={(10 * tile.scale) / zoom} />
+          </>
+        )}
         {hoverEl && <ElRect r={hoverEl.bounds} cls="hover" />}
       </svg>
     </div>
@@ -124,12 +135,30 @@ function ElRect({ r, cls }: { r: Rect; cls: string }) {
 function SelBox({ a, pad }: { a: Annotation; pad: number }) {
   const g = a.geometry;
   let b: Rect;
-  if (g.type === "point") b = { x: g.x - 2 * pad, y: g.y - 5 * pad, w: 6 * pad, h: 5 * pad };
+  if (a.lift) b = a.lift.to;
+  else if (g.type === "point") b = { x: g.x - 2 * pad, y: g.y - 5 * pad, w: 6 * pad, h: 5 * pad };
   else if (g.type === "rect") b = g;
   else if (g.type === "arrow") b = bboxOf([g.from, g.to]);
   else b = bboxOf(g.points);
   if (a.ink) b = bboxOf([[b.x, b.y], [b.x + b.w, b.y + b.h], ...a.ink.strokes.flatMap((s) => s.points)]);
   return <rect className="ann-sel-box" x={b.x - pad} y={b.y - pad} width={b.w + 2 * pad} height={b.h + 2 * pad} />;
+}
+
+/** Corners to resize a lifted element by (Board's liftResize); `id` "pending": an element clicked, not a note yet. */
+function LiftHandles({ id, r, size }: { id: string; r: Rect; size: number }) {
+  const corners = [
+    ["nw", r.x, r.y],
+    ["ne", r.x + r.w, r.y],
+    ["sw", r.x, r.y + r.h],
+    ["se", r.x + r.w, r.y + r.h],
+  ] as const;
+  return (
+    <g>
+      {corners.map(([c, x, y]) => (
+        <rect key={c} className={`lift-handle ${c}`} data-lift-handle={c} data-lift-id={id} x={x - size / 2} y={y - size / 2} width={size} height={size} />
+      ))}
+    </g>
+  );
 }
 
 export function elementLabel(el: UIElement): string {

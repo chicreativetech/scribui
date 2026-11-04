@@ -99,6 +99,7 @@ export function resolve(
 
     case "arrow": {
       if (g.type !== "arrow") return unresolved();
+      if (annotation.lift) return resolveLift(ctx, annotation.lift.from, annotation.lift.to);
       return resolveArrow(ctx, g.from, g.to, g.toScreenId, annotation.screenId);
     }
 
@@ -245,6 +246,18 @@ function resolveArrow(
     return resolved([start.id], { toElements: [toIndex.root.id] });
   }
   return resolved([start.id], { region: roundRect({ x: to[0], y: to[1], w: 0, h: 0 }) });
+}
+
+/**
+ * A lifted element: the outermost element whose bounds are the lifted rectangle (they were
+ * cut from it), else the deepest one under its centre; the destination is where it was placed.
+ */
+function resolveLift(ctx: Ctx, from: Rect, to: Rect): Resolution {
+  const same = (r: Rect) =>
+    Math.abs(r.x - from.x) < 1 && Math.abs(r.y - from.y) < 1 && Math.abs(r.w - from.w) < 1 && Math.abs(r.h - from.h) < 1;
+  const exact = ctx.index.all.find((f) => f.el !== ctx.index.root && same(f.el.bounds));
+  const el = exact?.el ?? deepestElementAt(ctx.index, [from.x + from.w / 2, from.y + from.h / 2], ctx.cfg);
+  return el ? resolved([el.id], { region: roundRect(to) }) : unresolved();
 }
 
 /**

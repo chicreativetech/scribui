@@ -27,6 +27,10 @@ export type RenderOptions = {
   toScreenTitle?: string;
   /** Warning style for unresolved annotations. */
   warn?: boolean;
+  /** The screenshot's href, for the pixels of lifted elements. Omitted: just their outlines. */
+  screenshot?: string;
+  /** false: lifted elements show where they'd go, without covering the original. */
+  mockup?: boolean;
 };
 
 const n = (v: number) => Math.round(v * 10) / 10;
@@ -203,6 +207,11 @@ export function renderAnnotationSvg(a: Annotation, o: RenderOptions): string {
 
     case "arrow": {
       if (g.type !== "arrow") break;
+      if (a.lift) {
+        parts.push(liftSvg(a.id, a.lift.from, a.lift.to, u, accent, o));
+        if (label) parts.push(badge(a.lift.to.x - 12 * u, a.lift.to.y - 24 * u, label, u, accent, o.warn));
+        break;
+      }
       let to: Point = g.to;
       const leaves = !!g.toScreenId && g.toScreenId !== a.screenId;
       if (leaves) {
@@ -308,6 +317,40 @@ export function renderAnnotationSvg(a: Annotation, o: RenderOptions): string {
   return `<g data-annotation="${esc(a.id)}">${parts.join("")}</g>`;
 }
 
+/**
+ * A lifted element: a hatched placeholder where it was, a dashed line to where it went, and
+ * its pixels there, scaled to the new size. Without the mock-up, the original stays visible.
+ */
+function liftSvg(id: string, from: Rect, to: Rect, u: number, accent: string, o: RenderOptions): string {
+  const out: string[] = [];
+  const box = (r: Rect) => `M ${n(r.x)} ${n(r.y)} H ${n(r.x + r.w)} V ${n(r.y + r.h)} H ${n(r.x)} Z`;
+  const mockup = o.mockup !== false && !!o.screenshot && !!o.screen;
+  if (mockup) {
+    const hatch = `lift-hatch-${esc(id)}`;
+    const gap = 7 * u;
+    out.push(
+      `<defs><pattern id="${hatch}" patternUnits="userSpaceOnUse" width="${n(gap)}" height="${n(gap)}" patternTransform="rotate(45)">` +
+        `<line x1="0" y1="0" x2="0" y2="${n(gap)}" stroke="#8A8A8A" stroke-width="${n(1.5 * u)}"/></pattern></defs>`,
+      `<rect x="${n(from.x)}" y="${n(from.y)}" width="${n(from.w)}" height="${n(from.h)}" fill="#F2F2F2"/>`,
+      `<rect x="${n(from.x)}" y="${n(from.y)}" width="${n(from.w)}" height="${n(from.h)}" fill="url(#${hatch})"/>`,
+    );
+  }
+  out.push(`<path d="${box(from)}" fill="none" stroke="#8A8A8A" stroke-width="${n(u)}" stroke-dasharray="${n(4 * u)} ${n(3 * u)}"/>`);
+  const c1: Point = [from.x + from.w / 2, from.y + from.h / 2];
+  const c2: Point = [to.x + to.w / 2, to.y + to.h / 2];
+  if (Math.hypot(c2[0] - c1[0], c2[1] - c1[1]) > 4 * u)
+    out.push(stroked(`M ${n(c1[0])} ${n(c1[1])} L ${n(c2[0])} ${n(c2[1])}`, u * 0.6, accent, `stroke-dasharray="${n(5 * u)} ${n(4 * u)}"`));
+  if (mockup) {
+    const href = esc(o.screenshot!);
+    out.push(
+      `<svg x="${n(to.x)}" y="${n(to.y)}" width="${n(to.w)}" height="${n(to.h)}" viewBox="${n(from.x)} ${n(from.y)} ${n(from.w)} ${n(from.h)}" preserveAspectRatio="none" overflow="hidden">` +
+        `<image href="${href}" xlink:href="${href}" x="0" y="0" width="${o.screen!.width}" height="${o.screen!.height}" preserveAspectRatio="none"/></svg>`,
+    );
+  }
+  out.push(stroked(box(to), u * 0.75, accent));
+  return out.join("");
+}
+
 function pointOf(g: Annotation["geometry"]): Point {
   switch (g.type) {
     case "point":
@@ -364,6 +407,7 @@ export function renderAnnotatedScreenSvg(i: AnnotatedScreenInput): string {
             ? (i.screenTitle?.(a.geometry.toScreenId) ?? a.geometry.toScreenId)
             : undefined,
         warn: a.resolution?.status === "unresolved",
+        screenshot: i.href,
       }),
     )
     .join("");

@@ -17,6 +17,7 @@ export function ToolSettings() {
   const view = useStore((s) => s.view);
   const tool = useStore((s) => s.tool);
   const styles = useStore((s) => s.toolStyles);
+  const moveMode = useStore((s) => s.moveMode);
   const selectedAnn = useStore((s) => (s.selectedId ? s.annotations.find((a) => a.id === s.selectedId) : undefined));
   const item = useVision((s) => (s.selectedId ? s.doc.items.find((i) => i.id === s.selectedId) : undefined));
   if (view === "live") return null;
@@ -25,12 +26,17 @@ export function ToolSettings() {
   // something selected with the select tool: edit it
   if (tool === "select" && vision && item) return <ItemSettings item={item} />;
   if (tool === "select" && !vision && selectedAnn?.kind === "sketch" && selectedAnn.sketch) return <SketchSettings a={selectedAnn} />;
+  if (tool === "select" && !vision && selectedAnn?.lift) return <LiftSettings />;
   if (tool === "select") return null;
 
   const info = TOOLS.find((t) => t.tool === tool);
   const styled = isSketchTool(tool) || tool === "freehand";
+  const lift = !vision && tool === "arrow" && moveMode === "lift";
+  const arrow = !vision && tool === "arrow" && moveMode === "arrow";
   return (
-    <Box title={info?.label ?? tool} keyHint={info?.key} hint={(vision && VISION_HINTS[tool]) || info?.hint}>
+    <Box title={info?.label ?? tool} keyHint={info?.key} hint={arrow ? ARROW_HINT : (vision && VISION_HINTS[tool]) || info?.hint}>
+      {!vision && tool === "arrow" && <MoveModes />}
+      {lift && <OriginalToggle />}
       {!vision && (isSketchTool(tool) || tool === "freehand") && (
         <p className="ts-note">
           Draws on screens. Mix the sketch tools freely: it's all one sketch until you press Ready (⏎), then add a note for the agent.
@@ -43,6 +49,53 @@ export function ToolSettings() {
           onChange={(patch) => useStore.getState().setToolStyle(tool as StyledTool, patch)}
         />
       )}
+    </Box>
+  );
+}
+
+/* ───────── move ───────── */
+
+const ARROW_HINT = "drag from an element to where it should go; to another screen, it says one leads to the other";
+
+/** Move lifts the element itself, or draws an arrow (A again switches). */
+function MoveModes() {
+  const mode = useStore((s) => s.moveMode);
+  const pick = (moveMode: "arrow" | "lift") => useStore.getState().set({ moveMode });
+  return (
+    <div className="ts-row">
+      <div className="ts-label">
+        <span>Mode</span>
+        <span className="dim">A switches</span>
+      </div>
+      <div className="width-switch">
+        <button className={mode === "lift" ? "on" : ""} aria-pressed={mode === "lift"} onClick={() => pick("lift")}>
+          Lift
+        </button>
+        <button className={mode === "arrow" ? "on" : ""} aria-pressed={mode === "arrow"} onClick={() => pick("arrow")}>
+          Arrow
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Before and after: lifted elements without covering the originals. */
+function OriginalToggle() {
+  const on = useStore((s) => s.showOriginal);
+  return (
+    <div className="ts-actions">
+      <button className={`item ${on ? "on" : ""}`} aria-pressed={on} onClick={() => useStore.getState().set({ showOriginal: !on })} title="show the screens as they are, with outlines where the lifted elements would go">
+        {on ? "Show mock-up" : "Show original"}
+      </button>
+    </div>
+  );
+}
+
+/** A lifted element, selected. */
+function LiftSettings() {
+  return (
+    <Box title="moved element" hint="drag it to move it, its corners to resize it (shift: any shape). Its note says why.">
+      <OriginalToggle />
     </Box>
   );
 }

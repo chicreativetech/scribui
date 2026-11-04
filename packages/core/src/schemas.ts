@@ -279,6 +279,12 @@ export const Annotation = z.object({
    */
   sketch: z.object({ shape: SketchShape, style: SketchStyle, parts: z.array(SketchPart).optional() }).optional(),
   /**
+   * Move arrows made by lifting an element (the Move tool's Lift mode): its pixels, cut from
+   * `from` on the screenshot, are placed at `to`, moved, resized or both, as a mock-up.
+   * The arrow runs from the centre of `from` to the centre of `to`.
+   */
+  lift: z.object({ from: Rect, to: Rect }).optional(),
+  /**
    * Marked in the app tab (web): the page element the mark was made on, so it can be
    * shown on the live page again, following that element as the page scrolls or shifts.
    * `selector` finds it; `x`, `y` are its top-left corner then, in CSS pixels of the page.

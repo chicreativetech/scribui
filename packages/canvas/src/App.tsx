@@ -196,6 +196,7 @@ export function App() {
       }
       if (e.key === "Escape") {
         if (st.picker) return st.set({ picker: null });
+        if (st.pendingLift) return st.set({ pendingLift: null });
         if (st.ruleTargets.length) return st.set({ ruleTargets: [] });
         if (st.selectedId || st.selectedElement) return st.set({ selectedId: null, selectedElement: null });
         if (st.focusId) return unfocus();
@@ -247,6 +248,8 @@ export function App() {
       const tool = TOOLS.find((x) => x.key === k);
       if (tool) {
         if (isReadOnly() && tool.tool !== "select") return;
+        // A again: Move switches between lifting the element and drawing an arrow
+        if (tool.tool === "arrow" && st.tool === "arrow") return st.set({ moveMode: st.moveMode === "lift" ? "arrow" : "lift" });
         st.setTool(tool.tool);
         return;
       }

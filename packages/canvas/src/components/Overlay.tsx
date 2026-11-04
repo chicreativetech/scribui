@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { bboxOf, indexFor, sketchPartsBounds, type Annotation, type Rect, type SketchPart } from "@scribui/core";
+import { bboxOf, indexFor, liftChange, sketchPartsBounds, type Annotation, type Rect, type SketchPart } from "@scribui/core";
 import { worldToScreen, type TileLayout } from "../layout";
 import { describeElement, elementOf, isReadOnly, useCapturingScreens, useMarkers, useStore } from "../store";
 import { measureText } from "../vision";
@@ -164,6 +164,7 @@ export function Overlay({ boardRef }: { boardRef: RefObject<HTMLDivElement | nul
 }
 
 export function annBounds(a: Annotation): Rect {
+  if (a.lift) return a.lift.to;
   const g = a.geometry;
   let b: Rect =
     g.type === "point" ? { x: g.x, y: g.y, w: 0, h: 0 } : g.type === "rect" ? g : g.type === "arrow" ? bboxOf([g.from, g.to]) : bboxOf(g.points);
@@ -186,6 +187,11 @@ function chipText(a: Annotation): string {
     s = res.region.w > 1 ? `area ${res.region.w}×${res.region.h}` : `point ${res.region.x},${res.region.y}`;
   }
   const g = a.geometry;
+  if (a.lift) {
+    const { moved, scale } = liftChange(a.lift.from, a.lift.to);
+    const size = scale ? `${Math.round(((scale.x + scale.y) / 2) * 100)}%` : "";
+    return `${s} ${[moved ? "moved" : "", size].filter(Boolean).join(", ") || "lifted"}`;
+  }
   if (a.kind === "arrow" && g.type === "arrow") {
     const toScreen = g.toScreenId ?? a.screenId;
     const dest = res.toElements?.[0] ? elementOf(toScreen, res.toElements[0]) : null;

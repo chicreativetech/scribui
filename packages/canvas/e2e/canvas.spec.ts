@@ -129,6 +129,7 @@ test("comment, remove, arrow and rectangle", async ({ page }) => {
   await page.mouse.click(...apple);
 
   await page.keyboard.press("a");
+  await page.keyboard.press("a");
   await page.mouse.move(...(await at(page, "checkout-default", 390, 720)));
   await page.mouse.down();
   await page.mouse.move(...(await at(page, "checkout-default", 390, 250)), { steps: 6 });
@@ -167,6 +168,63 @@ test("target picker overrides the resolution and survives re-resolve", async ({ 
   anns = ((await r.json()) as { annotations: Ann[] }).annotations;
   expect(anns[0]!.resolution).toMatchObject({ status: "region", confirmedByUser: true });
 });
+
+test("move, lift: drags an element's pixels somewhere else, resizes them by a corner, shows the original", async ({ page }) => {
+  await focus(page, "checkout-default");
+  await page.keyboard.press("a");
+  await expect(page.locator(".tool-settings button", { hasText: "Lift" })).toHaveAttribute("aria-pressed", "true");
+  const pay = await at(page, "checkout-default", 390, 1130);
+
+  // a click only shows its corners; Escape lets go
+  await page.mouse.move(...pay);
+  await page.mouse.click(...pay);
+  await expect(page.locator(".lift-handle")).toHaveCount(4);
+  expect(await annotations(page)).toHaveLength(0);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".lift-handle")).toHaveCount(0);
+
+  // a corner of a clicked element: resized in place, now it's a note
+  await page.mouse.click(...pay);
+  const corner = (await page.locator(".lift-handle.se").boundingBox())!;
+  await page.mouse.move(corner.x + corner.width / 2, corner.y + corner.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(corner.x + corner.width / 2 - 80, corner.y + corner.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await page.keyboard.press("Escape");
+  const [resized] = (await saved(page)) as (Ann & { lift: { from: Rect; to: Rect } })[];
+  expect(resized!.lift).toMatchObject({ from: { x: 40, y: 1079, w: 700, h: 101 }, to: { x: 40, y: 1079 } });
+  expect(resized!.lift.to.w).toBeLessThan(700);
+  await page.keyboard.press("ControlOrMeta+z");
+  expect(await annotations(page)).toHaveLength(0);
+
+  await page.mouse.move(...pay);
+  await page.mouse.down();
+  await page.mouse.move(...(await at(page, "checkout-default", 390, 330)), { steps: 6 });
+  await expect(page.locator(".board-svg image")).toHaveCount(1);
+  await page.mouse.up();
+  await page.keyboard.type("easier to reach");
+  await page.keyboard.press("Enter");
+  const mockup = page.locator(".tile [data-ann-id] image");
+  await expect(mockup).toHaveCount(1);
+  await expect(page.locator(".chip", { hasText: "moved" })).toBeVisible();
+
+  // the bottom-right corner: smaller, in proportion
+  const se = (await page.locator(".lift-handle.se").boundingBox())!;
+  await page.mouse.move(se.x + se.width / 2, se.y + se.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(se.x + se.width / 2 - 120, se.y + se.height / 2, { steps: 5 });
+  await page.mouse.up();
+  const [a] = (await saved(page)) as (Ann & { lift: { from: Rect; to: Rect } })[];
+  expect(a).toMatchObject({ kind: "arrow", text: "easier to reach", lift: { from: { x: 40, y: 1079, w: 700, h: 101 } }, resolution: { elements: ["payButton"] } });
+  expect(a!.lift.to.y).toBeLessThan(500);
+  expect(a!.lift.to.w).toBeLessThan(600);
+  expect(a!.lift.to.h / a!.lift.to.w).toBeCloseTo(101 / 700, 2);
+
+  await page.locator(".tool-settings button", { hasText: "Show original" }).click();
+  await expect(mockup).toHaveCount(0);
+});
+
+type Rect = { x: number; y: number; w: number; h: number };
 
 test("select, move, delete, undo and redo", async ({ page }) => {
   await focus(page, "checkout-default");

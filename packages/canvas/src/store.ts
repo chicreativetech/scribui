@@ -31,7 +31,7 @@ export const TOOLS: { tool: Tool; key: string; label: string; hint: string }[] =
   { tool: "select", key: "V", label: "Select", hint: "click an element or a note to pick it" },
   { tool: "comment", key: "C", label: "Comment", hint: "click an element and say what should change" },
   { tool: "circle", key: "O", label: "Change area", hint: "draw a loop around an area or a group that should change, then say how" },
-  { tool: "arrow", key: "A", label: "Move", hint: "drag from an element to where it should go; to another screen, it says one leads to the other" },
+  { tool: "arrow", key: "A", label: "Move", hint: "drag an element to try it somewhere else; drag its corners to resize it (shift: any shape). Alt picks its parent." },
   { tool: "rectangle", key: "R", label: "Add here", hint: "drag a box where something new should go, then say what" },
   { tool: "remove", key: "X", label: "Remove", hint: "click an element that should go" },
   { tool: "freehand", key: "P", label: "Draw", hint: "draw freely, in as many strokes as you like" },
@@ -104,6 +104,12 @@ type State = {
   selectedElement: { screenId: string; elementId: string } | null;
   ruleTargets: { screenId: string; elementId: string }[];
   hover: HoverInfo;
+  /** The Move tool lifts the element's pixels to move and resize them, or draws an arrow (A again switches). */
+  moveMode: "arrow" | "lift";
+  /** An element clicked with Move (Lift): its corners show, and it becomes a note once it's moved or resized. */
+  pendingLift: { screenId: string; el: UIElement; confirm: boolean } | null;
+  /** Lifted elements show where they'd go without covering the original: before and after. */
+  showOriginal: boolean;
   showOutlines: boolean;
   flash: { screenId: string; ids: string[]; region?: { x: number; y: number; w: number; h: number }; until: number } | null;
   editor: EditorState;
@@ -218,6 +224,9 @@ export const useStore = create<Store>((set, get) => ({
   selectedElement: null,
   ruleTargets: [],
   hover: null,
+  moveMode: "lift",
+  pendingLift: null,
+  showOriginal: false,
   showOutlines: false,
   flash: null,
   editor: null,
@@ -327,7 +336,7 @@ export const useStore = create<Store>((set, get) => ({
   setTool(tool) {
     if (tool !== "freehand" && !isSketchTool(tool)) get().finishDrawing();
     else get().typePart(textOfTyping(get().drawing), true);
-    set({ tool, ruleTargets: tool === "rule" ? get().ruleTargets : [], picker: null });
+    set({ tool, ruleTargets: tool === "rule" ? get().ruleTargets : [], picker: null, pendingLift: null });
   },
 
   setCamera(c) {

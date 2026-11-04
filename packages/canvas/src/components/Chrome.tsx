@@ -175,7 +175,7 @@ export function showView(view: "vision" | "board") {
 export const ICONS: Partial<Record<Tool, ReactNode>> = {
   select: <img className="icon" src={selectIcon} width={12} height={12} alt="" />,
   comment: <img className="icon" src={commentIcon} width={14} height={14} alt="" />,
-  arrow: <img className="icon" src={arrowIcon} width={14.938} height={14.938} alt="" />,
+  arrow: <img className="icon" src={arrowIcon} width={15} height={15} alt="" />,
   rectangle: (
     <svg className="glyph-select-rect" width={12} height={12} viewBox="0 0 12 12" aria-hidden>
       <rect x={1} y={1} width={10} height={10} strokeWidth={2} strokeDasharray="2 2" />

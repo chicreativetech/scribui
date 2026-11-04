@@ -156,7 +156,8 @@ Every mark snaps to a real UI element. The Guide tools are named after what they
 | Tool | Key | How | What the agent is told |
 | --- | --- | --- | --- |
 | **Comment** | `C` | click an element, type, `⏎` | change this element: *your words* (on empty space: do *your words* there) |
-| **Move** | `A` | drag from an element to where it should go | move it next to the element you end on, or to the empty spot; ending on another screen says one screen leads to the other |
+| **Move** | `A` | drag the element itself to where you'd try it; drag its corners to resize it (`shift`: any shape) | move it to that spot, make it larger or smaller, or both, with a mock-up on the annotated screenshot |
+| **Move: Arrow** | `A` again | drag from an element to where it should go | move it next to the element you end on, or to the empty spot; ending on another screen says one screen leads to the other |
 | **Change area** | `O` | draw a loop around an area or a group, then type | change what's inside: *your words* |
 | **Add here** | `R` | drag a box on empty space, then type | add *your words* there, next to the elements around it (a box around an element means change it) |
 | **Remove** | `X` | click an element | remove it (your words, if any, say why) |
@@ -165,6 +166,8 @@ Every mark snaps to a real UI element. The Guide tools are named after what they
 Each note's box says what its words should be: *What should change?*, *What should go here?*, *Why move it? (optional)* and so on.
 
 **Sketch** what you want with draw (`P`), line (`I`), box (`B`), ellipse (`Q`), text (`T`) and fill (`G`). The fill tool is a paint bucket: click inside a closed area to fill it, even one drawn from several lines and strokes; small gaps in hand-drawn lines are bridged. Click a line or a shape's outline to recolour it. Everything you sketch on a screen is one sketch, whatever the tool and however often you lift the pen, until you press **Ready** (or `⏎`). Then add one note for the whole sketch. Undo and redo (`⌘Z`, `⇧⌘Z` or the buttons) step through the sketch while you draw it. The agent sees the sketch in the screenshot, with its parts, the words of its text, what it's drawn over and your note.
+
+**Try a layout before asking for it.** Press `A` and drag an element: its pixels follow the mouse, and a hatched placeholder marks where it was. Drag the corners to make it larger or smaller; it keeps its proportions unless you hold `shift`. `alt` picks the parent first, as when hovering. Drag a lifted element again to move it further. To point instead, press `A` again (or pick **Arrow** in the Move box): drag from an element to where it should go, or to another screen to say one leads to the other. **Show original** in the Move box shows the screens as they are, with outlines where the lifted elements would go. It's a mock-up of the pixels, not a real layout: nothing around it moves to make room.
 
 After each mark, the element it attached to flashes, and a chip under the mark names it, e.g. `button#payButton "Pay now"`. When that's wrong, switch to select (`V`), click the chip and pick the parent, a child or "empty area". A yellow chip means ScribUI couldn't tell what you meant; press `N` to jump to the next one. Typing into a comment right next to a Change area, Move or Remove mark merges it into that mark.
 
@@ -272,7 +275,7 @@ A developer tool with a terminal soul: a keyboard-first, monospace interface wit
 | `V` | select | click an element or annotation, drag to pan or move |
 | `C` | comment | click an element and say what should change |
 | `O` | change area | loop around an area or group that should change |
-| `A` | move | drag an element to where it should go; to another screen: one leads to the other |
+| `A` | move | drag an element itself to try it elsewhere, corners resize it. `A` again: an arrow to where it should go; to another screen: one leads to the other |
 | `R` | add here | drag a box where something new should go |
 | `X` | remove | click an element that should go |
 | `P` `I` `B` `Q` `T` `G` | sketch | draw, line, box, ellipse, text, fill: all one sketch until `⏎` (Ready) |

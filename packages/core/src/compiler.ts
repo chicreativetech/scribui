@@ -272,6 +272,19 @@ function buildInstruction(ctx: Ctx, a: Annotation, comments: Annotation[]): Inst
 
     case "arrow": {
       if (!refs.length) return unresolvedInstr("move");
+      if (a.lift && res.region) {
+        const { from } = a.lift;
+        const to = res.region;
+        const change = liftChange(from, to);
+        const mockup = `Marker ${n} on the annotated screenshot shows a mock-up.`;
+        const resize = (subject: string) => (change.scale ? resizePhrase(subject, from, to, change.scale) : "");
+        const destination = { destination: { region: to } };
+        if (change.moved && change.scale)
+          return done("move", `Move ${target} to the area at ${formatRect(to)} and ${resize("it")}. ${Comment} ${mockup}`, destination);
+        if (change.moved) return done("move", `Move ${target} to the area at ${formatRect(to)}. ${Comment} ${mockup}`, destination);
+        if (change.scale) return done("change", `${cap(resize(target))}. ${Comment} ${mockup}`, destination);
+        return hasComment ? done("change", `${cap(bare)}: ${comment}`) : needsText("change");
+      }
       const g = a.geometry;
       const toScreen = g.type === "arrow" ? g.toScreenId : undefined;
       if (toScreen && toScreen !== a.screenId) {
@@ -357,6 +370,34 @@ function describeCovered(ctx: Ctx, screenId: string, region: Rect): string {
   const outer = covered.filter((el, i) => !covered.slice(0, i).some((o) => inside(el.bounds, o.bounds))).slice(0, 3);
   if (!outer.length) return "";
   return `, drawn over ${joinList(outer.map((el) => `the ${phraseTarget(toTargetRef(el), el.idSource)}`))}`;
+}
+
+/**
+ * What was done to a lifted element: moved when none of its corners or its centre stayed
+ * put (a corner handle keeps the opposite corner), and its scale when its size changed.
+ */
+export function liftChange(from: Rect, to: Rect): { moved: boolean; scale?: { x: number; y: number } } {
+  const tol = Math.max(2, 0.05 * Math.min(from.w, from.h));
+  const points = (r: Rect) => [
+    [r.x, r.y],
+    [r.x + r.w, r.y],
+    [r.x, r.y + r.h],
+    [r.x + r.w, r.y + r.h],
+    [r.x + r.w / 2, r.y + r.h / 2],
+  ];
+  const b = points(to);
+  const moved = !points(from).some((p, i) => Math.hypot(p[0]! - b[i]![0]!, p[1]! - b[i]![1]!) <= tol);
+  const scale = { x: to.w / Math.max(1, from.w), y: to.h / Math.max(1, from.h) };
+  const resized = Math.abs(scale.x - 1) > 0.03 || Math.abs(scale.y - 1) > 0.03;
+  return resized ? { moved, scale } : { moved };
+}
+
+/** "make it about 30% larger (320 × 60 → 416 × 78)", or "resize it from 320 × 60 to 416 × 60" when its proportions changed. */
+function resizePhrase(subject: string, from: Rect, to: Rect, scale: { x: number; y: number }): string {
+  const size = (r: Rect) => `${Math.round(r.w)} × ${Math.round(r.h)}`;
+  if (Math.abs(scale.x - scale.y) > 0.05) return `resize ${subject} from ${size(from)} to ${size(to)}`;
+  const k = (scale.x + scale.y) / 2;
+  return `make ${subject} about ${Math.round(Math.abs(k - 1) * 100)}% ${k > 1 ? "larger" : "smaller"} (${size(from)} → ${size(to)})`;
 }
 
 /** ", between X and Y" for an empty region, using the nearest meaningful elements above and below. */

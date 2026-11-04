@@ -4,6 +4,7 @@ import {
   bboxOf,
   classifyStrokes,
   indexFor,
+  liftChange,
   moveSketchPart,
   newAnnotationId,
   sketchPartsBounds,
@@ -39,8 +40,14 @@ type Drag =
   | { kind: "sketch"; shape: "line" | "box" | "ellipse"; tile: TileLayout; from: Pt; to: Pt }
   | { kind: "arrow"; tile: TileLayout; from: Pt; toWorld: Pt }
   | { kind: "move"; id: string; tile: TileLayout; start: Pt; orig: Annotation; moved: boolean }
+  /** Move, lifting: the element's pixels follow the pointer. `confirm`: alt picked a parent, keep it. */
+  | { kind: "lift"; tile: TileLayout; el: UIElement; confirm: boolean; start: Pt; to: Rect; moved: boolean }
+  /** `pending`: the corners of a clicked element, not yet a note; `to` is where it's dragged to. */
+  | { kind: "liftResize"; id: string; tile: TileLayout; handle: Corner; orig: Annotation; pending?: boolean; to?: Rect }
   /** draw: a stroke of the draw tool, for the open drawing; otherwise pen ink to classify. */
   | { kind: "pen"; tile: TileLayout; pts: [number, number, number][]; t0: number; draw?: boolean };
+
+export type Corner = "nw" | "ne" | "sw" | "se";
 
 type PenGroup = { tile: TileLayout; strokes: InkStroke[]; timer: ReturnType<typeof setTimeout> | null };
 
@@ -53,6 +60,7 @@ export function Board() {
   const groups = useStore((s) => s.groups);
   const camera = useStore((s) => s.camera);
   const tool = useStore((s) => s.tool);
+  const lifting = useStore((s) => s.tool === "arrow" && s.moveMode === "lift");
   const round = useStore((s) => s.round);
   const annotations = useStore((s) => s.annotations);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -191,7 +199,7 @@ export function Board() {
     }
     const px = toPx(t, w);
     const cursorPx = { screenId: t.id, x: Math.round(px[0]), y: Math.round(px[1]) };
-    const wantsHover = ["select", "comment", "remove", "rule"].includes(st.tool);
+    const wantsHover = ["select", "comment", "remove", "rule"].includes(st.tool) || (st.tool === "arrow" && st.moveMode === "lift");
     const tree = st.trees.get(t.id);
     if (!wantsHover || !tree) {
       st.set({ hover: null, cursorPx });
@@ -283,6 +291,20 @@ export function Board() {
     const ro = isReadOnly();
     capture(e);
 
+    // a corner of a lifted element, or of one clicked and not changed yet: resize it
+    const handle = target.closest("[data-lift-handle]");
+    const pending = st.pendingLift;
+    if (handle && !ro) {
+      const corner = handle.getAttribute("data-lift-handle") as Corner;
+      const id = handle.getAttribute("data-lift-id");
+      const lt = pending && id === PENDING ? tileOf(pending.screenId) : undefined;
+      if (pending && lt) return setDragBoth({ kind: "liftResize", id: PENDING, tile: lt, handle: corner, orig: liftOf(pending.screenId, pending.el, pending.confirm), pending: true });
+      const a = st.annotations.find((x) => x.id === id);
+      const at = a && tileOf(a.screenId);
+      if (a?.lift && at) return setDragBoth({ kind: "liftResize", id: a.id, tile: at, handle: corner, orig: a });
+    }
+    if (pending) st.set({ pendingLift: null });
+
     if (st.tool === "select" || ro) {
       if (annEl) {
         const id = annEl.getAttribute("data-ann-id")!;
@@ -337,9 +359,26 @@ export function Board() {
       case "rectangle":
         setDragBoth({ kind: "rect", tile: t, from: px, to: px });
         break;
-      case "arrow":
-        setDragBoth({ kind: "arrow", tile: t, from: px, toWorld: w });
+      case "arrow": {
+        if (st.moveMode !== "lift") {
+          setDragBoth({ kind: "arrow", tile: t, from: px, toWorld: w });
+          break;
+        }
+        // an element lifted before: drag it further
+        const lifted = annEl ? st.annotations.find((x) => x.id === annEl.getAttribute("data-ann-id") && x.lift) : undefined;
+        if (lifted) {
+          st.select(lifted.id);
+          setDragBoth({ kind: "move", id: lifted.id, tile: tileOf(lifted.screenId) ?? t, start: w, orig: lifted, moved: false });
+          break;
+        }
+        const el = hoveredElement(t.id);
+        if (!el) {
+          st.toast({ text: "point at an element to lift it", tone: "info" });
+          break;
+        }
+        setDragBoth({ kind: "lift", tile: t, el, confirm: (st.hover?.level ?? 0) > 0, start: w, to: el.bounds, moved: false });
         break;
+      }
       case "line":
       case "box":
       case "ellipse":
@@ -433,6 +472,22 @@ export function Board() {
         st.set({ annotations: st.annotations.map((a) => (a.id === d.id ? moved : a)) });
         return;
       }
+      case "lift": {
+        const dx = (w[0] - d.start[0]) * d.tile.scale;
+        const dy = (w[1] - d.start[1]) * d.tile.scale;
+        if (!d.moved && Math.hypot(dx, dy) < 3 * d.tile.scale) return;
+        const b = d.el.bounds;
+        setDragBoth({ ...d, moved: true, to: { ...b, x: round1(b.x + dx), y: round1(b.y + dy) } });
+        return;
+      }
+      case "liftResize": {
+        const to = resizedLift(d.orig.lift!.to, d.handle, toPx(d.tile, w), e.shiftKey, 4 * d.tile.scale);
+        if (d.pending) return setDragBoth({ ...d, to });
+        // live preview, as a move
+        const resized = withLiftTo(d.orig, to);
+        st.set({ annotations: st.annotations.map((a) => (a.id === d.id ? resized : a)) });
+        return;
+      }
     }
   };
 
@@ -497,6 +552,25 @@ export function Board() {
         const geometry: Annotation["geometry"] = { type: "arrow", from: d.from, to };
         if (endTile.id !== d.tile.id) geometry.toScreenId = endTile.id;
         st.add({ id: newAnnotationId(), screenId: d.tile.id, kind: "arrow", geometry }, { edit: true });
+        return;
+      }
+      case "lift": {
+        // a click only shows its corners: it's a note once it's moved or resized
+        if (!d.moved) return st.set({ pendingLift: { screenId: d.tile.id, el: d.el, confirm: d.confirm }, selectedId: null });
+        st.add(withLiftTo(liftOf(d.tile.id, d.el, d.confirm), d.to), { edit: true });
+        return;
+      }
+      case "liftResize": {
+        const to = resizedLift(d.orig.lift!.to, d.handle, toPx(d.tile, w), e.shiftKey, 4 * d.tile.scale);
+        if (d.pending) {
+          const { moved, scale } = liftChange(d.orig.lift!.from, to);
+          if (!moved && !scale) return;
+          st.set({ pendingLift: null });
+          return st.add(withLiftTo(d.orig, to), { edit: true });
+        }
+        const resized = withLiftTo(d.orig, to);
+        st.set({ annotations: st.annotations.map((a) => (a.id === d.id ? d.orig : a)) });
+        st.commit(st.annotations.map((a) => (a.id === d.id ? resized : a)), { select: d.id });
         return;
       }
       case "move": {
@@ -581,6 +655,7 @@ export function Board() {
     "board",
     `tool-${tool}`,
     drawing ? "drawing" : "",
+    lifting ? "lifting" : "",
     space || drag?.kind === "pan" ? "panning" : "",
     space ? "space" : "",
     isReadOnly() ? "readonly" : "",
@@ -773,6 +848,8 @@ function normRect(a: Pt, b: Pt) {
 }
 
 export function translate(a: Annotation, dx: number, dy: number): Annotation {
+  // a lifted element moves where it was placed; where it came from stays
+  if (a.lift) return withLiftTo(a, { ...a.lift.to, x: round1(a.lift.to.x + dx), y: round1(a.lift.to.y + dy) });
   const g = a.geometry;
   const r = (n: number) => Math.round(n * 10) / 10;
   let geometry: Annotation["geometry"];
@@ -794,6 +871,49 @@ export function translate(a: Annotation, dx: number, dy: number): Annotation {
   if (a.sketch?.parts) out.sketch = { ...a.sketch, parts: a.sketch.parts.map((p) => moveSketchPart(p, dx, dy)) };
   if (a.ink) out.ink = { ...a.ink, strokes: a.ink.strokes.map((s) => ({ points: s.points.map(([x, y, p]) => [r(x + dx), r(y + dy), p] as [number, number, number]) })) };
   return out;
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const centre = (r: Rect): Pt => [round1(r.x + r.w / 2), round1(r.y + r.h / 2)];
+const roundRect = (r: Rect): Rect => ({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) });
+
+/** The id of a clicked element's corners while it isn't a note yet. */
+const PENDING = "pending";
+
+/** A note for an element lifted where it is; `confirm`: alt picked it, keep it. */
+function liftOf(screenId: string, el: UIElement, confirm: boolean): Annotation {
+  const b = el.bounds;
+  const a: Annotation = { id: newAnnotationId(), screenId, kind: "arrow", geometry: { type: "arrow", from: centre(b), to: centre(b) }, lift: { from: b, to: b } };
+  if (confirm) a.resolution = { status: "resolved", elements: [el.id], region: roundRect(b), confirmedByUser: true };
+  return a;
+}
+
+/** A lifted element placed at `to`: its arrow and destination follow. */
+function withLiftTo(a: Annotation, to: Rect): Annotation {
+  const out: Annotation = { ...a, lift: { from: a.lift!.from, to }, geometry: { type: "arrow", from: centre(a.lift!.from), to: centre(to) } };
+  if (a.resolution) out.resolution = { ...a.resolution, region: roundRect(to) };
+  return out;
+}
+
+/**
+ * A lifted element's box dragged by a corner: the opposite corner stays put. Its proportions
+ * stay, as an image's do, unless `free` (shift).
+ */
+export function resizedLift(r: Rect, handle: Corner, p: Pt, free: boolean, min: number): Rect {
+  const fixed: Pt = [handle.includes("w") ? r.x + r.w : r.x, handle.includes("n") ? r.y + r.h : r.y];
+  const sx = handle.includes("e") ? 1 : -1;
+  const sy = handle.includes("s") ? 1 : -1;
+  const dx = (p[0] - fixed[0]) * sx;
+  const dy = (p[1] - fixed[1]) * sy;
+  let w = Math.max(min, dx);
+  let h = Math.max(min, dy);
+  if (!free) {
+    // the pointer projected onto the box's diagonal
+    const k = Math.max((dx * r.w + dy * r.h) / (r.w * r.w + r.h * r.h), min / Math.min(r.w, r.h));
+    w = r.w * k;
+    h = r.h * k;
+  }
+  return { x: round1(sx > 0 ? fixed[0] : fixed[0] - w), y: round1(sy > 0 ? fixed[1] : fixed[1] - h), w: round1(w), h: round1(h) };
 }
 
 /** Build an annotation of the given kind from pen ink (also used when the user reclassifies). */
@@ -857,6 +977,10 @@ function renderDraft(d: Drag | null, cam: Camera, styles: ReturnType<typeof useS
       const r = normRect(toW(d.from), toW(d.to));
       return renderShapeSvg({ shape: d.shape, rect: r, style });
     }
+    case "lift":
+      return d.moved ? liftDraft(d.tile, d.el.bounds, d.to, cam) : "";
+    case "liftResize":
+      return d.pending && d.to ? liftDraft(d.tile, d.orig.lift!.from, d.to, cam) : "";
     case "pen": {
       const t = d.tile;
       if (d.draw) return onTile(t, renderSketchPartSvg({ type: "stroke", points: d.pts, style: inPx(styles.freehand, t) }));
@@ -866,6 +990,14 @@ function renderDraft(d: Drag | null, cam: Camera, styles: ReturnType<typeof useS
     default:
       return "";
   }
+}
+
+/** An element being lifted, before it's a note: its pixels where they're dragged to. */
+function liftDraft(t: TileLayout, from: Rect, to: Rect, cam: Camera): string {
+  const info = useStore.getState().round?.screens.find((s) => s.id === t.id);
+  const a: Annotation = { id: "lift-draft", screenId: t.id, kind: "arrow", geometry: { type: "arrow", from: centre(from), to: centre(to) }, lift: { from, to } };
+  const screen = { width: info?.size?.width ?? t.w * t.scale, height: info?.size?.height ?? t.h * t.scale };
+  return onTile(t, renderAnnotationSvg(a, { unit: t.scale * Math.max(1, 1 / cam.zoom), screenshot: info?.screenshot, screen }));
 }
 
 /**

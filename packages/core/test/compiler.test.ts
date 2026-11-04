@@ -51,6 +51,76 @@ describe("compiler templates", () => {
     expect(out.review.instructions[0]!.instruction).toBe('Move the "Pay now" button (id: pay) to the area at (x 200, y 500).');
   });
 
+  describe("lifted element", () => {
+    const pay = { x: 40, y: 220, w: 320, h: 60 };
+    const lift = (to: { x: number; y: number; w: number; h: number }, text?: string) =>
+      A("a", {
+        kind: "arrow",
+        geometry: { type: "arrow", from: [200, 250], to: [to.x + to.w / 2, to.y + to.h / 2] },
+        lift: { from: pay, to },
+        ...(text ? { text } : {}),
+      });
+
+    it("moved → move to the area it was placed in", () => {
+      const out = run([lift({ x: 40, y: 600, w: 320, h: 60 }, "easier to reach")]);
+      expect(out.review.instructions[0]).toMatchObject({
+        action: "move",
+        targets: [{ elementId: "pay" }],
+        destination: { region: { x: 40, y: 600, w: 320, h: 60 } },
+        instruction:
+          'Move the "Pay now" button (id: pay) to the area at (x 40, y 600, 320 × 60). Easier to reach. Marker 1 on the annotated screenshot shows a mock-up.',
+      });
+    });
+
+    it("moved and scaled → move and resize", () => {
+      const out = run([lift({ x: 20, y: 600, w: 416, h: 78 })]);
+      expect(out.review.instructions[0]!.instruction).toBe(
+        'Move the "Pay now" button (id: pay) to the area at (x 20, y 600, 416 × 78) and make it about 30% larger (320 × 60 → 416 × 78). Marker 1 on the annotated screenshot shows a mock-up.',
+      );
+    });
+
+    it("scaled from a corner → resize in place", () => {
+      const out = run([lift({ x: 40, y: 220, w: 160, h: 30 })]);
+      expect(out.review.instructions[0]).toMatchObject({
+        action: "change",
+        instruction:
+          'Make the "Pay now" button (id: pay) about 50% smaller (320 × 60 → 160 × 30). Marker 1 on the annotated screenshot shows a mock-up.',
+      });
+    });
+
+    it("proportions changed → resize from and to", () => {
+      const out = run([lift({ x: 40, y: 220, w: 320, h: 90 })]);
+      expect(out.review.instructions[0]!.instruction).toBe(
+        'Resize the "Pay now" button (id: pay) from 320 × 60 to 320 × 90. Marker 1 on the annotated screenshot shows a mock-up.',
+      );
+    });
+
+    it("unchanged without words → needs text", () => {
+      const out = run([lift(pay)]);
+      expect(out.review.instructions[0]).toMatchObject({ action: "change", needsText: true });
+    });
+
+    it("targets the lifted element, not the deepest one under it", () => {
+      const out = run([
+        A("a", {
+          kind: "arrow",
+          geometry: { type: "arrow", from: [200, 200], to: [200, 500] },
+          lift: { from: { x: 20, y: 100, w: 360, h: 200 }, to: { x: 20, y: 400, w: 360, h: 200 } },
+        }),
+      ]);
+      expect(out.review.instructions[0]!.targets.map((t) => t.elementId)).toEqual(["card"]);
+    });
+
+    it("renders the pixels at the new place and a hatched placeholder", () => {
+      const svg = renderAnnotationSvg(lift({ x: 40, y: 600, w: 320, h: 60 }), { unit: 1, screenshot: "s.png", screen: { width: 400, height: 800 } });
+      expect(svg).toContain('viewBox="40 220 320 60"');
+      expect(svg).toContain('<svg x="40" y="600" width="320" height="60"');
+      expect(svg).toContain("url(#lift-hatch-a)");
+      const plain = renderAnnotationSvg(lift({ x: 40, y: 600, w: 320, h: 60 }), { unit: 1, screenshot: "s.png", screen: { width: 400, height: 800 }, mockup: false });
+      expect(plain).not.toContain("<image");
+    });
+  });
+
   it("rectangle on region → add, between neighbours", () => {
     const out = run([A("a", { kind: "rectangle", geometry: { type: "rect", x: 20, y: 400, w: 360, h: 100 }, text: "a trust badge" })]);
     expect(out.review.instructions[0]!.instruction).toBe(

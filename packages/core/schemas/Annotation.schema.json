@@ -681,6 +681,64 @@
       ],
       "additionalProperties": false
     },
+    "lift": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "w": {
+              "type": "number"
+            },
+            "h": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "w",
+            "h"
+          ],
+          "additionalProperties": false
+        },
+        "to": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "w": {
+              "type": "number"
+            },
+            "h": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "w",
+            "h"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    },
     "anchor": {
       "type": "object",
       "properties": {
