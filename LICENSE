@@ -1,0 +1,49 @@
+ScribUI Software License
+
+Copyright (c) 2026 c.HI Creative Tech AB. All rights reserved.
+
+ScribUI, including its source code, documentation and the official builds
+published by c.HI Creative Tech AB ("the Company"), is proprietary software
+protected by copyright law. It is licensed, not sold.
+
+1. Licence to use. The Company grants you a non-exclusive, non-transferable,
+   revocable licence to install and use the official ScribUI builds, free of
+   charge, for personal or commercial work, unless the Company states
+   otherwise for a later version.
+
+2. Restrictions. You may not, except as these terms allow or applicable law
+   expressly permits despite this limitation:
+   a. copy, modify, adapt or create derivative works of ScribUI;
+   b. distribute, sell, rent, lease, sublicense or otherwise make ScribUI
+      available to others, other than by pointing them to the Company's own
+      download locations;
+   c. decompile, disassemble or otherwise reverse engineer ScribUI;
+   d. remove or alter any copyright, trademark or licence notice.
+
+3. Your content. Projects, screenshots, reviews and other files you create
+   with ScribUI belong to you. The Company claims no rights in them.
+
+4. Third-party software. ScribUI includes third-party open-source components,
+   each under its own licence, listed in THIRD_PARTY_NOTICES.txt. Nothing in
+   these terms limits your rights under those licences.
+
+5. Trademarks. "ScribUI" and its logo are trademarks of the Company. These
+   terms grant no rights to use them.
+
+6. No warranty. ScribUI is provided "as is", without warranty of any kind,
+   express or implied, including the warranties of merchantability, fitness
+   for a particular purpose and non-infringement.
+
+7. Limitation of liability. To the extent permitted by law, the Company is not
+   liable for any indirect, incidental, special or consequential damages, or
+   for loss of data, profits or business, arising from the use of or
+   inability to use ScribUI.
+
+8. Termination. This licence ends automatically if you breach these terms.
+   You must then stop using ScribUI and delete all copies.
+
+9. Governing law. These terms are governed by the laws of Sweden.
+
+ScribUI versions 0.2.14 and earlier were released under the MIT License. That
+licence continues to apply to copies of those versions. These terms apply to
+later versions.

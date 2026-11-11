@@ -1,0 +1,344 @@
+# ScribUI
+
+**Point more.<br>Prompt less.**
+
+A visual review layer between you and your coding agent.
+
+Your agent builds app screens. ScribUI captures them as tiles on a canvas. You comment, move, remove and mark areas to change right on the screenshots, and every mark snaps to a real UI element. When you press **Send**, ScribUI writes precise, file-based instructions (`review.md`) that any agent can read: Claude Code, Codex, Cursor and others.
+
+The tool never edits your app and has no AI inside. It supplies context; your agent supplies the intelligence.
+
+```
+  capture ──▶ annotate ──▶ send ──▶ agent applies ──▶ capture …
+  (ScribUI)   (you)       (ScribUI)  (your agent)
+```
+
+## Install
+
+### Desktop app
+
+Download it from [Releases](https://github.com/chicreativetech/scribui/releases): the `.dmg` for macOS (Apple Silicon or Intel), the `.exe` installer for Windows, the `.AppImage` or `.deb` for Linux. Open it, then click **Open app folder…** and pick your app's folder; ScribUI sets the project up from there (see [The desktop app](#the-desktop-app)).
+
+On a Mac you can install it with [Homebrew](https://brew.sh) instead (Homebrew asks you to trust a cask from a tap that isn't its own, once):
+
+```sh
+brew tap chicreativetech/tap
+brew trust --cask chicreativetech/tap/scribui
+brew install --cask chicreativetech/tap/scribui
+```
+
+The Mac app is signed and notarised. The Windows and Linux builds aren't signed yet, so they ask once:
+
+- **Windows:** SmartScreen says it protected your PC; click **More info → Run anyway**.
+- **Linux:** make the AppImage executable (`chmod +x ScribUI-*.AppImage`), or install the `.deb`.
+
+### Command line
+
+The `scribui` command comes with the desktop app: it sets projects up in the terminal, captures for your agent (`scribui capture`, MCP), and opens projects in the app. Put it on your PATH with **Help → Install Command Line Tool…** in the app, then open a new terminal:
+
+```sh
+scribui --help
+```
+
+- **macOS:** it's linked into `/usr/local/bin` (the app asks for your password when that needs it). Installed with Homebrew, the cask links it for you.
+- **Windows:** the app adds it to your PATH.
+- **Linux:** with the `.deb`, it's linked into `~/.local/bin`. The AppImage can't install it, because it runs from a different place each time.
+
+The command runs on the app's own Node, so it needs no Node or npm itself, and it updates with the app.
+
+You don't need to install anything else up front: `scribui` checks for the capture tools it needs and offers to install them.
+
+## How to use it
+
+Start your app the way you always do, then run one command in the project folder:
+
+```sh
+scribui
+```
+
+That's the whole interface. The first time, it sets the project up and walks you through the rest; after that it opens the canvas on your latest screens. Android and iOS projects open in the [desktop app](#the-desktop-app), where you capture their screens by hand.
+
+ScribUI looks at the project to decide what it is. A folder without Android or iOS markers is treated as a web app. When it finds a Gradle project, an Xcode project, React Native, Expo or Flutter, it asks which platform to review. To skip the question, pass `--platform web|android|ios`.
+
+| | Web | Android App | iOS App |
+| --- | --- | --- | --- |
+| Runs on | macOS, Windows, Linux | macOS, Windows, Linux | **macOS only** |
+| Captures from | your local dev server | emulator or phone over USB, in the desktop app | iOS Simulator, in the desktop app |
+| How screens get captured | sent from your browser with the ScribUI extension, pasted, or by hand in the desktop app's Capture Screens tab; the agent's listed screens automatically | by hand in the Device tab | by hand in the Device tab |
+| ScribUI installs for you | Playwright + Chromium | adb (Google's platform tools) | AXe |
+| You install yourself | Node 20+ (only for automatic capture from the terminal: Playwright installs with npm) | an emulator (Android Studio) or a phone with USB debugging | Xcode |
+
+### Web
+
+**What you need:** your app running locally, and for automatic capture from the terminal, Node 20 or newer (Playwright installs with npm). Any framework works (Vite, Next.js, Angular, plain HTML), because ScribUI only talks to the running page.
+
+1. **Start your app,** e.g. `npm run dev`.
+2. **Run `scribui`.** The first time, it:
+   - asks *"Which localhost port does your web app use?"*. Dev servers that are running are listed first, the one started from this folder at the top, with page titles. Common ports follow, marked "not running yet", and **Other port…** takes a port number or a full URL. The answer is saved as `app.baseUrl` in `.scribui/screens.json`;
+   - creates `.scribui/` and adds a short "Visual design review" section to `AGENTS.md`;
+   - if Playwright is missing, asks *"Install Playwright? (Y/n)"* and adds it as a dev dependency with your package manager (npm, pnpm, yarn or bun). A project without `package.json` gets a shared copy in `~/.scribui/runtime` instead, so nothing is added to it. Then it downloads Playwright's Chromium (about 150 MB, once);
+   - if nothing answers at the chosen address, waits until your app is up (press Enter to go on anyway).
+
+   There's no list of screens to write first: you pick the views yourself.
+3. **The canvas opens in your browser,** in a tab next to your app, on **Review**. Use your app the way you normally would, in its own tab: log in, click through, open a menu, fill in a form.
+4. **Add the views you want to comment on.** With the [ScribUI browser extension](https://chromewebstore.google.com/detail/scribui/pchhohneimhmgcfbfkjphfgmfljcopoe), click it on your app's page and press **Send to ScribUI**: the page arrives in Review with its elements, exactly as it is in your tab, logged in or not. Or paste a screenshot or HTML into Review (`⌘V`), drop a file on it, or press `M`.
+5. **Annotate** (see below) and press **Send** in the dock at the bottom of Review. Paste the prompt it shows into your agent:
+
+   ```
+   Implement .scribui/latest/review.md
+   ```
+
+6. **When the agent is done,** it marks the round applied and the next round starts on its own, empty; the canvas switches to it and names the screens the agent changed. Send those pages again with the extension, or paste new screenshots. Earlier rounds stay as they were, in the round menu in the top bar.
+
+Screens your agent lists in `screens.json` with a `url` and optional setup script are captured automatically, as before.
+
+In the [desktop app](#the-desktop-app), web projects also get a **Capture Screens** tab: your running app inside ScribUI, where you mark it up directly or press **Capture view** in the dock over it. In a browser the tab is there too, but only says to use the extension instead.
+
+### Android App
+
+**What you need:** the ScribUI desktop app, your app's Android build, and an emulator (from Android Studio's Device Manager) or an Android phone with USB debugging on. Works on macOS, Windows and Linux.
+
+Android screens are captured by hand, the way you capture web views: nothing runs through your app on its own.
+
+1. **Open your app's folder in the desktop app** (or run `scribui` there; it hands the project to the app). Setup asks for the platform (Android is preselected for a Gradle, React Native, Expo or Flutter project), confirms the application id and build command it found, and installs adb if it's missing.
+2. **Open the Device tab.** It connects to the emulator or phone you used last, or the only one connected, and lists emulators you can start. Install and open your app on it.
+3. **Move through your app** with the mouse and keyboard: click to tap, scroll, type, Back, Home, rotate. When a screen is the way you want to review it, **name it and press Capture view**. ScribUI freezes the picture, reads the elements, checks the screen held still, and adds it to the open round and to `screens.json`.
+4. **Annotate and Send,** then paste `Implement .scribui/latest/review.md` into your agent.
+5. **When the agent is done,** it marks the round applied and lists the screens it changed; the canvas names them. The next round starts on its own, empty. Rebuild and reinstall the app, then capture those screens again in the Device tab. Earlier rounds stay as they were.
+
+### iOS App
+
+**What you need:** a Mac with Xcode, at least one iPhone simulator (Xcode → Window → Devices and Simulators), and the ScribUI desktop app. AXe, which shows and controls the simulator, is installed by the app.
+
+> **iOS capture requires a Mac.** ScribUI captures from the iOS Simulator, which Apple only ships with Xcode on macOS, so iOS isn't available on Windows or Linux. Real iPhones aren't supported either. For a React Native, Expo or Flutter app, you can review its Android or web build on Windows and Linux. Layout and copy feedback carries over, but iOS-specific rendering such as fonts, safe areas and native controls won't show.
+
+It works like Android: open the folder in the desktop app (setup confirms the bundle id and build command), boot a simulator from the Device tab's list, move through your app and press **Capture view** for each screen. Typing goes to the simulator as a hardware keyboard in your Mac's layout. After the agent applies a round, rebuild the app and capture the changed screens again with **replace "…"**.
+
+### Starting a new app
+
+No app yet? Press **New project…** in the desktop app's projects window, choose (or create) a folder, describe the app and press **Make prompt**. ScribUI puts a prompt on your clipboard; paste it into your agent opened in that folder, and it builds the app there. ScribUI doesn't build anything itself. When the app runs, click the folder in **Projects** to set ScribUI up for it.
+
+Before the prompt, two optional steps:
+
+- **Set the vision.** **Next: Set the vision** opens the vision board: drop in reference images, write notes on colours, mood and content, or sketch key screens. **Done** in the dock moves on.
+- **Design rules.** Write the rules every screen should follow (*"Buttons are pill-shaped"*) in a list, with **+ Add rule** and a pen to edit each one. They become the project's `rules.md`.
+
+The prompt points your agent to both. Once the app is set up, the board is the project's **Vision** tab, as you left it.
+
+From the terminal, `scribui new`, or plain `scribui` in an empty folder, opens the same dialog with the folder filled in. Without the desktop app (or one too old to have the dialog), or with `--no-desktop`, it asks for the description in the terminal (or reads it from a pipe: `scribui new < brief.md`), then **Set the vision first?** (the board opens in your browser) and **Write design rules?** (one per line), and prints the prompt.
+
+### In the terminal while ScribUI runs
+
+`o` open the canvas again in your browser · `q` quit. Everything else happens in the canvas.
+
+### Several projects at once
+
+Run `scribui` in each project. Each one gets its own canvas on the next free port (4382, 4383, …) in its own browser tab, and its own `.scribui/` folder. Running `scribui` or `scribui open` again in a project that already has a canvas open reopens that canvas instead of starting a second one, also when it was started with `--port`.
+
+### The desktop app
+
+The desktop app does everything the terminal and the browser canvas do, in one window per project, and shows the app you're reviewing live inside it.
+
+- **Setting up a project:** **Open app folder…** on a folder that isn't a ScribUI project yet walks you through what `scribui` asks in the terminal: the platform (the detected one is marked), where the web app runs (running dev servers are listed with their page titles) or the mobile app's id and build command, the tools that platform needs, and for mobile, the line to paste into your agent while ScribUI waits for it to list the screens.
+- **Installing tools:** the projects window lists the capture tools on your computer and installs the missing ones with **Install**: adb (downloaded from Google), AXe and Android Studio (with Homebrew, or winget on Windows), Playwright, and Xcode's selection when only the Command Line Tools are active. The output shows as it runs.
+- **Web:** the **Capture Screens** tab is your running app as a normal page, so logins, cookies and pages that refuse to be embedded all work. Size it to desktop, laptop, tablet or phone and press **Capture view** in the dock at the bottom (it's never in the screenshot). The dock also has **Select**, **Comment** and **Add screen** (their names show on hover); in Review it has **Send** instead of Capture view, and on the vision board **Select**, **Draw** and **Image**. Capture view is there even before a page loads, greyed out. After a capture, a note above the dock says where the screen went, with **show in Review**. The first time the tab opens, a card over the app says what to do there; **?** at the end of its bar shows it again.
+- **Mark up the app directly:** the Capture Screens and Device tabs have Review's own tool rail. Pick a Guide tool (Comment, Move, Add here, Remove, Change area) or sketch with the Sketch tools (draw, line, box, ellipse, text, fill: all one sketch until **Ready** or `⏎`, then a note), with their colour and stroke in the strip above the app. Select (`V`) or `Esc` goes back to clicking and typing in the app. Each mark becomes a note in **Review**, where you can change it, and **Send** sends them all. Rules are made in Review.
+  - **Web:** the page keeps scrolling while a tool is on and only holds still while you draw a mark or type its note, so you can work down a whole page. The first mark on a page captures the whole page as a screen; more marks on the same page join it as long as the page hasn't changed (a changed page gets a new screen). Your marks stay on the page, on the elements you made them on, as you scroll, and come back when you return to the page; a mark whose element is gone is listed as "not found" instead.
+  - **Android and iOS:** picking a tool holds the picture still. The first mark captures the screen, more marks join it, and `Esc` lets the device run again. The marks are then in Review.
+- **Android and iOS:** mobile projects get a **Device** tab with the emulator, phone or simulator live in it, and it's the only way their screens are captured. Use it with the mouse and keyboard (scrolling, typing, Back/Home, rotate) and press **Capture view** in the dock at the bottom, as in Capture Screens (the name and **replace "…"** stay in the bar above): ScribUI freezes the picture, reads the elements and checks the screen held still. iOS needs a Mac with Xcode, plus AXe.
+- **With the CLI:** when the app is installed, `scribui` and `scribui open` open the project in it; `--no-desktop` keeps the browser for web projects. Android and iOS projects always open in the app (without it, `scribui` says where to download it). Only one process captures a project at a time, so the CLI and MCP hand web captures to the app while it has the project open.
+- **Updates:** the app checks [Releases](https://github.com/chicreativetech/scribui/releases) when it starts and every few hours. On macOS, on Windows and with the Linux AppImage it downloads updates and installs them when you quit (or **Help → Restart to Update**); installed with Homebrew too, so `brew upgrade` leaves it alone. With the `.deb`, and on a Mac before 0.2.8 (unsigned), it tells you a new version is out and links to it. **Help → Check for Updates…** checks now; what changed is in each version's notes on [Releases](https://github.com/chicreativetech/scribui/releases).
+- **Crashes:** crash reports stay on your computer. After a crash, the next launch offers to open a GitHub issue with the version and error filled in (you see everything before sending) or to show the files. **Help → Report a Problem…** and **Help → Show Logs and Crash Reports** work any time.
+
+### Annotate
+
+Every mark snaps to a real UI element. The Guide tools are named after what they tell the agent. Press a key to pick one:
+
+| Tool | Key | How | What the agent is told |
+| --- | --- | --- | --- |
+| **Comment** | `C` | click an element, type, `⏎` | change this element: *your words* (on empty space: do *your words* there) |
+| **Move** | `A` | drag the element itself to where you'd try it; drag its corners to resize it (`shift`: any shape) | move it to that spot, make it larger or smaller, or both, with a mock-up on the annotated screenshot |
+| **Move: Arrow** | `A` again | drag from an element to where it should go | move it next to the element you end on, or to the empty spot; ending on another screen says one screen leads to the other |
+| **Change area** | `O` | draw a loop around an area or a group, then type | change what's inside: *your words* |
+| **Add here** | `R` | drag a box on empty space, then type | add *your words* there, next to the elements around it (a box around an element means change it) |
+| **Remove** | `X` | click an element | remove it (your words, if any, say why) |
+| **Global rule** | `U` | click an element, then more (even on other screens) as examples, write the rule in the **Add rule** box, **Add rule** | a rule for every screen and every round, like *"Primary buttons are full width"*: it goes straight into `rules.md`, linked to its examples, and the next Send asks the agent to apply it everywhere |
+
+Each note's box says what its words should be: *What should change?*, *What should go here?*, *Why move it? (optional)* and so on.
+
+**Sketch** what you want with draw (`P`), line (`I`), box (`B`), ellipse (`Q`), text (`T`) and fill (`G`). The fill tool is a paint bucket: click inside a closed area to fill it, even one drawn from several lines and strokes; small gaps in hand-drawn lines are bridged. Click a line or a shape's outline to recolour it. Everything you sketch on a screen is one sketch, whatever the tool and however often you lift the pen, until you press **Ready** (or `⏎`). Then add one note for the whole sketch. Undo and redo (`⌘Z`, `⇧⌘Z` or the buttons) step through the sketch while you draw it. The agent sees the sketch in the screenshot, with its parts, the words of its text, what it's drawn over and your note.
+
+**Try a layout before asking for it.** Press `A` and drag an element: its pixels follow the mouse, and a hatched placeholder marks where it was. Drag the corners to make it larger or smaller; it keeps its proportions unless you hold `shift`. `alt` picks the parent first, as when hovering. Drag a lifted element again to move it further. To point instead, press `A` again (or pick **Arrow** in the Move box): drag from an element to where it should go, or to another screen to say one leads to the other. **Show original** in the Move box shows the screens as they are, with outlines where the lifted elements would go. It's a mock-up of the pixels, not a real layout: nothing around it moves to make room.
+
+After each mark, the element it attached to flashes, and a chip under the mark names it, e.g. `button#payButton "Pay now"`. When that's wrong, switch to select (`V`), click the chip and pick the parent, a child or "empty area". A yellow chip means ScribUI couldn't tell what you meant; press `N` to jump to the next one. Typing into a comment right next to a Change area, Move or Remove mark merges it into that mark.
+
+The **notes** tab lists every mark, and **review.md** shows exactly what the agent will receive, live as you draw. Everything autosaves; `⌘Z` undoes.
+
+### Add screens from anywhere
+
+Paste (`⌘V`) or drop onto Review, or press `M`, to add a screen that ScribUI didn't capture, and say whether it's **Our app** (the agent changes it) or a **Reference** (the agent takes the look from it and applies it to your screens):
+
+- **A screenshot**: a still image; notes on it are areas of the picture.
+- **HTML**: pasted source, part of a page copied in the browser, or an `.html` file. ScribUI renders it (scripts off), so notes snap to its elements.
+- **A link** to any page: opened and taken whole.
+- **A page snapshot**: what Figma's Chrome extension copies (Capture code), or a page saved as **Webpage, Single File** (`.mhtml`). Rendered offline, as it was in the browser.
+
+**The ScribUI browser extension** sends the page you're on straight to Review, logged-in pages included: click it, pick Our app or Reference, press **Send to ScribUI**. **Open in ScribUI** then shows it, in the desktop app or the browser, whichever runs the project. It finds ScribUI on this computer by itself. [Add it from the Chrome Web Store](https://chromewebstore.google.com/detail/scribui/pchhohneimhmgcfbfkjphfgmfljcopoe).
+
+Added screens are kept as they are from round to round. The agent gets the HTML or snapshot too, in `.scribui/imports/`, to read exact styles from. HTML, links and snapshots need Playwright, like web capture.
+
+### What the agent receives
+
+Sending writes `.scribui/rounds/<n>/review.md`, a structured `review.json` and annotated screenshots, then locks the round. The dialog first warns about marks without text or a clear target. A review reads like this:
+
+```markdown
+## Checkout (checkout-default)
+Screenshot: screens/checkout-default.annotated.png
+
+1. [R1-1] "Pay now" button (id: payButton): Too dominant, make it secondary to the order summary.
+2. [R1-2] Remove the "Pay with Apple Pay" button (id: applePayButton).
+3. [R1-3] Move the container (id: orderSummary) next to the container (id: shippingForm). Summary first.
+4. [R1-4] Add a secure-payment badge in the empty area at (x 40, y 1360, 700 × 80), below the "Pay with Apple Pay" button (id: applePayButton).
+```
+
+The agent follows `rules.md` and the vision in every change, not only the ones a review asks for: the `AGENTS.md` section tells it to read `.scribui/rules.md` and `.scribui/vision.md` before any UI work, and `review.md` repeats it. ScribUI keeps `vision.md` (with a PNG of each vision canvas) up to date as you change the board. Rules added with the rule tool this round are listed under **New rules**, to apply across the whole app now. A round with only new rules can be sent (**Send 1 rule**), and so can a changed vision on its own (**Send vision**): the agent brings the app in line with it.
+
+When the agent finishes, it sets the round to `applied` and lists the screens it changed (`review.md` and `AGENTS.md` tell it to). While ScribUI runs, the next round then starts on its own, empty, and the canvas names those screens so you add them again. A round holds only what was added to it: older rounds stay in the round menu in the top bar, read-only and unchanged.
+
+### `scribui capture` takes only changed screens (web)
+
+This is about screens your agent lists in `screens.json` for a web app, captured with `scribui capture` (or the agent's MCP `request_review`). They go into the open round when nobody has marked it up yet (the empty one that starts after the agent applies a round), otherwise into a new one, and only screens that may have changed are captured; the others stay in the rounds they were captured in. A screen is captured when any of these says it may have changed:
+
+- it had instructions in the round the agent just applied;
+- the agent listed it in `changedScreens` when it marked the round applied (the `AGENTS.md` section asks for this);
+- its setup script or `screens.json` entry changed, or it's new, or it failed last time;
+- it loads the same page as a screen being captured (`/checkout` and `/checkout?error=card`);
+- a file matching its `sources` globs changed (optional, see below).
+
+Everything is captured when the round added design rules, when the agent reports `"changedScreens": "all"`, when a file in `app.sharedSources` changed, or when files changed and nothing says which screens they affect.
+
+```sh
+scribui capture --dry-run      # show what would be captured, and why
+scribui capture --all          # capture everything
+scribui capture --screens shop # capture just these
+```
+
+For the most precise results, tell ScribUI which code draws which screen:
+
+```json
+{
+  "app": { "name": "Shop", "platform": "web", "baseUrl": "http://localhost:5173", "sharedSources": ["src/design-system/**"] },
+  "screens": [
+    { "id": "shop", "title": "Shop", "url": "/shop", "sources": ["src/pages/shop/**"] }
+  ]
+}
+```
+
+### Review on a tablet
+
+Click **Tablet** in the tool rail. It shows a QR code with a one-time pairing link (valid for 10 minutes); scan it with the tablet's camera on the same Wi-Fi, or open the link in its browser. Any device with a modern browser works: iPad, Android tablet, Surface. Only the computer running ScribUI can create pairing codes.
+
+Devices stay paired until you click **unpair all** in the same dialog or quit ScribUI. An unpaired device is locked out at once and has to scan a new code.
+
+With a stylus (Apple Pencil, S Pen, Surface Pen) you don't need to pick tools: loops become Change area marks, hooked strokes become Move marks, crossings become removals, and short strokes become a handwritten note. Tap the chip to change what a stroke became. Fingers pan and zoom.
+
+### Let the agent drive (MCP)
+
+ScribUI includes an MCP server, so an agent can request reviews and poll for feedback itself. For Claude Code:
+
+```sh
+claude mcp add scribui -- scribui mcp
+```
+
+Tools: `request_review` (web: captures a round; Android and iOS: tells the agent to let you know the app is ready, since you capture those screens yourself), `get_feedback` (returns `waiting` or the finished review.md, with the rules, `vision.md` and the vision canvases as images; call it again with `mark_applied: true` when done) and `list_rounds`.
+
+### Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| The canvas doesn't open | ScribUI is already running for this project: `scribui` reopens it. When port 4382 is taken (another program, or ScribUI for another project), ScribUI uses the next free port |
+| A screenshot still shows a loading state | ScribUI waits up to 6 s for loaders to disappear. If your app takes longer, wait in the screen's setup script, e.g. `await page.getByTestId('task-card').first().waitFor()` |
+| Setup says iOS "requires a Mac" | iOS capture runs the iOS Simulator, which needs a Mac with Xcode. On Windows and Linux, setup lists iOS but asks you to pick Android or Web, and `--platform ios` stops before creating any files. Review the Android or web build instead |
+| Android build fails with "requires JVM 17" | ScribUI uses Android Studio's bundled JDK when `JAVA_HOME` is older than 17; install Android Studio, or point `JAVA_HOME` at JDK 17+ |
+| Web screens fail with "App not reachable" | start your dev server; check `app.baseUrl` |
+| Marks attach to the wrong element | press `E` to show all element outlines, then fix the target via the chip; add testIDs for the long run |
+| Chips say `container 632×50` instead of a name | the element has no id or label; add an accessibility id or `data-testid` |
+| A mobile capture says "the screen was still changing" | something on screen kept moving (a spinner, an animation, a timer): wait for it, press **Try again**, or **Keep first frame** |
+| A screen looks out of date | it's from an earlier round: add it again (extension, paste, or the Capture Screens or Device tab), or for screens listed in `screens.json` run `scribui capture --screens <id>` |
+| The desktop app's Device tab says a tool is missing | press **Install** there, or in the projects window (**File → Projects…**) |
+| The desktop app crashed or misbehaves | **Help → Report a Problem…** opens a prefilled GitHub issue; the logs are under **Help → Show Logs and Crash Reports** |
+
+## Keyboard reference
+
+A developer tool with a terminal soul: a keyboard-first, monospace interface with a status line and a `:` command line, Swiss type for anything you read, and one orange signal colour for your marks.
+
+| Key | Tool | Gesture |
+| --- | --- | --- |
+| `L` | Review / app | switch between Review and your running app |
+| `V` | select | click an element or annotation, drag to pan or move |
+| `C` | comment | click an element and say what should change |
+| `O` | change area | loop around an area or group that should change |
+| `A` | move | drag an element itself to try it elsewhere, corners resize it. `A` again: an arrow to where it should go; to another screen: one leads to the other |
+| `R` | add here | drag a box where something new should go |
+| `X` | remove | click an element that should go |
+| `P` `I` `B` `Q` `T` `G` | sketch | draw, line, box, ellipse, text, fill: all one sketch until `⏎` (Ready) |
+| `U` | global rule | click elements on any screens, write the rule in the box, Add rule: straight into `rules.md` |
+
+- **Element layer.** Hover shows the element under the cursor, `alt` walks from child to parent, and `E` shows every outline so you can check capture quality.
+- **Resolution chips.** Each mark shows what it resolved to (`button#payButton "Pay now"`). Click a chip to pick the parent, a child or "empty area" instead. Your choice is never overwritten.
+- **Inspector.** `notes`, a live `review.md` preview, the element `tree`, and `rules.md`: the rules as a list to add to, edit and remove from; hover one to outline its examples, click it to go to them.
+- **Pen.** A stylus (Apple Pencil, S Pen, Surface Pen) or drawing tablet turns on pen mode. Loops become Change area marks, hooked lines become Move marks, crossings become removals and short strokes become handwriting, and a chip lets you change the result with one tap. Handwriting stays ink: the agent gets a cropped PNG. With the sketch tools the pen just draws, as a mouse does.
+- **Live.** The canvas updates when the agent captures a new round or marks one applied.
+- **Also:** `⌘Z`/`⌘⇧Z` undo and redo, autosave, `F` fits the board, a double-click focuses a screen, `:theme light` switches theme, `?` lists all keys.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `scribui init` | Creates `.scribui/` with an example `screens.json` and adds the agent section to `AGENTS.md` (and `CLAUDE.md` if present) |
+| `scribui doctor` | Checks platform tools and devices and prints exact fixes |
+| `scribui capture` | Web: creates a new round, capturing the screens that may have changed (screenshot + element tree) and reusing the rest. A failing screen is reported and skipped. Android and iOS screens are captured in the desktop app instead |
+| `scribui open` | Serves the canvas on the latest round (`--lan` pairs a tablet with a one-time QR code) |
+| `scribui` | First run: guided setup. Then: open the project (web: the canvas, capturing the first round; Android and iOS: in the desktop app) |
+| `scribui status` | Shows the latest round's state and counts |
+| `scribui mcp` | MCP server over stdio: `request_review`, `get_feedback` (non-blocking), `list_rounds` |
+
+Flags: `--dir`, `--platform ios|android|web`, `--device`, `--screens a,b`, `--all`, `--dry-run`, `--port` (default 4382), `--no-open`, `--no-desktop`, `--lan`.
+
+**Several devices connected?** Pick one in the desktop app's Device tab; it remembers the last one per project.
+
+## Platforms
+
+| Platform | Navigation | Screenshot | Element tree | Needs |
+| --- | --- | --- | --- | --- |
+| iOS simulator (macOS only) | by hand, in the Device tab | `simctl io screenshot` | AXe (idb's accessibility tree, web views included) | Xcode, AXe |
+| Android emulator or phone | by hand, in the Device tab | `adb screencap` | `uiautomator dump`, plus the on-screen keyboard | adb |
+| Web | `url` + optional setup script, or by hand in the Capture Screens tab | Playwright, or the app's own view | DOM walk | `playwright` + Chromium for automatic captures |
+
+Ids are taken in this order: accessibility identifier, testID (`data-testid` on web), DOM id, then a stable generated id. On web, `data-component` and `data-source="src/File.tsx:12"` attributes flow into the instructions as source locations.
+
+## The `.scribui/` contract
+
+```
+.scribui/
+  screens.json          screen manifest, written by the agent
+  rules.md              persistent design rules: the rule tool and the rules list write here; edit by hand too
+  vision.md             the vision board for the agent, kept up to date by scribui
+  vision/               vision.json (the board), images/, pages/canvas-N.png
+  flows/                web setup scripts per screen
+  rounds/001/
+    review.md           compiled instructions for the agent
+    review.json         the same, structured, with element targets
+    annotations.json    raw annotations (for re-editing)
+    screens/            <id>.png and <id>.annotated.png
+    trees/              <id>.json, normalized element tree
+    ink/                <annotationId>.png, handwritten notes
+    status.json         capturing | open | sent | applied
+  latest -> rounds/001
+```
+
+Rounds are immutable once sent.
+
+## License
+
+ScribUI is proprietary software: see [LICENSE](LICENSE). Versions 0.2.14 and earlier were released under the MIT License, which still applies to those versions.
