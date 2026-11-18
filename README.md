@@ -120,10 +120,12 @@ No app yet? Press **New project…** in the desktop app's projects window, choos
 
 Before the prompt, two optional steps:
 
-- **Set the vision.** **Next: Set the vision** opens the vision board: drop in reference images, write notes on colours, mood and content, or sketch key screens. **Done** in the dock moves on.
+- **Set the vision.** **Next: Set the vision** opens the vision board: drop in reference images, write notes on colours, mood and content, or sketch key screens. To draw one screen your agent should build closely, switch its canvas from **Vision** to **Design** (next to the canvas's name), name the screen and pick **wireframe** or **mock-up** (see [Designs](#designs)). **Done** in the dock moves on.
 - **Design rules.** Write the rules every screen should follow (*"Buttons are pill-shaped"*) in a list, with **+ Add rule** and a pen to edit each one. They become the project's `rules.md`.
 
-The prompt points your agent to both. Once the app is set up, the board is the project's **Vision** tab, as you left it.
+The prompt points your agent to all of them: the vision in `.scribui/brief/vision.md`, and the designs, one per screen, in `.scribui/brief/designs.md`. A design wins over the vision and the rules for its screen, and your agent compares each screen it built with its design. Once the app is set up, the board is the project's **Vision** tab, as you left it; a design canvas stays marked as one and isn't part of the vision (**make it vision** changes that).
+
+When ScribUI is set up and the agent lists the app's screens, it gives a designed screen the id its design asked for, and the designs join the first round in Review, next to the screens built from them. Each design redesigns the screen with that id or name, or is a new screen when none matches; click **design · … for …** on its tile to point it at the right screen. The agent already had these designs, so they go to it again only when you add notes to them.
 
 From the terminal, `scribui new`, or plain `scribui` in an empty folder, opens the same dialog with the folder filled in. Without the desktop app (or one too old to have the dialog), or with `--no-desktop`, it asks for the description in the terminal (or reads it from a pipe: `scribui new < brief.md`), then **Set the vision first?** (the board opens in your browser) and **Write design rules?** (one per line), and prints the prompt.
 
@@ -166,6 +168,8 @@ Every mark snaps to a real UI element. The Guide tools are named after what they
 
 Each note's box says what its words should be: *What should change?*, *What should go here?*, *Why move it? (optional)* and so on.
 
+**Attach images to a note** to show what you mean: a mock-up of how an element should look, the icon to use, or a screenshot of a look-and-feel bug. In the note's box, press **＋ image**, paste an image (`⌘V`) or drop one on it (PNG, JPEG, GIF or WebP). A note with only an image needs no words. The agent gets the images with the note, linked from `review.md`.
+
 **Sketch** what you want with draw (`P`), line (`I`), box (`B`), ellipse (`Q`), text (`T`) and fill (`G`). The fill tool is a paint bucket: click inside a closed area to fill it, even one drawn from several lines and strokes; small gaps in hand-drawn lines are bridged. Click a line or a shape's outline to recolour it. Everything you sketch on a screen is one sketch, whatever the tool and however often you lift the pen, until you press **Ready** (or `⏎`). Then add one note for the whole sketch. Undo and redo (`⌘Z`, `⇧⌘Z` or the buttons) step through the sketch while you draw it. The agent sees the sketch in the screenshot, with its parts, the words of its text, what it's drawn over and your note.
 
 **Try a layout before asking for it.** Press `A` and drag an element: its pixels follow the mouse, and a hatched placeholder marks where it was. Drag the corners to make it larger or smaller; it keeps its proportions unless you hold `shift`. `alt` picks the parent first, as when hovering. Drag a lifted element again to move it further. To point instead, press `A` again (or pick **Arrow** in the Move box): drag from an element to where it should go, or to another screen to say one leads to the other. **Show original** in the Move box shows the screens as they are, with outlines where the lifted elements would go. It's a mock-up of the pixels, not a real layout: nothing around it moves to make room.
@@ -176,7 +180,7 @@ The **notes** tab lists every mark, and **review.md** shows exactly what the age
 
 ### Add screens from anywhere
 
-Paste (`⌘V`) or drop onto Review, or press `M`, to add a screen that ScribUI didn't capture, and say whether it's **Our app** (the agent changes it) or a **Reference** (the agent takes the look from it and applies it to your screens):
+Paste (`⌘V`) or drop onto Review, or press `M`, to add a screen that ScribUI didn't capture, and say whether it's **Our app** (the agent changes it), a **Reference** (the agent takes the look from it and applies it to your screens) or a **Design** (the agent builds a screen to match it; see [Designs](#designs)):
 
 - **A screenshot**: a still image; notes on it are areas of the picture.
 - **HTML**: pasted source, part of a page copied in the browser, or an `.html` file. ScribUI renders it (scripts off), so notes snap to its elements.
@@ -184,6 +188,24 @@ Paste (`⌘V`) or drop onto Review, or press `M`, to add a screen that ScribUI d
 - **A page snapshot**: what Figma's Chrome extension copies (Capture code), or a page saved as **Webpage, Single File** (`.mhtml`). Rendered offline, as it was in the browser.
 
 **The ScribUI browser extension** sends the page you're on straight to Review, logged-in pages included: click it, pick Our app or Reference, press **Send to ScribUI**. **Open in ScribUI** then shows it, in the desktop app or the browser, whichever runs the project. It finds ScribUI on this computer by itself. [Add it from the Chrome Web Store](https://chromewebstore.google.com/detail/scribui/pchhohneimhmgcfbfkjphfgmfljcopoe).
+
+### Designs
+
+A design shows how one screen should look, and the agent builds that screen to match it, more closely than the vision. Add a design the way you add any screen (paste, drop, `M`, a Figma capture or HTML) and pick **Design**, or draw it on the vision board and press **use as design…** next to the canvas's name. Then choose:
+
+- **For:** a screen of your app it redesigns, or a new screen (its name is the design's name).
+- **Follow it:** **Wireframe** (layout, content, order and components exactly; colours and fonts from your rules and the vision) or **Mock-up** (everything, colours, sizes, spacing, fonts and icons too).
+
+The design wins over `rules.md` and the vision for its screen. Notes on a design are part of it: circle a squiggle and write "the search icon", or attach the icon. `review.md` lists each design first, then its notes, and asks the agent to compare a screenshot of the screen it built with the design and say what it couldn't match.
+
+Designs stay in each new round, next to the screens rebuilt from them, so you can compare them. A design kept from an earlier round goes to the agent again only when you add notes to it. Remove it (✕ on its tile) when the screen is done. To change what a design is for or how closely to follow it, click **design · … for …** on its tile.
+
+You can also draw designs before the app exists, on a new project's vision board: see [Starting a new app](#starting-a-new-app).
+
+#### Designs from Figma
+
+- **Export the frames** (or copy one with **⇧⌘C**, Copy as PNG) and drop or paste them in. On a new project's vision board, dropping several images at once asks whether they're **Screen designs** or **Vision images**. As designs, each frame gets its own canvas at its own size, named after its file (`Home@2x.png` becomes "Home", drawn at half its pixels). A design canvas that holds a single image fits that image when you switch it to **Design**. Either way, the design goes to the agent as sharp as it came, not shrunk onto a page.
+- **Add the frame's link.** In Figma, **Copy link to selection** on the frame and paste it into the design's **Figma link** field (next to the canvas's name, in the add-screen dialog, or under **design · … for …** on its tile). The agent is told to read the frame's exact sizes, spacing, colours, fonts, components and assets through Figma's MCP server when it can, and to use the image to check the result. Without that server, the image is what it builds from.
 
 Added screens are kept as they are from round to round. The agent gets the HTML or snapshot too, in `.scribui/imports/`, to read exact styles from. HTML, links and snapshots need Playwright, like web capture.
 
@@ -275,7 +297,7 @@ A developer tool with a terminal soul: a keyboard-first, monospace interface wit
 | Key | Tool | Gesture |
 | --- | --- | --- |
 | `L` | Review / app | switch between Review and your running app |
-| `V` | select | click an element or annotation, drag to pan or move |
+| `V` | select | click an element or a note; shift+click picks more notes, a drag on empty space selects with a box; drag a note to move it (all selected move together) |
 | `C` | comment | click an element and say what should change |
 | `O` | change area | loop around an area or group that should change |
 | `A` | move | drag an element itself to try it elsewhere, corners resize it. `A` again: an arrow to where it should go; to another screen: one leads to the other |
@@ -289,6 +311,7 @@ A developer tool with a terminal soul: a keyboard-first, monospace interface wit
 - **Inspector.** `notes`, a live `review.md` preview, the element `tree`, and `rules.md`: the rules as a list to add to, edit and remove from; hover one to outline its examples, click it to go to them.
 - **Pen.** A stylus (Apple Pencil, S Pen, Surface Pen) or drawing tablet turns on pen mode. Loops become Change area marks, hooked lines become Move marks, crossings become removals and short strokes become handwriting, and a chip lets you change the result with one tap. Handwriting stays ink: the agent gets a cropped PNG. With the sketch tools the pen just draws, as a mouse does.
 - **Live.** The canvas updates when the agent captures a new round or marks one applied.
+- **Copy and paste.** Select notes and sketches with the Select tool (`V`: click, shift+click, or a box dragged over empty space) and press `⌘C`, then `⌘V` with the pointer over a screen to paste them there: notes from one screen land around the pointer, on any screen, and find their elements again. `⌘X` cuts, `⌫` deletes the whole selection. The vision board works the same way for its sketches, text and images. With the Select tool, a drag on empty space selects instead of panning: pan with space + drag, scrolling, or the middle or right mouse button.
 - **Also:** `⌘Z`/`⌘⇧Z` undo and redo, autosave, `F` fits the board, a double-click focuses a screen, `:theme light` switches theme, `?` lists all keys.
 
 ## Commands
@@ -333,6 +356,7 @@ Ids are taken in this order: accessibility identifier, testID (`data-testid` on 
     screens/            <id>.png and <id>.annotated.png
     trees/              <id>.json, normalized element tree
     ink/                <annotationId>.png, handwritten notes
+    attachments/        images attached to notes
     status.json         capturing | open | sent | applied
   latest -> rounds/001
 ```
